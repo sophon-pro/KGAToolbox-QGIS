@@ -1,0 +1,69 @@
+# --- Build output -------------------------------------------------------
+# package.py regenerates this from kga_tools/ on demand.
+kga_tools.zip
+*.zip
+
+# --- Local scratch ------------------------------------------------------
+# Dated snapshots, broken-state copies and *.bak files. Git is the history now.
+backup/
+
+# --- Python -------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Editors / IDEs -----------------------------------------------------
+.vscode/
+.idea/
+*.code-workspace
+*.sublime-*
+
+# --- OS -----------------------------------------------------------------
+Thumbs.db
+ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# --- Backups / temp files ----------------------------------------------
+*.bak
+*.orig
+*.rej
+*.tmp
+*~
+*.swp
+
+# --- QGIS / GIS data ----------------------------------------------------
+# Test data and project files belong outside the plugin repo.
+*.qgs~
+*.qgz~
+*.qgd
+*.gdb/
+*.gpkg
+*.gpkg-shm
+*.gpkg-wal
+*.sqlite
+*.shp
+*.shx
+*.dbf
+*.sbn
+*.sbx
+*.prj
+*.cpg
+*.qix
+*.lock
+
+# --- Logs / secrets -----------------------------------------------------
+*.log
+.env

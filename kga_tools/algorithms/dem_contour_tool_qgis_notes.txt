@@ -1,0 +1,13 @@
+Tool         : DEM & Contour Tool
+File         : dem_contour_tool_qgis.py
+Type         : QGIS Processing Toolbox script (QgsProcessingAlgorithm)
+Version      : SCRIPT_VERSION = "2"
+Group        : KGA Irrigation Tools
+Modes        : A) CSV → DEM → Contour   B) DEM → Contour only
+Interp.      : Auto-detect, IDW, Linear, Cubic, Nearest
+Contour eng. : Tiled gdal.ContourGenerateEx, row-block streaming
+Resumable    : Yes — checkpoint.json in output folder (fingerprint + status)
+Settings     : Remembered via QSettings (except Force re-run)
+Formats out  : GeoPackage (.gpkg) or Shapefile (.shp)
+Dependencies : numpy, pandas, scipy, GDAL/OGR/OSR (QGIS-bundled)
+Default CRS  : EPSG:32648 (WGS 84 / UTM 48N — Cambodia)

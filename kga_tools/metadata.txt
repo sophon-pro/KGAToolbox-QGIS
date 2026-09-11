@@ -1,0 +1,105 @@
+[general]
+name=KGA Toolbox
+qgisMinimumVersion=3.28
+description=Spatial data management, schema, editing, conversion and topology utilities.
+about=KGA Toolbox bundles the KGA processing algorithms into a single provider with a dedicated toolbar. It adds the things QGIS leaves out: a two-way converter between an ArcGIS File Geodatabase and a GeoPackage that carries field domains and layer aliases across, an editor for GeoPackage field domains, an append tool with a real field mapping, a safe attribute round-trip to Excel, and a self-contained layer package format.
+version=0.5.1
+author=Khmer GRS Academy (KGA)
+email=khmergiscademy@gmail.com
+
+homepage=https://khmergrs.com/
+tracker=https://github.com/khmergrs/kga-toolbox/issues
+repository=https://github.com/sophon-pro/KGAToolbox-QGIS
+
+hasProcessingProvider=yes
+
+icon=icons/kga.png
+experimental=False
+deprecated=False
+category=Analysis
+tags=processing,topology,geopackage,filegdb,geodatabase,arcgis,conversion,domains,schema,excel,packaging,duplicates,geometry,validation,copy,paste,editing,cogo,survey,parcel,buffer,merge,divide,clip,parallel,polygon
+
+changelog=
+    0.5.1 - New editing tool: Construct Polygon, a replica of the ArcGIS Pro
+            Modify Features "Construct Polygons" pane. Click the lines
+            that bound an area - or drag a path across them, or select them
+            first with any QGIS tool - and press Enter to write the polygon
+            they enclose into a template layer. The lines have to close: when
+            they do not, nothing is written, the loose ends are named and
+            flashed on the map, and the courses stay in hand so a tolerance
+            can be raised and Enter pressed again. A running verdict above the
+            buttons says how many lines are in hand, whether they close and
+            how many polygons they would make. Lines that cross are nodded
+            first, so a boundary enclosing several areas gives one polygon per
+            area, or one combined feature on request. The lines themselves are
+            never changed.
+    0.5.0 - The KGA Feature Templates group is gone: the Feature Templates
+            dock, the Apply Template to Selection algorithm and the project
+            storage behind them are removed. Templates saved in an existing
+            project are simply ignored; no layer keeps an overridden field
+            default, because arming was always undone on unload.
+            Six new editing tools that will be familiar to ArcGIS Pro users:
+            Copy Parallel, Buffer, Split into COGO Lines, Merge, Divide
+            and Clip. Each is a modeless dialog with a map tool of its own:
+            press the button, hover a feature to see the result drawn in cyan,
+            click to write it, or drag a path across several to do them all.
+            Every click or drag is one undo step. Merge collects instead -
+            click each feature to take it in, Enter to combine them.
+            Copy Parallel offsets lines left, right or both ways with mitered,
+            beveled or rounded corners, and keeps the digitized direction that
+            decides which side is which. Buffer creates buffer polygons in a
+            chosen template layer, with end-cap and corner control and an
+            option to combine what overlaps. Split into COGO Lines breaks a
+            boundary into one line per course carrying Direction, Distance,
+            Radius and ArcLength, in any of the four ArcGIS direction types and
+            four direction units; circular arcs stay single courses with a
+            signed radius rather than being chorded. Merge combines features
+            with a per-field value chooser and keeps the preserved feature's
+            id. Divide cuts lines by length and polygons into equal-area
+            strips along a chosen direction, with a say in where the leftover
+            goes. Clip discards or preserves the area that intersects the
+            selection, across the layers you tick.
+            Distances and areas are honest on a layer stored in degrees: the
+            work is done in the matching UTM zone and brought back.
+    0.4.1 - New geometry tool: Copy-Paste Feature, an interactive equivalent
+            of the ArcGIS Pro Copy / Paste Special pair. Copy features from the
+            selection or by clicking them on the map, then choose the target
+            layer and how the attributes travel: matched by name (exactly,
+            ignoring case, or ignoring case, spaces and underscores), mapped
+            by hand field by field, given a fixed value, or dropped so the
+            target defaults apply. Geometry is fitted to the target on the
+            way in - reprojected, promoted to multipart or exploded into
+            single parts, curves segmented, Z and M added or dropped - and
+            every value that had to be converted or would not fit is
+            reported rather than left as a silent NULL. Each paste is one
+            undo step.
+    0.4.0 - New conversion tools: File Geodatabase to GeoPackage and GeoPackage
+            to File Geodatabase, converting a whole container at a time. Field
+            domains, non-spatial tables, Z/M values and curves travel with the
+            data; layer names are made legal for the target format and the
+            original is kept as the ArcGIS alias, so the round trip gives the
+            names back. The geodatabase side gets OBJECTID, optional
+            Shape_Length and Shape_Area fields and an optional feature dataset,
+            and QGIS styles can ride along in a KGA_layer_styles table. The
+            provider now skips classes whose name starts with an underscore, so
+            a shared base class no longer registers as a nameless algorithm.
+    0.3.1 - New editing tool: Sequential Numbering, an interactive dialog that
+            numbers features as you click or drag a path across them, with
+            prefix, suffix and zero padding for text fields. Planarize Lines
+            gained a "Planarize the input layer in place" option that rewrites
+            the input layer instead of producing an output.
+    0.3.0 - New topology tools: Check Points on Boundary Vertices and the Error
+            Inspector dock, which lists the errors either check wrote, zooms to
+            each one and re-runs the check. New geometry tools: Planarize Lines,
+            Duplicate Checker, Update Geometry Fields and Update X/Y or Lat/Lon
+            Fields. The Error Inspector and Duplicate Checker windows are now
+            closed when the plugin is unloaded. DEM & Contour Tool moved from
+            its own Terrain Analysis group into KGA Irrigation Tools.
+    0.2.0 - Domain & Schema Manager, Feature Templates, Append with Field
+            Mapping, Excel round-trip, Layer Package. New groups: KGA Schema
+            Tools, KGA Editing Tools. Topology group renamed to KGA Topology.
+            Every algorithm now has a Help button that lands on the KGA docs.
+            Icon set unified on the KGA brand palette, with dedicated icons
+            for the KML export, geometry conversion and topology check tools.
+    0.1.0 - First release: data management, conversion, geometry, irrigation
+            and topology tools.
