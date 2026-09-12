@@ -64,7 +64,7 @@ class KgaProvider(QgsProcessingProvider):
                 QgsMessageLog.logMessage(
                     'Failed to import {}:\n{}'.format(mod_name, traceback.format_exc()),
                     LOG_TAG,
-                    Qgis.Critical,
+                    Qgis.MessageLevel.Critical,
                 )
                 continue
 
@@ -88,5 +88,5 @@ class KgaProvider(QgsProcessingProvider):
                         'Failed to instantiate {}.{}:\n{}'.format(
                             mod_name, _cls_name, traceback.format_exc()),
                         LOG_TAG,
-                        Qgis.Critical,
+                        Qgis.MessageLevel.Critical,
                     )

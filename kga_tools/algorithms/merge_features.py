@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from contextlib import suppress
+
 from qgis.PyQt.QtCore import QCoreApplication, Qt
 from qgis.PyQt.QtGui import QFont
 from qgis.PyQt.QtWidgets import (
@@ -45,7 +47,7 @@ def label_for(layer, feature):
     """What a feature is called in the list: its display expression, then its id."""
     expression = layer.displayExpression()
     if expression:
-        try:
+        with suppress(Exception):           # pragma: no cover
             context = QgsExpressionContext()
             context.appendScopes(
                 QgsExpressionContextUtils.globalProjectLayerScopes(layer))
@@ -53,8 +55,6 @@ def label_for(layer, feature):
             value = QgsExpression(expression).evaluate(context)
             if value not in (None, ''):
                 return '{} [{}]'.format(value, feature.id())
-        except Exception:                   # pragma: no cover
-            pass
     return 'Feature {}'.format(feature.id())
 
 
@@ -166,10 +166,8 @@ class MergeDialog(ModifyFeaturesDialog):
         feature = self.primary_feature()
         layer = self.current_layer()
         if feature is not None and layer is not None:
-            try:
+            with suppress(Exception):       # pragma: no cover - old build
                 self.canvas.flashFeatureIds(layer, [feature.id()])
-            except Exception:               # pragma: no cover - old build
-                pass
 
     def primary_feature(self):
         row = self.feature_list.currentRow()

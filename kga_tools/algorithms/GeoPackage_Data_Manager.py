@@ -2,6 +2,7 @@
 
 import os
 import sqlite3
+from contextlib import suppress
 
 from osgeo import ogr, gdal
 
@@ -34,6 +35,26 @@ DB_EXTENSIONS = ('.gpkg', '.gdb', '.sqlite', '.db', '.spatialite')
 # House-keeping tables QGIS writes into a container; they are not user layers,
 # so they must never show up in the delete / rename lists.
 SYSTEM_TABLES = ('layer_styles', 'qgis_projects')
+
+# The side tables that carry a copy of the layer name, and have to be moved
+# with it on a rename. Written out in full rather than built from the table
+# names so that no statement here is assembled at run time; both are optional,
+# so a missing one is caught per statement.
+RENAME_SIDE_TABLE_SQL = (
+    "UPDATE gpkg_geometry_columns SET table_name = ? WHERE table_name = ?",
+    "UPDATE gpkg_extensions SET table_name = ? WHERE table_name = ?",
+)
+
+
+def quote_ident(name):
+    """A SQLite identifier that survives whatever the user typed.
+
+    SQLite quotes identifiers with double quotes and escapes an embedded one by
+    doubling it, which is the only safe way to paste a layer name into `ALTER
+    TABLE` - a statement that takes no bound parameters.
+    """
+    return '"' + str(name).replace('"', '""') + '"'
+
 
 # Shapefile first so it is the default filter of the dialog
 FILE_FILTER = ";;".join([
@@ -79,14 +100,12 @@ def sources_from_mimedata(md):
     """Return [(path, layer_name_or_None), ...] from a drop event."""
     found = []
     if md.hasFormat(QGIS_MIME):
-        try:
+        with suppress(Exception):
             for u in QgsMimeDataUtils.decodeUriList(md):
                 path, layer = split_uri(u.uri)
                 if not layer and u.name and is_database(path):
                     layer = u.name
                 found.append((path, layer))
-        except Exception:
-            pass
     if not found and md.hasUrls():
         for url in md.urls():
             local = url.toLocalFile()
@@ -107,15 +126,11 @@ def open_ds(path, update=False):
     flags = gdal.OF_VECTOR | (gdal.OF_UPDATE if update else 0)
     gdal.PushErrorHandler('CPLQuietErrorHandler')
     try:
-        try:
+        with suppress(Exception):
             return gdal.OpenEx(path, flags)
-        except Exception:
-            pass
         if not update:
-            try:
+            with suppress(Exception):
                 return gdal.OpenEx(path, gdal.OF_VECTOR | gdal.OF_UPDATE)
-            except Exception:
-                pass
         return None
     finally:
         gdal.PopErrorHandler()
@@ -186,7 +201,7 @@ def unique_name(base, taken):
 def style_categories():
     """AllStyleCategories, whichever enum location this QGIS build uses."""
     try:
-        return QgsMapLayer.AllStyleCategories
+        return QgsMapLayer.StyleCategory.AllStyleCategories
     except AttributeError:
         try:
             return QgsMapLayer.StyleCategory.AllStyleCategories
@@ -260,10 +275,8 @@ def purge_container_styles(layer):
     except (TypeError, ValueError):
         return
     for style_id in ids[:max(related, 0)]:
-        try:
+        with suppress(Exception):
             layer.deleteStyleFromDatabase(style_id)
-        except Exception:
-            pass
 
 
 def save_style_to_container(layer, style_name, as_default):
@@ -354,7 +367,7 @@ class ImportTable(QTableWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAcceptDrops(True)
-        self.setDragDropMode(QAbstractItemView.DropOnly)
+        self.setDragDropMode(QAbstractItemView.DragDropMode.DropOnly)
 
     def dragEnterEvent(self, event):
         md = event.mimeData()
@@ -391,7 +404,7 @@ class LayerPickerDialog(QDialog):
         # --- Source path, single line, elided by the tooltip ---
         path_lbl = QLabel(source_path)
         path_lbl.setToolTip(source_path)
-        path_lbl.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        path_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         path_lbl.setStyleSheet("color: palette(mid);")
         layout.addWidget(path_lbl)
 
@@ -406,9 +419,9 @@ class LayerPickerDialog(QDialog):
         self.table = QTableWidget()
         self.table.setColumnCount(3)
         self.table.setHorizontalHeaderLabels(["Layer", "Geometry", "Features"])
-        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.table.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setAlternatingRowColors(True)
         self.table.setShowGrid(True)
         self.table.verticalHeader().setDefaultSectionSize(22)
@@ -416,22 +429,22 @@ class LayerPickerDialog(QDialog):
         self.table.itemSelectionChanged.connect(self.update_count)
 
         header = self.table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.Stretch)
-        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         header.setHighlightSections(False)
 
         layers = list_layers(source_path)
         self.table.setRowCount(len(layers))
         for row, (name, geom, count) in enumerate(layers):
             name_item = QTableWidgetItem(name)
-            name_item.setData(Qt.UserRole, name)
+            name_item.setData(Qt.ItemDataRole.UserRole, name)
 
             geom_item = QTableWidgetItem(geom or "-")
 
             count_text = "{:,}".format(count) if (count is not None and count >= 0) else "-"
             count_item = QTableWidgetItem(count_text)
-            count_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            count_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
             self.table.setItem(row, 0, name_item)
             self.table.setItem(row, 1, geom_item)
@@ -452,8 +465,8 @@ class LayerPickerDialog(QDialog):
         btn_row.addWidget(self.count_lbl)
         layout.addLayout(btn_row)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttons.button(QDialogButtonBox.Ok).setText("Add Selected")
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText("Add Selected")
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -487,7 +500,7 @@ class LayerPickerDialog(QDialog):
                 selection.select(model.index(row, 0), model.index(row, last_col))
         self.table.selectionModel().select(
             selection,
-            QItemSelectionModel.ClearAndSelect | QItemSelectionModel.Rows)
+            QItemSelectionModel.SelectionFlag.ClearAndSelect | QItemSelectionModel.SelectionFlag.Rows)
         self.update_count()
 
     def update_count(self):
@@ -503,7 +516,7 @@ class LayerPickerDialog(QDialog):
     def selected_layers(self):
         rows = sorted({i.row() for i in self.table.selectedIndexes()
                        if not self.table.isRowHidden(i.row())})
-        return [self.table.item(r, 0).data(Qt.UserRole) for r in rows]
+        return [self.table.item(r, 0).data(Qt.ItemDataRole.UserRole) for r in rows]
 
     def has_layers(self):
         return self.table.rowCount() > 0
@@ -514,7 +527,7 @@ class SpatialDataManagerDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Spatial Data Manager")
-        self.setWindowFlags(self.windowFlags() | Qt.Window)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.Window)
         self.setAcceptDrops(True)
         self.resize(760, 560)
         self.data_path = ""
@@ -533,7 +546,7 @@ class SpatialDataManagerDialog(QDialog):
 
         self.browse_btn = QToolButton()
         self.browse_btn.setText("Browse Target")
-        self.browse_btn.setPopupMode(QToolButton.InstantPopup)
+        self.browse_btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         menu = QMenu(self.browse_btn)
         menu.addAction("GeoPackage / SQLite file...", self.browse_database_file)
         menu.addAction("File Geodatabase (.gdb)...", self.browse_gdb)
@@ -560,16 +573,16 @@ class SpatialDataManagerDialog(QDialog):
         self.delete_table = QTableWidget()
         self.delete_table.setColumnCount(3)
         self.delete_table.setHorizontalHeaderLabels(["Layer", "Geometry", "Features"])
-        self.delete_table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.delete_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.delete_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.delete_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.delete_table.setAlternatingRowColors(True)
         self.delete_table.verticalHeader().setDefaultSectionSize(22)
         self.delete_table.itemChanged.connect(self.update_delete_count)
         self.delete_table.cellDoubleClicked.connect(self.toggle_delete_row)
         del_header = self.delete_table.horizontalHeader()
-        del_header.setSectionResizeMode(0, QHeaderView.Stretch)
-        del_header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        del_header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        del_header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        del_header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        del_header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         del_header.setHighlightSections(False)
         self.layout_delete.addWidget(self.delete_table)
 
@@ -597,7 +610,7 @@ class SpatialDataManagerDialog(QDialog):
         self.table_widget = QTableWidget()
         self.table_widget.setColumnCount(2)
         self.table_widget.setHorizontalHeaderLabels(["Original Name", "New Name"])
-        self.table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.layout_rename.addWidget(self.table_widget)
 
         self.btn_rename = QPushButton("Apply Renames")
@@ -615,21 +628,21 @@ class SpatialDataManagerDialog(QDialog):
         self.import_table = ImportTable()
         self.import_table.setColumnCount(3)
         self.import_table.setHorizontalHeaderLabels(["Source Layer", "Import As", "Source File"])
-        self.import_table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.import_table.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.import_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.import_table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         header = self.import_table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(2, QHeaderView.Stretch)
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         self.import_table.sourcesDropped.connect(self.add_sources)
         self.layout_import.addWidget(self.import_table)
 
         btn_layout_imp_add = QHBoxLayout()
         self.btn_add = QToolButton()
         self.btn_add.setText("Add Data to Import List   \u25be")
-        self.btn_add.setPopupMode(QToolButton.InstantPopup)
-        self.btn_add.setToolButtonStyle(Qt.ToolButtonTextOnly)
-        self.btn_add.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.btn_add.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.btn_add.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
+        self.btn_add.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.btn_add.setMinimumHeight(28)
         add_menu = QMenu(self.btn_add)
         add_menu.addAction("Vector files (Shapefile, GeoJSON, KML...)...",
@@ -673,17 +686,17 @@ class SpatialDataManagerDialog(QDialog):
         self.export_table.setColumnCount(5)
         self.export_table.setHorizontalHeaderLabels(
             ["Layer", "Geometry", "Features", "Styles", "Export As"])
-        self.export_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.export_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.export_table.setAlternatingRowColors(True)
         self.export_table.verticalHeader().setDefaultSectionSize(22)
         self.export_table.itemChanged.connect(self.update_export_count)
         self.export_table.cellDoubleClicked.connect(self.toggle_export_row)
         exp_header = self.export_table.horizontalHeader()
-        exp_header.setSectionResizeMode(0, QHeaderView.Stretch)
-        exp_header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        exp_header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        exp_header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
-        exp_header.setSectionResizeMode(4, QHeaderView.Stretch)
+        exp_header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        exp_header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        exp_header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        exp_header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        exp_header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
         exp_header.setHighlightSections(False)
         self.layout_export.addWidget(self.export_table)
 
@@ -810,15 +823,15 @@ class SpatialDataManagerDialog(QDialog):
         self.delete_table.setRowCount(len(layers))
         for row, (name, geom, count) in enumerate(layers):
             name_item = QTableWidgetItem(name)
-            name_item.setData(Qt.UserRole, name)
-            name_item.setFlags(name_item.flags() | Qt.ItemIsUserCheckable)
-            name_item.setCheckState(Qt.Unchecked)
+            name_item.setData(Qt.ItemDataRole.UserRole, name)
+            name_item.setFlags(name_item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            name_item.setCheckState(Qt.CheckState.Unchecked)
 
             geom_item = QTableWidgetItem(geom or "-")
 
             count_text = "{:,}".format(count) if (count is not None and count >= 0) else "-"
             count_item = QTableWidgetItem(count_text)
-            count_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            count_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
             self.delete_table.setItem(row, 0, name_item)
             self.delete_table.setItem(row, 1, geom_item)
@@ -830,7 +843,7 @@ class SpatialDataManagerDialog(QDialog):
         self.table_widget.setRowCount(len(self.layer_names))
         for row, name in enumerate(self.layer_names):
             orig_item = QTableWidgetItem(name)
-            orig_item.setFlags(orig_item.flags() & ~Qt.ItemIsEditable)
+            orig_item.setFlags(orig_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
             new_item = QTableWidgetItem("")
             self.table_widget.setItem(row, 0, orig_item)
             self.table_widget.setItem(row, 1, new_item)
@@ -845,14 +858,17 @@ class SpatialDataManagerDialog(QDialog):
 
     def toggle_delete_row(self, row, _column):
         item = self.delete_table.item(row, 0)
-        item.setCheckState(Qt.Unchecked if item.checkState() == Qt.Checked else Qt.Checked)
+        item.setCheckState(
+            Qt.CheckState.Unchecked
+            if item.checkState() == Qt.CheckState.Checked
+            else Qt.CheckState.Checked)
 
     def checked_layers(self):
         names = []
         for row in range(self.delete_table.rowCount()):
             item = self.delete_table.item(row, 0)
-            if item and item.checkState() == Qt.Checked:
-                names.append(item.data(Qt.UserRole))
+            if item and item.checkState() == Qt.CheckState.Checked:
+                names.append(item.data(Qt.ItemDataRole.UserRole))
         return names
 
     def update_delete_count(self, *_args):
@@ -873,14 +889,14 @@ class SpatialDataManagerDialog(QDialog):
         self.delete_table.blockSignals(True)
         for row in range(self.delete_table.rowCount()):
             if not self.delete_table.isRowHidden(row):
-                self.delete_table.item(row, 0).setCheckState(Qt.Checked)
+                self.delete_table.item(row, 0).setCheckState(Qt.CheckState.Checked)
         self.delete_table.blockSignals(False)
         self.update_delete_count()
 
     def clear_all(self):
         self.delete_table.blockSignals(True)
         for row in range(self.delete_table.rowCount()):
-            self.delete_table.item(row, 0).setCheckState(Qt.Unchecked)
+            self.delete_table.item(row, 0).setCheckState(Qt.CheckState.Unchecked)
         self.delete_table.blockSignals(False)
         self.update_delete_count()
 
@@ -897,8 +913,8 @@ class SpatialDataManagerDialog(QDialog):
             self, "Confirm deletion",
             "Permanently delete {0} layer(s)?\n\n{1}\n\nThis cannot be undone.".format(
                 len(to_delete), preview),
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-        if reply == QMessageBox.No:
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+        if reply == QMessageBox.StandardButton.No:
             return
 
         ds = open_ds(self.data_path, True)
@@ -931,8 +947,8 @@ class SpatialDataManagerDialog(QDialog):
             return
         reply = QMessageBox.question(self, "Confirm",
                                      "Rename {0} layer(s)?".format(len(renames)),
-                                     QMessageBox.Yes | QMessageBox.No)
-        if reply == QMessageBox.No:
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if reply == QMessageBox.StandardButton.No:
             return
 
         if self.data_path.lower().endswith('.gpkg'):
@@ -940,13 +956,13 @@ class SpatialDataManagerDialog(QDialog):
                 conn = sqlite3.connect(self.data_path)
                 cur = conn.cursor()
                 for old, new in renames.items():
-                    cur.execute("ALTER TABLE '{0}' RENAME TO '{1}'".format(old, new))
+                    cur.execute('ALTER TABLE {0} RENAME TO {1}'.format(
+                        quote_ident(old), quote_ident(new)))
                     cur.execute("UPDATE gpkg_contents SET table_name = ?, identifier = ? "
                                 "WHERE table_name = ?", (new, new, old))
-                    for tbl in ["gpkg_geometry_columns", "gpkg_extensions"]:
+                    for statement in RENAME_SIDE_TABLE_SQL:
                         try:
-                            cur.execute("UPDATE {0} SET table_name = ? "
-                                        "WHERE table_name = ?".format(tbl), (new, old))
+                            cur.execute(statement, (new, old))
                         except sqlite3.OperationalError:
                             pass
                 conn.commit()
@@ -981,7 +997,7 @@ class SpatialDataManagerDialog(QDialog):
         """Set of (path.lower(), layer.lower()) already in the table."""
         out = set()
         for row in range(self.import_table.rowCount()):
-            data = self.import_table.item(row, 0).data(Qt.UserRole)
+            data = self.import_table.item(row, 0).data(Qt.ItemDataRole.UserRole)
             out.add((data['path'].lower(), (data['layer'] or '').lower()))
         return out
 
@@ -998,14 +1014,14 @@ class SpatialDataManagerDialog(QDialog):
 
         display = layer_name or os.path.splitext(os.path.basename(path))[0]
         src_item = QTableWidgetItem(display)
-        src_item.setFlags(src_item.flags() & ~Qt.ItemIsEditable)
-        src_item.setData(Qt.UserRole, {'path': path, 'layer': layer_name})
+        src_item.setFlags(src_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+        src_item.setData(Qt.ItemDataRole.UserRole, {'path': path, 'layer': layer_name})
 
         out_item = QTableWidgetItem(display)          # editable target name
         out_item.setToolTip("Double-click to change the name used in the target database.")
 
         path_item = QTableWidgetItem(path)
-        path_item.setFlags(path_item.flags() & ~Qt.ItemIsEditable)
+        path_item.setFlags(path_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
         path_item.setToolTip(path)
 
         self.import_table.setItem(row, 0, src_item)
@@ -1060,8 +1076,8 @@ class SpatialDataManagerDialog(QDialog):
                 self, "Not a .gdb",
                 "'{0}' is not a .gdb folder.\n\nRead it as a folder of "
                 "shapefiles instead?".format(os.path.basename(path)),
-                QMessageBox.Yes | QMessageBox.No)
-            if reply == QMessageBox.No:
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            if reply == QMessageBox.StandardButton.No:
                 return
         self._pick_from_container(path)
 
@@ -1086,7 +1102,7 @@ class SpatialDataManagerDialog(QDialog):
             QMessageBox.warning(self, "No layers",
                                 "No readable layers found in:\n{0}".format(path))
             return
-        if picker.exec_() != QDialog.Accepted:
+        if picker.exec_() != QDialog.DialogCode.Accepted:
             return
         chosen = picker.selected_layers()
         if chosen:
@@ -1122,7 +1138,7 @@ class SpatialDataManagerDialog(QDialog):
         # Group by source file so each one is opened only once
         grouped = {}
         for row in range(total):
-            data = self.import_table.item(row, 0).data(Qt.UserRole)
+            data = self.import_table.item(row, 0).data(Qt.ItemDataRole.UserRole)
             out_name = self.import_table.item(row, 1).text().strip()
             if not out_name:
                 out_name = data['layer'] or os.path.splitext(
@@ -1130,7 +1146,7 @@ class SpatialDataManagerDialog(QDialog):
             grouped.setdefault(data['path'], []).append((data['layer'], out_name))
 
         progress = QProgressDialog("Importing layers...", "Cancel", 0, total, self)
-        progress.setWindowModality(Qt.WindowModal)
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
         progress.setMinimumDuration(0)
 
         success, failed, done = 0, 0, 0
@@ -1205,7 +1221,7 @@ class SpatialDataManagerDialog(QDialog):
         summary = "Successfully imported {0} layer(s).\nFailed: {1}".format(success, failed)
         box = QMessageBox(self)
         box.setWindowTitle("Import Complete")
-        box.setIcon(QMessageBox.Information if failed == 0 else QMessageBox.Warning)
+        box.setIcon(QMessageBox.Icon.Information if failed == 0 else QMessageBox.Icon.Warning)
         box.setText(summary)
         if errors:
             box.setDetailedText("\n".join(errors[:50]))
@@ -1241,8 +1257,8 @@ class SpatialDataManagerDialog(QDialog):
         for row in range(self.export_table.rowCount()):
             item = self.export_table.item(row, 0)
             if item:
-                previous[item.data(Qt.UserRole)] = (
-                    item.checkState() == Qt.Checked,
+                previous[item.data(Qt.ItemDataRole.UserRole)] = (
+                    item.checkState() == Qt.CheckState.Checked,
                     self.export_table.item(row, 4).text())
 
         layers, skipped = self.project_vector_layers()
@@ -1253,30 +1269,30 @@ class SpatialDataManagerDialog(QDialog):
             was_checked, old_name = previous.get(lyr.id(), (False, None))
 
             name_item = QTableWidgetItem(lyr.name())
-            name_item.setData(Qt.UserRole, lyr.id())
-            name_item.setFlags((name_item.flags() | Qt.ItemIsUserCheckable)
-                               & ~Qt.ItemIsEditable)
-            name_item.setCheckState(Qt.Checked if was_checked else Qt.Unchecked)
+            name_item.setData(Qt.ItemDataRole.UserRole, lyr.id())
+            name_item.setFlags((name_item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                               & ~Qt.ItemFlag.ItemIsEditable)
+            name_item.setCheckState(Qt.CheckState.Checked if was_checked else Qt.CheckState.Unchecked)
 
             try:
                 geom = QgsWkbTypes.displayString(lyr.wkbType())
             except Exception:
                 geom = ""
             geom_item = QTableWidgetItem(geom or "-")
-            geom_item.setFlags(geom_item.flags() & ~Qt.ItemIsEditable)
+            geom_item.setFlags(geom_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
 
             try:
                 count = lyr.featureCount()
             except Exception:
                 count = -1
             count_item = QTableWidgetItem("{:,}".format(count) if count >= 0 else "-")
-            count_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            count_item.setFlags(count_item.flags() & ~Qt.ItemIsEditable)
+            count_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            count_item.setFlags(count_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
 
             names = [n for n, _s in styles_of(lyr)]
             style_item = QTableWidgetItem(str(len(names)) if names else "-")
-            style_item.setTextAlignment(Qt.AlignCenter)
-            style_item.setFlags(style_item.flags() & ~Qt.ItemIsEditable)
+            style_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            style_item.setFlags(style_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
             if names:
                 style_item.setToolTip("Named styles exported:\n  " + "\n  ".join(names))
 
@@ -1297,13 +1313,16 @@ class SpatialDataManagerDialog(QDialog):
         if column == 4:          # let the name column be edited normally
             return
         item = self.export_table.item(row, 0)
-        item.setCheckState(Qt.Unchecked if item.checkState() == Qt.Checked else Qt.Checked)
+        item.setCheckState(
+            Qt.CheckState.Unchecked
+            if item.checkState() == Qt.CheckState.Checked
+            else Qt.CheckState.Checked)
 
     def checked_export_rows(self):
         rows = []
         for row in range(self.export_table.rowCount()):
             item = self.export_table.item(row, 0)
-            if item and item.checkState() == Qt.Checked:
+            if item and item.checkState() == Qt.CheckState.Checked:
                 rows.append(row)
         return rows
 
@@ -1322,14 +1341,14 @@ class SpatialDataManagerDialog(QDialog):
     def select_all_export(self):
         self.export_table.blockSignals(True)
         for row in range(self.export_table.rowCount()):
-            self.export_table.item(row, 0).setCheckState(Qt.Checked)
+            self.export_table.item(row, 0).setCheckState(Qt.CheckState.Checked)
         self.export_table.blockSignals(False)
         self.update_export_count()
 
     def clear_all_export(self):
         self.export_table.blockSignals(True)
         for row in range(self.export_table.rowCount()):
-            self.export_table.item(row, 0).setCheckState(Qt.Unchecked)
+            self.export_table.item(row, 0).setCheckState(Qt.CheckState.Unchecked)
         self.export_table.blockSignals(False)
         self.update_export_count()
 
@@ -1374,7 +1393,7 @@ class SpatialDataManagerDialog(QDialog):
         layer_map = {lyr.id(): lyr for lyr in self.project_vector_layers()[0]}
 
         progress = QProgressDialog("Exporting layers...", "Cancel", 0, len(rows), self)
-        progress.setWindowModality(Qt.WindowModal)
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
         progress.setMinimumDuration(0)
 
         success, failed, done = 0, 0, 0
@@ -1385,7 +1404,7 @@ class SpatialDataManagerDialog(QDialog):
             if progress.wasCanceled():
                 break
 
-            layer_id = self.export_table.item(row, 0).data(Qt.UserRole)
+            layer_id = self.export_table.item(row, 0).data(Qt.ItemDataRole.UserRole)
             layer = layer_map.get(layer_id) or project.mapLayer(layer_id)
             source_name = self.export_table.item(row, 0).text()
 
@@ -1426,7 +1445,7 @@ class SpatialDataManagerDialog(QDialog):
                 dest = self.data_path
                 try:
                     options.actionOnExistingFile = \
-                        QgsVectorFileWriter.CreateOrOverwriteLayer
+                        QgsVectorFileWriter.ActionOnExistingFile.CreateOrOverwriteLayer
                 except AttributeError:
                     pass
             else:
@@ -1475,8 +1494,8 @@ class SpatialDataManagerDialog(QDialog):
             summary += ("\n\nNote: writing into a .gdb needs GDAL 3.6 or newer.")
         box = QMessageBox(self)
         box.setWindowTitle("Export Complete")
-        box.setIcon(QMessageBox.Information if not (failed or style_failed)
-                    else QMessageBox.Warning)
+        box.setIcon(QMessageBox.Icon.Information if not (failed or style_failed)
+                    else QMessageBox.Icon.Warning)
         box.setText(summary)
         if errors:
             box.setDetailedText("\n".join(errors[:50]))
@@ -1576,7 +1595,7 @@ class SpatialDataManagerDialog(QDialog):
             msg = res[1] if len(res) > 1 else ""
         else:
             err, msg = res, ""
-        return err == QgsVectorFileWriter.NoError, msg
+        return err == QgsVectorFileWriter.WriterError.NoError, msg
 
 
 # ---------------------------- launcher: the entry the toolbox and toolbar see
@@ -1625,7 +1644,7 @@ class GpkgManagerAlgorithm(QgsProcessingAlgorithm):
             from qgis.core import Qgis
             return base | Qgis.ProcessingAlgorithmFlag.NoThreading
         except (ImportError, AttributeError):
-            return base | QgsProcessingAlgorithm.FlagNoThreading
+            return base | QgsProcessingAlgorithm.Flag.FlagNoThreading
 
     def initAlgorithm(self, config=None):
         pass
@@ -1654,7 +1673,7 @@ class GpkgManagerAlgorithm(QgsProcessingAlgorithm):
         if DIALOG_INSTANCE is None:
             DIALOG_INSTANCE = SpatialDataManagerDialog(parent)
 
-        DIALOG_INSTANCE.setWindowModality(Qt.NonModal)
+        DIALOG_INSTANCE.setWindowModality(Qt.WindowModality.NonModal)
         DIALOG_INSTANCE.show()
         DIALOG_INSTANCE.raise_()
         DIALOG_INSTANCE.activateWindow()

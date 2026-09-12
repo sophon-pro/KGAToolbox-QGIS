@@ -23,13 +23,13 @@ class DuplicateCheckerDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Duplicate Checker")
         self.setMinimumWidth(400)
-        self.setWindowFlags(self.windowFlags() | Qt.Window)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.Window)
 
         layout = QVBoxLayout(self)
         self.form = QFormLayout()
 
         self.layer_combo = QgsMapLayerComboBox()
-        self.layer_combo.setFilters(QgsMapLayerProxyModel.VectorLayer)
+        self.layer_combo.setFilters(QgsMapLayerProxyModel.Filter.VectorLayer)
         self.form.addRow("Input Layer:", self.layer_combo)
 
         self.mode_combo = QComboBox()
@@ -107,7 +107,7 @@ class DuplicateCheckerDialog(QDialog):
         if idx == -1:
             from qgis.core import QgsField
             from qgis.PyQt.QtCore import QVariant
-            layer.dataProvider().addAttributes([QgsField(field_name, QVariant.String)])
+            layer.dataProvider().addAttributes([QgsField(field_name, QVariant.Type.String)])
             layer.updateFields()
             idx = layer.fields().indexOf(field_name)
 
@@ -117,9 +117,9 @@ class DuplicateCheckerDialog(QDialog):
         layer.commitChanges()
 
         cat_dup = QgsRendererCategory("Duplicate", QgsSymbol.defaultSymbol(layer.geometryType()), "Duplicate")
-        cat_dup.symbol().setColor(Qt.red)
+        cat_dup.symbol().setColor(Qt.GlobalColor.red)
         cat_uniq = QgsRendererCategory("Unique", QgsSymbol.defaultSymbol(layer.geometryType()), "Unique")
-        cat_uniq.symbol().setColor(Qt.gray)
+        cat_uniq.symbol().setColor(Qt.GlobalColor.gray)
 
         renderer = QgsCategorizedSymbolRenderer(field_name, [cat_dup, cat_uniq])
         layer.setRenderer(renderer)
@@ -175,7 +175,7 @@ class DuplicateCheckerAlgorithm(QgsProcessingAlgorithm):
         if DIALOG_INSTANCE is None:
             DIALOG_INSTANCE = DuplicateCheckerDialog(parent)
 
-        DIALOG_INSTANCE.setWindowModality(Qt.NonModal)
+        DIALOG_INSTANCE.setWindowModality(Qt.WindowModality.NonModal)
         DIALOG_INSTANCE.show()
         DIALOG_INSTANCE.raise_()
         DIALOG_INSTANCE.activateWindow()

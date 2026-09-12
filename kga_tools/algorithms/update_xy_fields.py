@@ -43,7 +43,7 @@ class UpdateXYFields(QgsProcessingAlgorithm):
     def flags(self):
         # FlagNoThreading forces the script to run in the main thread.
         # REQUIRED for safely editing the layer in place and triggering QMessageBox pop-ups.
-        return super().flags() | QgsProcessingAlgorithm.FlagNoThreading
+        return super().flags() | QgsProcessingAlgorithm.Flag.FlagNoThreading
 
     def initAlgorithm(self, config=None):
         # 1. Input Layer Parameter
@@ -51,7 +51,7 @@ class UpdateXYFields(QgsProcessingAlgorithm):
             QgsProcessingParameterVectorLayer(
                 'INPUT',
                 self.tr('Input Layer'),
-                types=[QgsProcessing.TypeVectorAnyGeometry]
+                types=[QgsProcessing.SourceType.TypeVectorAnyGeometry]
             )
         )
 
@@ -70,7 +70,7 @@ class UpdateXYFields(QgsProcessingAlgorithm):
         layer = self.parameterAsVectorLayer(parameters, 'INPUT', context)
         
         if not layer or not layer.isValid():
-            self.show_popup("Error", "The selected input layer is invalid or missing.", Qgis.Critical)
+            self.show_popup("Error", "The selected input layer is invalid or missing.", Qgis.MessageLevel.Critical)
             return {}
 
         # Get user choice
@@ -97,7 +97,7 @@ class UpdateXYFields(QgsProcessingAlgorithm):
 
         # Start Editing Session
         if not layer.startEditing():
-            self.show_popup("Failed", f"Could not start editing on layer: {layer.name()}", Qgis.Critical)
+            self.show_popup("Failed", f"Could not start editing on layer: {layer.name()}", Qgis.MessageLevel.Critical)
             return {}
 
         fields = layer.fields()
@@ -105,7 +105,7 @@ class UpdateXYFields(QgsProcessingAlgorithm):
         # Check and Create Fields
         for fname in fields_to_check:
             if fields.indexOf(fname) == -1:
-                layer.addAttribute(QgsField(fname, QVariant.Double))
+                layer.addAttribute(QgsField(fname, QVariant.Type.Double))
                 created_fields.append(fname)
         
         if created_fields:
@@ -145,7 +145,7 @@ class UpdateXYFields(QgsProcessingAlgorithm):
 
         # Commit changes to save
         if not layer.commitChanges():
-            self.show_popup("Failed", "Could not commit changes to the layer.", Qgis.Critical)
+            self.show_popup("Failed", "Could not commit changes to the layer.", Qgis.MessageLevel.Critical)
             return {}
 
         # Success Output
@@ -153,16 +153,16 @@ class UpdateXYFields(QgsProcessingAlgorithm):
         if created_fields:
             msg += f"\n\nNew fields created: {', '.join(created_fields)}"
         
-        self.show_popup("Success", msg, Qgis.Success)
+        self.show_popup("Success", msg, Qgis.MessageLevel.Success)
 
         return {}
 
     def show_popup(self, title, text, level):
         """Helper method to show a blocking pop-up message to the user."""
         parent = qgis.utils.iface.mainWindow()
-        if level == Qgis.Success:
+        if level == Qgis.MessageLevel.Success:
             QMessageBox.information(parent, title, text)
-        elif level == Qgis.Critical:
+        elif level == Qgis.MessageLevel.Critical:
             QMessageBox.critical(parent, title, text)
         else:
             QMessageBox.warning(parent, title, text)

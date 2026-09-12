@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+from contextlib import suppress
 
 from qgis.core import (
     Qgis,
@@ -221,15 +222,13 @@ class CreateLayerPackageAlgorithm(QgsProcessingAlgorithm):
         entry['style'] = writer.add_style(layer, key)
 
         if include_metadata:
-            try:
+            with suppress(Exception):       # pragma: no cover - defensive
                 metadata = layer.metadata()
                 entry['metadata'] = {
                     'title': metadata.title(),
                     'abstract': metadata.abstract(),
                     'identifier': metadata.identifier(),
                 }
-            except Exception:               # pragma: no cover - defensive
-                pass
         return entry
 
 

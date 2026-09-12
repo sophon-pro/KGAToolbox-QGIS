@@ -16,6 +16,8 @@ tools carry their own map tool now; what is left here is the part that was
 never the problem.
 """
 
+from contextlib import suppress
+
 from qgis.PyQt.QtGui import QColor
 from qgis.PyQt.QtWidgets import QMessageBox
 
@@ -66,11 +68,9 @@ def workspace_hint_for(canvas, layer):
         canvas_crs = canvas.mapSettings().destinationCrs()
         if not canvas_crs.isValid() or canvas_crs == layer.crs():
             return centre
-        try:
+        with suppress(Exception):           # pragma: no cover - out of domain
             return QgsCoordinateTransform(
                 canvas_crs, layer.crs(), QgsProject.instance()).transform(centre)
-        except Exception:                   # pragma: no cover - out of domain
-            pass
 
     layer_extent = layer.extent()
     return None if layer_extent.isEmpty() else layer_extent.center()
@@ -218,13 +218,13 @@ def carry_attributes(feature, source_layer, target_layer):
         source_index = source_fields.lookupField(field.name())
         if source_index < 0:
             continue
-        try:
+        # A value that will not coerce is left out, so the target's own
+        # default stands - safer than writing something the field rejects.
+        with suppress(Exception):
             # `coerce` answers (value, note); the note is for a report, and
             # these tools carry values across rather than import them.
             value, _note = schema.coerce(feature.attribute(source_index), field)
-        except Exception:
-            continue                        # the target default is safer
-        values[index] = value
+            values[index] = value
     return values
 
 
@@ -278,11 +278,9 @@ def sip_module():
     preview a live tool is drawing with. `qgis.PyQt.sip` is the name that is
     right on both, so it is asked first.
     """
-    try:
+    with suppress(Exception):               # pragma: no cover - older shim
         from qgis.PyQt import sip
         return sip
-    except Exception:                       # pragma: no cover - older shim
-        pass
     try:
         import sip
         return sip
@@ -309,8 +307,6 @@ def object_address(obj):
     """
     sip = sip_module()
     if sip is not None:
-        try:
+        with suppress(Exception):           # pragma: no cover - not a wrapper
             return sip.unwrapinstance(obj)
-        except Exception:                   # pragma: no cover - not a wrapper
-            pass
     return id(obj)                          # pragma: no cover

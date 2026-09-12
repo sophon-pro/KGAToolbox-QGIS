@@ -54,6 +54,7 @@ buffering the buffer from the click before. Saved features come first now
 """
 
 import traceback
+from contextlib import suppress
 
 from qgis.PyQt.QtCore import QEvent, Qt, pyqtSignal
 from qgis.PyQt.QtGui import QColor
@@ -82,6 +83,7 @@ from qgis.core import (
 from qgis.gui import QgsMapLayerComboBox, QgsMapTool, QgsRubberBand
 
 from ..branding import help_button
+from ..core.guards import attempt
 from ..core.modify_features import (
     AREA_UNITS,
     DISTANCE_UNITS,
@@ -130,7 +132,7 @@ def drop_band(canvas, band):
     """
     if band is None:
         return
-    try:
+    with suppress(Exception):               # pragma: no cover - already gone
         # `reset()` and not `reset(band.geometryType())`: a QgsRubberBand has
         # no `geometryType` at all, so the call it looks like raised
         # AttributeError, took the `removeItem` beside it down with it, and
@@ -140,14 +142,10 @@ def drop_band(canvas, band):
         # take away. The default is a line band, and the type does not matter
         # to an item that is about to leave the scene.
         band.reset()
-    except Exception:                       # pragma: no cover - already gone
-        pass
-    try:
+    with suppress(Exception):               # pragma: no cover
         scene = canvas.scene()
         if scene is not None:
             scene.removeItem(band)
-    except Exception:                       # pragma: no cover
-        pass
 
 
 def sweep_stale_bands(canvas, keep=()):
@@ -168,11 +166,9 @@ def sweep_stale_bands(canvas, keep=()):
     for item in items:
         if object_address(item) in spared:
             continue
-        try:
+        with suppress(Exception):           # pragma: no cover
             if item.data(BAND_TAG_KEY) == BAND_TAG:
                 scene.removeItem(item)
-        except Exception:                   # pragma: no cover
-            continue
 
 
 #: Every tool that still has bands on a canvas. A tool adds itself when it is
@@ -195,10 +191,8 @@ def live_bands():
             except ValueError:              # pragma: no cover
                 pass
             continue
-        try:
+        with suppress(Exception):           # pragma: no cover
             bands.extend(tool.bands())
-        except Exception:                   # pragma: no cover
-            continue
     return bands
 
 
@@ -275,13 +269,11 @@ class InteractiveMapTool(QgsMapTool):
             return
         if viewport is None:                # pragma: no cover
             return
-        try:
+        with suppress(Exception):           # pragma: no cover
             if watch:
                 viewport.installEventFilter(self)
             else:
                 viewport.removeEventFilter(self)
-        except Exception:                   # pragma: no cover
-            pass
 
     def eventFilter(self, watched, event):
         if event.type() == QEvent.Type.Leave:
@@ -583,9 +575,8 @@ class AngleMapTool(QgsMapTool):
             back = layer_to_canvas(self.canvas, layer)
             local = QgsPointXY(point)
             if forward is not None:
-                try:
-                    local = forward.transform(local)
-                except Exception:           # pragma: no cover - out of domain
+                local = attempt(forward.transform, local)
+                if local is None:           # pragma: no cover - out of domain
                     continue
 
             for feature in found:
@@ -619,12 +610,10 @@ class AngleMapTool(QgsMapTool):
         is meant to run corner to corner, and the project already says what to
         snap to - so that is used rather than a rule of this tool's own.
         """
-        try:
+        with suppress(Exception):           # pragma: no cover - no snapping
             match = self.canvas.snappingUtils().snapToMap(position)
             if match is not None and match.isValid():
                 return QgsPointXY(match.point())
-        except Exception:                   # pragma: no cover - no snapping
-            pass
         return QgsPointXY(self.toMapCoordinates(position))
 
     # --------------------------------------------------------------- band --
@@ -1077,10 +1066,8 @@ class ModifyFeaturesDialog(QDialog):
             # and negative ids start again from the top, so keeping them would
             # hide somebody else's feature.
             for signal in (layer.afterCommitChanges, layer.afterRollBack):
-                try:
+                with suppress(Exception):   # pragma: no cover
                     signal.connect(self._forget_own)
-                except Exception:           # pragma: no cover
-                    pass
             self._watched.append(layer)
 
     def _forget_own(self, *_args):
@@ -1091,10 +1078,8 @@ class ModifyFeaturesDialog(QDialog):
             if is_deleted(layer):
                 continue
             for signal in (layer.afterCommitChanges, layer.afterRollBack):
-                try:
+                with suppress(Exception):
                     signal.disconnect(self._forget_own)
-                except Exception:
-                    pass
         self._watched = []
         self._own.clear()
 
@@ -1390,17 +1375,13 @@ class ModifyFeaturesDialog(QDialog):
                              (self.canvas.layersChanged, self._map_changed),
                              (QgsProject.instance().layersWillBeRemoved,
                               self._map_changed)):
-            try:
+            with suppress(Exception):
                 signal.disconnect(slot)
-            except Exception:
-                pass
 
         # Anything of ours a dialog that died without its clean-up left behind.
         sweep_stale_bands(self.canvas, live_bands())
-        try:
+        with suppress(Exception):           # pragma: no cover
             self.canvas.refresh()
-        except Exception:                   # pragma: no cover
-            pass
 
 
 # --------------------------------------------------------------------------- #

@@ -84,7 +84,7 @@ class DynamicGeometryDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Geometry Conversion")
         self.setMinimumWidth(520)
-        self.setWindowFlags(self.windowFlags() | Qt.Window)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.Window)
 
         layout = QVBoxLayout(self)
         self.form = QFormLayout()
@@ -192,9 +192,9 @@ class DynamicGeometryDialog(QDialog):
 
         # Restrict layer types based on mode
         if mode == MODE_VERTICES:
-            self.layer_combo.setFilters(QgsMapLayerProxyModel.LineLayer)
+            self.layer_combo.setFilters(QgsMapLayerProxyModel.Filter.LineLayer)
         else:
-            self.layer_combo.setFilters(QgsMapLayerProxyModel.PolygonLayer)
+            self.layer_combo.setFilters(QgsMapLayerProxyModel.Filter.PolygonLayer)
 
         self.update_default_name()
         self.update_destination_ui()
@@ -204,7 +204,7 @@ class DynamicGeometryDialog(QDialog):
         dest = self.dest_combo.currentIndex()
 
         if dest == DEST_FOLDER:
-            self.output_location.setStorageMode(QgsFileWidget.GetDirectory)
+            self.output_location.setStorageMode(QgsFileWidget.StorageMode.GetDirectory)
             self.output_location.setDialogTitle("Select Output Folder")
             self.output_location.setFilter("")
             self.output_location.lineEdit().setPlaceholderText(
@@ -212,7 +212,7 @@ class DynamicGeometryDialog(QDialog):
             self._set_row_label(self.output_location, "Output Folder:")
         elif dest == DEST_GPKG:
             # A .gpkg is a single file, so browse for one.
-            self.output_location.setStorageMode(QgsFileWidget.GetFile)
+            self.output_location.setStorageMode(QgsFileWidget.StorageMode.GetFile)
             self.output_location.setDialogTitle("Select GeoPackage")
             self.output_location.setFilter("GeoPackage (*.gpkg);;All files (*.*)")
             self.output_location.lineEdit().setPlaceholderText(
@@ -220,7 +220,7 @@ class DynamicGeometryDialog(QDialog):
             self._set_row_label(self.output_location, "GeoPackage:")
         elif dest == DEST_GDB:
             # A .gdb is a directory, so the directory browser is the right one.
-            self.output_location.setStorageMode(QgsFileWidget.GetDirectory)
+            self.output_location.setStorageMode(QgsFileWidget.StorageMode.GetDirectory)
             self.output_location.setDialogTitle("Select File Geodatabase (.gdb)")
             self.output_location.setFilter("")
             self.output_location.lineEdit().setPlaceholderText(
@@ -296,7 +296,8 @@ class DynamicGeometryDialog(QDialog):
     def _confirm(self, text):
         return QMessageBox.question(
             self, "Overwrite?", text,
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.No) == QMessageBox.Yes
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes
 
     @staticmethod
     def _release_existing_layers(dest):
@@ -417,7 +418,7 @@ class DynamicGeometryDialog(QDialog):
                     return None
                 replacing = True
             # Only ever touch the one layer, never the whole container.
-            action = QgsVectorFileWriter.CreateOrOverwriteLayer
+            action = QgsVectorFileWriter.ActionOnExistingFile.CreateOrOverwriteLayer
         else:
             action = None  # default: create the container
 
@@ -452,8 +453,8 @@ class DynamicGeometryDialog(QDialog):
         mode = self.mode_combo.currentIndex()
 
         # Guard against a stale selection that does not match the mode.
-        want = (QgsWkbTypes.LineGeometry if mode == MODE_VERTICES
-                else QgsWkbTypes.PolygonGeometry)
+        want = (QgsWkbTypes.GeometryType.LineGeometry if mode == MODE_VERTICES
+                else QgsWkbTypes.GeometryType.PolygonGeometry)
         if source.geometryType() != want:
             QMessageBox.warning(
                 self, "Error",
@@ -488,7 +489,7 @@ class DynamicGeometryDialog(QDialog):
         has_z = keep_zm and QgsWkbTypes.hasZ(in_wkb)
         has_m = keep_zm and QgsWkbTypes.hasM(in_wkb)
 
-        out_wkb = QgsWkbTypes.LineString if mode == MODE_LINES else QgsWkbTypes.Point
+        out_wkb = QgsWkbTypes.Type.LineString if mode == MODE_LINES else QgsWkbTypes.Type.Point
         if has_z:
             out_wkb = QgsWkbTypes.addZ(out_wkb)
         if has_m:
@@ -528,8 +529,8 @@ class DynamicGeometryDialog(QDialog):
             [f.name().lower()[:max_len] for f in out_fields] + list(reserved),
             max_len)
 
-        ID_TYPE = QVariant.LongLong
-        DBL_TYPE = QVariant.Double
+        ID_TYPE = QVariant.Type.LongLong
+        DBL_TYPE = QVariant.Type.Double
 
         spec = [('source_id', 'source_id', ID_TYPE)]
         if mode in (MODE_LINES, MODE_BOUNDARY, MODE_VERTICES) or per_part:
@@ -617,7 +618,7 @@ class DynamicGeometryDialog(QDialog):
                                     "Could not create output file:\n%s" % exc)
                 return
 
-            if sink is None or sink.hasError() != QgsVectorFileWriter.NoError:
+            if sink is None or sink.hasError() != QgsVectorFileWriter.WriterError.NoError:
                 msg = sink.errorMessage() if sink is not None else "unknown error"
                 QMessageBox.warning(self, "Error",
                                     "Could not create output file:\n%s" % msg)
@@ -860,7 +861,7 @@ class DynamicGeometryDialog(QDialog):
                     if distance_area is not None:
                         length = distance_area.measureLength(line_geom)
                         length = distance_area.convertLengthMeasurement(
-                            length, QgsUnitTypes.DistanceMeters)
+                            length, QgsUnitTypes.DistanceUnit.DistanceMeters)
                     else:
                         length = line_geom.length()
                     out_feat.setAttribute(meta['length_m'], length)
@@ -1024,7 +1025,7 @@ class GeometryConversionAlgorithm(QgsProcessingAlgorithm):
             from qgis.core import Qgis
             return base | Qgis.ProcessingAlgorithmFlag.NoThreading
         except (ImportError, AttributeError):
-            return base | QgsProcessingAlgorithm.FlagNoThreading
+            return base | QgsProcessingAlgorithm.Flag.FlagNoThreading
 
     def initAlgorithm(self, config=None):
         pass
@@ -1048,7 +1049,7 @@ class GeometryConversionAlgorithm(QgsProcessingAlgorithm):
         if DIALOG_INSTANCE is None:
             DIALOG_INSTANCE = DynamicGeometryDialog(parent)
 
-        DIALOG_INSTANCE.setWindowModality(Qt.NonModal)
+        DIALOG_INSTANCE.setWindowModality(Qt.WindowModality.NonModal)
         DIALOG_INSTANCE.show()
         DIALOG_INSTANCE.raise_()
         DIALOG_INSTANCE.activateWindow()

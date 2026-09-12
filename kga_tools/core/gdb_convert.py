@@ -56,6 +56,17 @@ STYLE_TABLE_GDB = 'KGA_layer_styles'
 STYLE_COLUMNS = ('f_table_name', 'f_geometry_column', 'styleName',
                  'styleQML', 'styleSLD', 'useAsDefault', 'description')
 
+# Spelled out rather than built from STYLE_COLUMNS so that no SQL statement in
+# this module is assembled at run time. Keep the three in step: the column list
+# below is STYLE_COLUMNS in order, and the placeholder count matches it.
+STYLE_SELECT_SQL = ('SELECT f_table_name, f_geometry_column, styleName, '
+                    'styleQML, styleSLD, useAsDefault, description '
+                    'FROM layer_styles')
+STYLE_INSERT_SQL = ('INSERT INTO layer_styles '
+                    '(f_table_name, f_geometry_column, styleName, '
+                    'styleQML, styleSLD, useAsDefault, description) '
+                    'VALUES (?, ?, ?, ?, ?, ?, ?)')
+
 # Tables OGR may list that are not user data.
 GPKG_SKIP_PREFIXES = ('gpkg_', 'rtree_', 'sqlite_')
 GPKG_SKIP_NAMES = frozenset((STYLE_TABLE_GPKG.lower(), STYLE_TABLE_GDB.lower()))
@@ -765,8 +776,7 @@ def _read_gpkg_styles(path):
             (STYLE_TABLE_GPKG,))
         if cursor.fetchone() is None:
             return []
-        rows = connection.execute('SELECT {} FROM {}'.format(
-            ', '.join(STYLE_COLUMNS), STYLE_TABLE_GPKG)).fetchall()
+        rows = connection.execute(STYLE_SELECT_SQL).fetchall()
     except sqlite3.Error:
         return []
     finally:
@@ -876,9 +886,7 @@ def _write_gpkg_styles(path, styles):
                 'WHERE f_table_name = ? AND styleName IS ?',
                 (row.get('f_table_name'), row.get('styleName')))
             connection.execute(
-                'INSERT INTO layer_styles ({}) VALUES ({})'.format(
-                    ', '.join(STYLE_COLUMNS),
-                    ', '.join('?' for _ in STYLE_COLUMNS)),
+                STYLE_INSERT_SQL,
                 [row.get(column) for column in STYLE_COLUMNS])
         connection.commit()
         return len(styles)

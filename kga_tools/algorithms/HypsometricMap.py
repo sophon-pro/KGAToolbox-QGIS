@@ -39,7 +39,7 @@ class HypsometricMap(QgsProcessingAlgorithm):
     def initAlgorithm(self, config=None):
         self.addParameter(QgsProcessingParameterMultipleLayers(
             self.INPUT_LAYERS, "DEM Raster Layer(s)",
-            layerType=QgsProcessing.TypeRaster))
+            layerType=QgsProcessing.SourceType.TypeRaster))
         self.addParameter(QgsProcessingParameterEnum(
             self.COLOR_SCHEME, "Color Scheme",
             options=self.COLOR_OPTIONS, defaultValue=0))
@@ -50,7 +50,7 @@ class HypsometricMap(QgsProcessingAlgorithm):
             self.OUTPUT_FOLDER, "Output Folder"))
         self.addParameter(QgsProcessingParameterNumber(
             self.TICK_COUNT, "Number of Ticks",
-            type=QgsProcessingParameterNumber.Integer,
+            type=QgsProcessingParameterNumber.Type.Integer,
             defaultValue=7, minValue=3, maxValue=20))
         self.addParameter(QgsProcessingParameterString(
             self.LABEL_TITLE, "Legend Title",
@@ -60,11 +60,11 @@ class HypsometricMap(QgsProcessingAlgorithm):
             defaultValue="Times New Roman"))
         self.addParameter(QgsProcessingParameterNumber(
             self.FONT_TICK, "Font Tick Size",
-            type=QgsProcessingParameterNumber.Integer,
+            type=QgsProcessingParameterNumber.Type.Integer,
             defaultValue=9, minValue=6, maxValue=24))
         self.addParameter(QgsProcessingParameterNumber(
             self.FONT_TITLE, "Font Title Size",
-            type=QgsProcessingParameterNumber.Integer,
+            type=QgsProcessingParameterNumber.Type.Integer,
             defaultValue=10, minValue=6, maxValue=24))
 
     def processAlgorithm(self, parameters, context, feedback):

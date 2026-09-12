@@ -99,7 +99,7 @@ class PointOnBoundaryChecker(QgsProcessingAlgorithm):
             QgsProcessingParameterNumber(
                 self.TOLERANCE,
                 self.tr('Snapping tolerance (map units)'),
-                QgsProcessingParameterNumber.Double,
+                QgsProcessingParameterNumber.Type.Double,
                 defaultValue=0.001,
                 minValue=0.0,
             )

@@ -131,7 +131,7 @@ class TopologyCheckerAlgorithm(QgsProcessingAlgorithm):
             QgsProcessingParameterNumber(
                 self.MIN_AREA,
                 self.tr('Ignore errors smaller than (square map units)'),
-                QgsProcessingParameterNumber.Double,
+                QgsProcessingParameterNumber.Type.Double,
                 defaultValue=0.000001,
                 minValue=0.0,
             )
@@ -140,7 +140,7 @@ class TopologyCheckerAlgorithm(QgsProcessingAlgorithm):
             QgsProcessingParameterNumber(
                 self.MAX_GAP_AREA,
                 self.tr('Ignore gaps larger than (square map units, 0 = no limit)'),
-                QgsProcessingParameterNumber.Double,
+                QgsProcessingParameterNumber.Type.Double,
                 defaultValue=0.0,
                 minValue=0.0,
             )
@@ -157,11 +157,11 @@ class TopologyCheckerAlgorithm(QgsProcessingAlgorithm):
         """Return the polygonal part of a geometry, or None."""
         if geom is None or geom.isEmpty():
             return None
-        if geom.type() == QgsWkbTypes.PolygonGeometry:
+        if geom.type() == QgsWkbTypes.GeometryType.PolygonGeometry:
             return geom
         parts = [
             p for p in geom.asGeometryCollection()
-            if p and not p.isEmpty() and p.type() == QgsWkbTypes.PolygonGeometry
+            if p and not p.isEmpty() and p.type() == QgsWkbTypes.GeometryType.PolygonGeometry
         ]
         if not parts:
             return None
@@ -185,7 +185,7 @@ class TopologyCheckerAlgorithm(QgsProcessingAlgorithm):
         for layer in layers:
             if layer is None or not layer.isValid():
                 continue
-            if layer.geometryType() != QgsWkbTypes.PolygonGeometry:
+            if layer.geometryType() != QgsWkbTypes.GeometryType.PolygonGeometry:
                 feedback.pushWarning(
                     self.tr('Skipping "{}" - not a polygon layer.').format(layer.name())
                 )

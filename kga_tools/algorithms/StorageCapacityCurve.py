@@ -38,7 +38,7 @@ class StorageCapacityCurve(QgsProcessingAlgorithm):
             QgsProcessingParameterMultipleLayers(
                 self.INPUT_DEMS,
                 "DEM Raster Layer(s)",
-                layerType=QgsProcessing.TypeRaster
+                layerType=QgsProcessing.SourceType.TypeRaster
             )
         )
 
@@ -54,7 +54,7 @@ class StorageCapacityCurve(QgsProcessingAlgorithm):
             QgsProcessingParameterNumber(
                 self.ELEV_STEP,
                 "Elevation Step (m)",
-                type=QgsProcessingParameterNumber.Double,
+                type=QgsProcessingParameterNumber.Type.Double,
                 defaultValue=0.1, minValue=0.01
             )
         )
@@ -70,7 +70,7 @@ class StorageCapacityCurve(QgsProcessingAlgorithm):
             QgsProcessingParameterNumber(
                 self.PLOT_ELEV_MIN,
                 "Plot: Elevation Y-axis Minimum (m)  [0 = auto from DEM]",
-                type=QgsProcessingParameterNumber.Double,
+                type=QgsProcessingParameterNumber.Type.Double,
                 defaultValue=0.0, minValue=0.0, optional=True
             )
         )
@@ -78,7 +78,7 @@ class StorageCapacityCurve(QgsProcessingAlgorithm):
             QgsProcessingParameterNumber(
                 self.PLOT_ELEV_MAX,
                 "Plot: Elevation Y-axis Maximum (m)  [0 = auto from DEM]",
-                type=QgsProcessingParameterNumber.Double,
+                type=QgsProcessingParameterNumber.Type.Double,
                 defaultValue=0.0, minValue=0.0, optional=True
             )
         )
@@ -86,7 +86,7 @@ class StorageCapacityCurve(QgsProcessingAlgorithm):
             QgsProcessingParameterNumber(
                 self.PLOT_VOL_MAX,
                 "Plot: Volume X-axis Maximum (1,000 m³)  [0 = auto]",
-                type=QgsProcessingParameterNumber.Double,
+                type=QgsProcessingParameterNumber.Type.Double,
                 defaultValue=0.0, minValue=0.0, optional=True
             )
         )
@@ -94,7 +94,7 @@ class StorageCapacityCurve(QgsProcessingAlgorithm):
             QgsProcessingParameterNumber(
                 self.PLOT_AREA_MAX,
                 "Plot: Area X-axis Maximum (ha)  [0 = auto]",
-                type=QgsProcessingParameterNumber.Double,
+                type=QgsProcessingParameterNumber.Type.Double,
                 defaultValue=0.0, minValue=0.0, optional=True
             )
         )
@@ -102,7 +102,7 @@ class StorageCapacityCurve(QgsProcessingAlgorithm):
             QgsProcessingParameterNumber(
                 self.PLOT_Y_TICK,
                 "Plot: Elevation Y-axis Tick Interval (m)  [0 = auto]",
-                type=QgsProcessingParameterNumber.Double,
+                type=QgsProcessingParameterNumber.Type.Double,
                 defaultValue=0.0, minValue=0.0, optional=True
             )
         )
@@ -110,7 +110,7 @@ class StorageCapacityCurve(QgsProcessingAlgorithm):
             QgsProcessingParameterNumber(
                 self.PLOT_X_TICK_V,
                 "Plot: Volume X-axis Tick Interval (1,000 m³)  [0 = auto]",
-                type=QgsProcessingParameterNumber.Double,
+                type=QgsProcessingParameterNumber.Type.Double,
                 defaultValue=0.0, minValue=0.0, optional=True
             )
         )
@@ -118,7 +118,7 @@ class StorageCapacityCurve(QgsProcessingAlgorithm):
             QgsProcessingParameterNumber(
                 self.PLOT_X_TICK_A,
                 "Plot: Area X-axis Tick Interval (ha)  [0 = auto]",
-                type=QgsProcessingParameterNumber.Double,
+                type=QgsProcessingParameterNumber.Type.Double,
                 defaultValue=0.0, minValue=0.0, optional=True
             )
         )

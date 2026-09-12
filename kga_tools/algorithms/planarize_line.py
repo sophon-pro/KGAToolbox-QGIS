@@ -30,7 +30,7 @@ def _no_geometry_flag():
     holder = getattr(Qgis, 'FeatureRequestFlag', None)
     if holder is not None and hasattr(holder, 'NoGeometry'):
         return holder.NoGeometry
-    return QgsFeatureRequest.NoGeometry     # pragma: no cover - QGIS < 3.36
+    return QgsFeatureRequest.Flag.NoGeometry     # pragma: no cover - QGIS < 3.36
 
 
 class PlanarizeLinesAlgorithm(QgsProcessingAlgorithm):
@@ -89,7 +89,7 @@ class PlanarizeLinesAlgorithm(QgsProcessingAlgorithm):
             QgsProcessingParameterFeatureSource(
                 self.INPUT,
                 self.tr('Input Line Layer'),
-                [QgsProcessing.TypeVectorLine]
+                [QgsProcessing.SourceType.TypeVectorLine]
             )
         )
         self.addParameter(
@@ -103,7 +103,7 @@ class PlanarizeLinesAlgorithm(QgsProcessingAlgorithm):
             QgsProcessingParameterFeatureSink(
                 self.OUTPUT,
                 self.tr('Planarized Output'),
-                QgsProcessing.TypeVectorLine,
+                QgsProcessing.SourceType.TypeVectorLine,
                 optional=True
             )
         )

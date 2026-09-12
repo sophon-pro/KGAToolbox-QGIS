@@ -7,6 +7,7 @@ import shutil
 import hashlib
 import zipfile
 import tempfile
+from contextlib import suppress
 
 from qgis.core import (
     QgsProcessingAlgorithm,
@@ -67,9 +68,9 @@ try:
     GEOM_LINE    = Qgis.GeometryType.Line
     GEOM_POLYGON = Qgis.GeometryType.Polygon
 except AttributeError:                                 # QGIS < 3.30
-    GEOM_POINT   = QgsWkbTypes.PointGeometry
-    GEOM_LINE    = QgsWkbTypes.LineGeometry
-    GEOM_POLYGON = QgsWkbTypes.PolygonGeometry
+    GEOM_POINT   = QgsWkbTypes.GeometryType.PointGeometry
+    GEOM_LINE    = QgsWkbTypes.GeometryType.LineGeometry
+    GEOM_POLYGON = QgsWkbTypes.GeometryType.PolygonGeometry
 
 
 WGS84         = "EPSG:4326"
@@ -131,7 +132,7 @@ class ExportToKML(QgsProcessingAlgorithm):
         try:
             f |= Qgis.ProcessingAlgorithmFlag.NoThreading
         except AttributeError:
-            f |= QgsProcessingAlgorithm.FlagNoThreading
+            f |= QgsProcessingAlgorithm.Flag.FlagNoThreading
         return f
 
     # ----------------------------------------------------------------- Inputs
@@ -140,7 +141,7 @@ class ExportToKML(QgsProcessingAlgorithm):
         # ------------------------------------------------- What gets exported
         self._add(QgsProcessingParameterMultipleLayers(
             self.INPUT_LAYERS, "Input Layers",
-            layerType=QgsProcessing.TypeVectorAnyGeometry),
+            layerType=QgsProcessing.SourceType.TypeVectorAnyGeometry),
             "Point, line and polygon layers in any CRS. Everything is "
             "reprojected to WGS 84 on the way out, since that is the only "
             "CRS KML understands - the layers themselves are left alone. "
@@ -194,7 +195,7 @@ class ExportToKML(QgsProcessingAlgorithm):
 
         self._add(QgsProcessingParameterNumber(
             self.LABEL_SCALE, "Placemark Labels \u00b7 Text Scale",
-            type=QgsProcessingParameterNumber.Double,
+            type=QgsProcessingParameterNumber.Type.Double,
             defaultValue=1.0, minValue=0.0, maxValue=10.0),
             "The KML LabelStyle scale: 1.0 is normal, 0.8 is noticeably "
             "smaller, 0 hides the text and leaves the geometry showing. "
@@ -205,7 +206,7 @@ class ExportToKML(QgsProcessingAlgorithm):
         self._add(QgsProcessingParameterNumber(
             self.LABEL_HEIGHT,
             "Rotated Labels \u00b7 Text Height on Ground (m)",
-            type=QgsProcessingParameterNumber.Double,
+            type=QgsProcessingParameterNumber.Type.Double,
             defaultValue=4.0, minValue=0.05, maxValue=10000.0),
             "Height of the glyphs measured on the ground in metres, not on "
             "screen, for the closest zoom tier. Pick roughly what the text "
@@ -215,7 +216,7 @@ class ExportToKML(QgsProcessingAlgorithm):
         self._add(QgsProcessingParameterNumber(
             self.LABEL_OFFSET,
             "Rotated Labels \u00b7 Perpendicular Offset (m)",
-            type=QgsProcessingParameterNumber.Double,
+            type=QgsProcessingParameterNumber.Type.Double,
             defaultValue=0.0, minValue=-10000.0, maxValue=10000.0),
             "Pushes the text off the line so it does not sit on top of it. "
             "Positive is to the left of the direction the line runs, "
@@ -225,7 +226,7 @@ class ExportToKML(QgsProcessingAlgorithm):
 
         self._add(QgsProcessingParameterNumber(
             self.LOD_TIERS, "Rotated Labels \u00b7 Zoom Tiers",
-            type=QgsProcessingParameterNumber.Integer,
+            type=QgsProcessingParameterNumber.Type.Integer,
             defaultValue=3, minValue=1, maxValue=6),
             "A ground overlay has a fixed size in metres, so one copy only "
             "looks right at one zoom. Each extra tier adds a copy 4x larger "
@@ -261,7 +262,7 @@ class ExportToKML(QgsProcessingAlgorithm):
         # ------------------------------------------------ Advanced: rendering
         self._add(QgsProcessingParameterNumber(
             self.FONT_SIZE, "Rotated Labels \u00b7 Render Resolution (px)",
-            type=QgsProcessingParameterNumber.Integer,
+            type=QgsProcessingParameterNumber.Type.Integer,
             defaultValue=48, minValue=8, maxValue=256),
             "Pixel height the label image is drawn at. This is sharpness, "
             "not size - how big the text looks on the ground is set by Text "
@@ -294,7 +295,7 @@ class ExportToKML(QgsProcessingAlgorithm):
 
         self._add(QgsProcessingParameterNumber(
             self.LINE_WIDTH, "Line Width (px)",
-            type=QgsProcessingParameterNumber.Integer,
+            type=QgsProcessingParameterNumber.Type.Integer,
             defaultValue=2, minValue=1, maxValue=10),
             "Stroke width for lines and polygon outlines in Google Earth. "
             "The colours come from each layer own symbology; only the width "
@@ -362,12 +363,10 @@ class ExportToKML(QgsProcessingAlgorithm):
             except Exception:
                 candidates = []
             if not candidates:
-                try:
+                with suppress(Exception):
                     settings = labeling.settings()
                     if settings is not None:
                         candidates.append(settings)
-                except Exception:
-                    pass
 
             for settings in candidates:
                 text = settings.fieldName
@@ -401,11 +400,9 @@ class ExportToKML(QgsProcessingAlgorithm):
     def _to_text(val):
         if val is None:
             return ""
-        try:
+        with suppress(Exception):
             if hasattr(val, "isNull") and val.isNull():
                 return ""
-        except Exception:
-            pass
         s = str(val)
         return "" if s in ("NULL", "None") else s
 
@@ -455,7 +452,7 @@ class ExportToKML(QgsProcessingAlgorithm):
     def _get_layer_colors(self, layer):
         line_color = "ff0000ff"
         fill_color = "660000ff"
-        try:
+        with suppress(Exception):
             renderer = layer.renderer()
             if renderer is None:
                 return line_color, fill_color
@@ -478,8 +475,6 @@ class ExportToKML(QgsProcessingAlgorithm):
                 elif "SimpleMarker" in t:
                     line_color = self._qgis_color_to_kml(sl.color())
                     fill_color = line_color
-        except Exception:
-            pass
         return line_color, fill_color
 
     # -------------------------------------- Label PNG, cropped to the ink box
@@ -550,7 +545,7 @@ class ExportToKML(QgsProcessingAlgorithm):
         p.drawText(bx, by, text)
         p.end()
 
-        digest  = hashlib.md5(key.encode("utf-8")).hexdigest()[:12]
+        digest  = hashlib.sha256(key.encode("utf-8")).hexdigest()[:12]
         arcname = "files/lbl_{}.png".format(digest)
         disk    = os.path.join(opts["tmp_dir"], "lbl_{}.png".format(digest))
         img.save(disk, "PNG")
@@ -564,15 +559,13 @@ class ExportToKML(QgsProcessingAlgorithm):
         return " ".join("{:.8f},{:.8f},0".format(p.x(), p.y()) for p in pts)
 
     def _segmentize(self, geom):
-        try:
+        with suppress(Exception):
             if QgsWkbTypes.isCurvedType(geom.wkbType()):
                 abstract = geom.constGet()
                 if abstract is not None:
                     seg = abstract.segmentize()
                     if seg is not None:
                         return QgsGeometry(seg)
-        except Exception:
-            pass
         return geom
 
     def _line_anchor(self, g, flip_upright):
@@ -811,14 +804,12 @@ class ExportToKML(QgsProcessingAlgorithm):
             placemarks.append(placemark(inner))
 
             if label_text:
-                try:
+                with suppress(Exception):
                     c = g.pointOnSurface()
                     if c is None or c.isEmpty():
                         c = g.centroid()
                     if c and not c.isEmpty():
                         placemarks.append(label_placemark(c.asPoint()))
-                except Exception:
-                    pass
 
         return placemarks, overlays, images
 

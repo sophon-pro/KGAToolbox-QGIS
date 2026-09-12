@@ -176,7 +176,7 @@ class FileGdbToGeoPackage(_ConvertBase):
     def initAlgorithm(self, config=None):
         self.addParameter(QgsProcessingParameterFile(
             self.INPUT, self.tr('File Geodatabase (.gdb folder)'),
-            behavior=QgsProcessingParameterFile.Folder))
+            behavior=QgsProcessingParameterFile.Behavior.Folder))
         self.addParameter(QgsProcessingParameterFileDestination(
             self.OUTPUT, self.tr('Output GeoPackage'),
             fileFilter='GeoPackage (*.gpkg)'))

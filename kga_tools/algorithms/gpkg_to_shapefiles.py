@@ -70,7 +70,7 @@ class GpkgToShapefiles(QgsProcessingAlgorithm):
             QgsProcessingParameterFile(
                 self.INPUT,
                 self.tr('Input GeoPackage'),
-                behavior=QgsProcessingParameterFile.File,
+                behavior=QgsProcessingParameterFile.Behavior.File,
                 fileFilter='GeoPackage (*.gpkg *.GPKG)'
             )
         )
@@ -194,7 +194,7 @@ class GpkgToShapefiles(QgsProcessingAlgorithm):
             options.driverName = 'ESRI Shapefile'
             options.fileEncoding = encoding
             options.actionOnExistingFile = (
-                QgsVectorFileWriter.CreateOrOverwriteFile
+                QgsVectorFileWriter.ActionOnExistingFile.CreateOrOverwriteFile
             )
 
             # Fall back to the layer CRS; keeps output identical to source
@@ -206,7 +206,7 @@ class GpkgToShapefiles(QgsProcessingAlgorithm):
                 layer, target, transform_context, options
             )
 
-            if result[0] == QgsVectorFileWriter.NoError:
+            if result[0] == QgsVectorFileWriter.WriterError.NoError:
                 feedback.pushInfo('  ok: {}  ({} features)'.format(
                     base + '.shp', layer.featureCount()))
                 exported += 1

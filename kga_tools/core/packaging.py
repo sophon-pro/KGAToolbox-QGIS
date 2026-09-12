@@ -34,6 +34,7 @@ import json
 import os
 import shutil
 import zipfile
+from contextlib import suppress
 
 from qgis.core import (
     Qgis,
@@ -42,6 +43,8 @@ from qgis.core import (
     QgsVectorFileWriter,
     QgsVectorLayer,
 )
+
+from .guards import attempt
 
 LOG_TAG = 'KGA Toolbox'
 
@@ -138,14 +141,14 @@ class PackageWriter(object):
         options.fileEncoding = 'UTF-8'
         if os.path.exists(gpkg):
             options.actionOnExistingFile = \
-                QgsVectorFileWriter.CreateOrOverwriteLayer
+                QgsVectorFileWriter.ActionOnExistingFile.CreateOrOverwriteLayer
         if selected_only and layer.selectedFeatureCount():
             options.onlySelectedFeatures = True
 
         result = QgsVectorFileWriter.writeAsVectorFormatV3(
             layer, gpkg, QgsProject.instance().transformContext(), options)
         code = result[0] if isinstance(result, (tuple, list)) else result
-        if code != QgsVectorFileWriter.NoError:
+        if code != QgsVectorFileWriter.WriterError.NoError:
             message = result[1] if isinstance(result, (tuple, list)) \
                 and len(result) > 1 else ''
             raise PackageError('Could not package the layer "{}": {}'.format(
@@ -426,9 +429,8 @@ def collect_resources(layer, writer):
                 except Exception:           # pragma: no cover
                     fonts.add('?')
                 continue
-            try:
-                properties = symbol_layer.properties()
-            except Exception:               # pragma: no cover
+            properties = attempt(symbol_layer.properties)
+            if not properties:              # pragma: no cover
                 continue
             for key in SVG_KEYS + IMAGE_KEYS:
                 value = properties.get(key)
@@ -513,10 +515,7 @@ def _repoint(symbol_layer, lookup):
         setter = getattr(symbol_layer, setter_name, None)
         if getter is None or setter is None:
             continue
-        try:
-            current = getter()
-        except Exception:                   # pragma: no cover - defensive
-            continue
+        current = attempt(getter)
         if not current:
             continue
         replacement = (lookup.get(current)
@@ -551,11 +550,9 @@ def _resolve_resource(path):
     project_home = QgsProject.instance().homePath()
     if project_home:
         candidates.append(os.path.join(project_home, text))
-    try:
+    with suppress(Exception):               # pragma: no cover
         for directory in QgsApplication.svgPaths():
             candidates.append(os.path.join(directory, text))
-    except Exception:                       # pragma: no cover
-        pass
 
     for candidate in candidates:
         if candidate and os.path.exists(candidate) and os.path.isfile(candidate):

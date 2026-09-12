@@ -80,7 +80,7 @@ MAX_SKIP_MESSAGES = 25
 try:
     LABEL_PLACEMENT = Qgis.LabelPlacement.AroundPoint
 except AttributeError:                              # QGIS < 3.36
-    LABEL_PLACEMENT = QgsPalLayerSettings.AroundPoint
+    LABEL_PLACEMENT = QgsPalLayerSettings.Placement.AroundPoint
 
 #: setPostProcessor() transfers ownership to C++, but Python still has to
 #: hold a reference or the object is collected before the layer loads.
@@ -335,7 +335,7 @@ class CreatePointsFromTable(QgsProcessingAlgorithm):
         # ---------------------------------------------------------- The table
         self._add(QgsProcessingParameterFile(
             self.INPUT_FILE, "Input Table",
-            behavior=QgsProcessingParameterFile.File,
+            behavior=QgsProcessingParameterFile.Behavior.File,
             fileFilter=(
                 "All supported (*.csv *.txt *.tsv *.xlsx *.xlsm *.xls *.ods);;"
                 "Text and CSV (*.csv *.txt *.tsv);;"
@@ -421,7 +421,7 @@ class CreatePointsFromTable(QgsProcessingAlgorithm):
 
         self._add(QgsProcessingParameterNumber(
             self.HEADER_ROW, "Workbook · Header Row",
-            type=QgsProcessingParameterNumber.Integer,
+            type=QgsProcessingParameterNumber.Type.Integer,
             defaultValue=1, minValue=1, maxValue=1000),
             "Row number the column headers are on, counting from 1. Raise "
             "it for tables that carry a title block, a project name or "

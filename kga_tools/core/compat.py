@@ -144,7 +144,7 @@ def no_threading(base_flags):
     try:
         return base_flags | Qgis.ProcessingAlgorithmFlag.NoThreading
     except AttributeError:                  # pragma: no cover - QGIS < 3.36
-        return base_flags | QgsProcessingAlgorithm.FlagNoThreading
+        return base_flags | QgsProcessingAlgorithm.Flag.FlagNoThreading
 
 
 def source_type(name):
@@ -212,6 +212,6 @@ def mark_advanced(parameter):
         flag = Qgis.ProcessingParameterFlag.Advanced
     except AttributeError:                  # pragma: no cover - QGIS < 3.36
         from qgis.core import QgsProcessingParameterDefinition
-        flag = QgsProcessingParameterDefinition.FlagAdvanced
+        flag = QgsProcessingParameterDefinition.Flag.FlagAdvanced
     parameter.setFlags(parameter.flags() | flag)
     return parameter

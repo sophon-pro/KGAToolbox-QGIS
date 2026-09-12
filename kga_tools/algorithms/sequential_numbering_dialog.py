@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from contextlib import suppress
+
 from qgis.PyQt.QtCore import QCoreApplication, Qt, pyqtSignal
 from qgis.PyQt.QtGui import QColor
 from qgis.PyQt.QtWidgets import (
@@ -66,10 +68,8 @@ def is_null(value):
     if value is None:
         return True
     if QgsVariantUtils is not None:
-        try:
+        with suppress(Exception):
             return QgsVariantUtils.isNull(value)
-        except Exception:
-            pass
     try:
         return bool(value.isNull())
     except AttributeError:
@@ -116,13 +116,13 @@ class SequentialNumberingMapTool(QgsMapTool):
         super().__init__(canvas)
         self.canvas = canvas
         self.controller = controller        # the dialog, asked for layer/values
-        self.setCursor(Qt.CrossCursor)
+        self.setCursor(Qt.CursorShape.CrossCursor)
 
-        self._band = QgsRubberBand(canvas, QgsWkbTypes.LineGeometry)
+        self._band = QgsRubberBand(canvas, QgsWkbTypes.GeometryType.LineGeometry)
         self._band.setColor(QColor(0, 0, 0))
         self._band.setWidth(2)
         try:
-            self._band.setLineStyle(Qt.DashLine)
+            self._band.setLineStyle(Qt.PenStyle.DashLine)
         except AttributeError:
             pass
 
@@ -133,7 +133,7 @@ class SequentialNumberingMapTool(QgsMapTool):
     # ------------------------------------------------------------ events --
 
     def canvasPressEvent(self, event):
-        if event.button() != Qt.LeftButton:
+        if event.button() != Qt.MouseButton.LeftButton:
             self._reset()
             return
         self._press_pos = event.pos()
@@ -153,7 +153,7 @@ class SequentialNumberingMapTool(QgsMapTool):
         self._band.addPoint(point, True)
 
     def canvasReleaseEvent(self, event):
-        if event.button() != Qt.LeftButton or self._press_pos is None:
+        if event.button() != Qt.MouseButton.LeftButton or self._press_pos is None:
             return
         dragging = self._dragging
         points = list(self._points)
@@ -165,7 +165,7 @@ class SequentialNumberingMapTool(QgsMapTool):
             self._apply(points[:1], single=True)
 
     def keyPressEvent(self, event):
-        if event.key() == Qt.Key_Escape:
+        if event.key() == Qt.Key.Key_Escape:
             self._reset()
 
     def deactivate(self):
@@ -173,7 +173,7 @@ class SequentialNumberingMapTool(QgsMapTool):
         super().deactivate()
 
     def _reset(self):
-        self._band.reset(QgsWkbTypes.LineGeometry)
+        self._band.reset(QgsWkbTypes.GeometryType.LineGeometry)
         self._points = []
         self._press_pos = None
         self._dragging = False
@@ -201,7 +201,7 @@ class SequentialNumberingMapTool(QgsMapTool):
         else:
             path = QgsGeometry.fromPolylineXY(map_points)
             search = path
-            if layer.geometryType() != QgsWkbTypes.PolygonGeometry:
+            if layer.geometryType() != QgsWkbTypes.GeometryType.PolygonGeometry:
                 search = path.buffer(tolerance, 8)
 
         # canvas CRS -> layer CRS
@@ -295,12 +295,12 @@ class SequentialNumberingDialog(QDialog):
 
         form = QFormLayout()
         self.layer_combo = QgsMapLayerComboBox()
-        self.layer_combo.setFilters(QgsMapLayerProxyModel.VectorLayer)
+        self.layer_combo.setFilters(QgsMapLayerProxyModel.Filter.VectorLayer)
         form.addRow('Layer', self.layer_combo)
 
         self.field_combo = QgsFieldComboBox()
         self.field_combo.setFilters(
-            QgsFieldProxyModel.String | QgsFieldProxyModel.Numeric)
+            QgsFieldProxyModel.Filter.String | QgsFieldProxyModel.Filter.Numeric)
         form.addRow('Field', self.field_combo)
 
         self.format_label = QLabel('#')
@@ -457,8 +457,8 @@ class SequentialNumberingDialog(QDialog):
                 self, 'Sequential Numbering',
                 'The layer "{}" is not in edit mode.\n\nStart editing now?'.format(
                     layer.name()),
-                QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
-            if answer != QMessageBox.Yes or not layer.startEditing():
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.Yes)
+            if answer != QMessageBox.StandardButton.Yes or not layer.startEditing():
                 self._warn('Editing is required to write values.')
                 return
 
@@ -526,10 +526,8 @@ class SequentialNumberingDialog(QDialog):
     def closeEvent(self, event):
         if self._tool is not None and self.canvas.mapTool() is self._tool:
             self.canvas.unsetMapTool(self._tool)
-        try:
+        with suppress(Exception):
             self.canvas.mapToolSet.disconnect(self._map_tool_set)
-        except Exception:
-            pass
         super().closeEvent(event)
 
 
@@ -621,7 +619,7 @@ class SequentialNumberingAlgorithm(QgsProcessingAlgorithm):
         if DIALOG_INSTANCE is None:
             DIALOG_INSTANCE = SequentialNumberingDialog(iface)
 
-        DIALOG_INSTANCE.setWindowModality(Qt.NonModal)
+        DIALOG_INSTANCE.setWindowModality(Qt.WindowModality.NonModal)
         DIALOG_INSTANCE.show()
         DIALOG_INSTANCE.raise_()
         DIALOG_INSTANCE.activateWindow()

@@ -1093,7 +1093,7 @@ class DomainManagerDialog(QDialog):
         def apply_all():
             for index, (table, field, domain) in enumerate(pending, 1):
                 if domain == NO_DOMAIN:
-                    D.detach_domain(self.conn, table, field)
+                    D.detach_domain(self.conn, table, field, self.path)
                 else:
                     D.attach_domain(self.conn, table, field, domain)
                 self.busy.step(index, len(pending), tr(

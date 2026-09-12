@@ -156,7 +156,7 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
         param.setHelp(help_text)
         if advanced:
             param.setFlags(
-                param.flags() | QgsProcessingParameterDefinition.FlagAdvanced)
+                param.flags() | QgsProcessingParameterDefinition.Flag.FlagAdvanced)
         self.addParameter(param)
 
     def initAlgorithm(self, config=None):
@@ -164,7 +164,7 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
         # ---------------------------------------------------------- Reservoir
         self._add(QgsProcessingParameterMultipleLayers(
             self.INPUT_DEMS, "DEM Raster Layer(s)",
-            layerType=QgsProcessing.TypeRaster),
+            layerType=QgsProcessing.SourceType.TypeRaster),
             "One rating curve is produced per DEM. The DEM supplies the "
             "elevation range the curve is tabulated over: its lowest and "
             "highest cell inside the boundary become the first and last row "
@@ -180,7 +180,7 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
 
         self._add(QgsProcessingParameterNumber(
             self.ELEV_STEP, "Elevation Step (m)",
-            type=QgsProcessingParameterNumber.Double,
+            type=QgsProcessingParameterNumber.Type.Double,
             defaultValue=0.1, minValue=0.001),
             "Water-level increment between rows of the rating table. 0.10 m "
             "suits most reservoirs; 0.01 m gives a smoother curve and a much "
@@ -226,7 +226,7 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
             self._add(QgsProcessingParameterNumber(
                 self.slot_param(slot, "ELEV"),
                 tag + " Activation Elevation (m)",
-                type=QgsProcessingParameterNumber.Double,
+                type=QgsProcessingParameterNumber.Type.Double,
                 defaultValue=0.0),
                 "Crest level of a weir, or centreline of an orifice or pipe, "
                 "in the DEM's vertical datum. The outlet stays dry (Q = 0) "
@@ -235,7 +235,7 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
             self._add(QgsProcessingParameterNumber(
                 self.slot_param(slot, "LA"),
                 tag + " Size — L (m) or A (m²)",
-                type=QgsProcessingParameterNumber.Double,
+                type=QgsProcessingParameterNumber.Type.Double,
                 defaultValue=size, minValue=0.001),
                 "Weir — L, the crest width in m.\n"
                 "Orifice — A, the opening area in m²: width x height.\n"
@@ -246,7 +246,7 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
             self._add(QgsProcessingParameterNumber(
                 self.slot_param(slot, "C"),
                 tag + " Coefficient — C or Cd",
-                type=QgsProcessingParameterNumber.Double,
+                type=QgsProcessingParameterNumber.Type.Double,
                 defaultValue=coeff, minValue=0.001),
                 "Weir, C (SI units): sharp-crested 1.84, broad-crested 1.70, "
                 "ogee spillway 2.0–2.2.\n"
@@ -263,7 +263,7 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
         self._add(QgsProcessingParameterNumber(
             self.PLOT_ELEV_MIN,
             "Plot · Elevation Axis Minimum (m)  [0 = auto]",
-            type=QgsProcessingParameterNumber.Double,
+            type=QgsProcessingParameterNumber.Type.Double,
             defaultValue=0.0, optional=True),
             "Pins the bottom of the elevation axis so several reservoirs can "
             "be compared side by side. 0 keeps the DEM minimum.", True)
@@ -271,7 +271,7 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
         self._add(QgsProcessingParameterNumber(
             self.PLOT_ELEV_MAX,
             "Plot · Elevation Axis Maximum (m)  [0 = auto]",
-            type=QgsProcessingParameterNumber.Double,
+            type=QgsProcessingParameterNumber.Type.Double,
             defaultValue=0.0, optional=True),
             "Pins the top of the elevation axis. 0 keeps the DEM maximum.",
             True)
@@ -279,7 +279,7 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
         self._add(QgsProcessingParameterNumber(
             self.PLOT_Q_MAX,
             "Plot · Discharge Axis Maximum (m³/s)  [0 = auto]",
-            type=QgsProcessingParameterNumber.Double,
+            type=QgsProcessingParameterNumber.Type.Double,
             defaultValue=0.0, minValue=0.0, optional=True),
             "Pins the right-hand end of the discharge axis. 0 fits it to the "
             "computed peak.", True)
@@ -287,7 +287,7 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
         self._add(QgsProcessingParameterNumber(
             self.PLOT_Y_TICK,
             "Plot · Elevation Tick Interval (m)  [0 = auto]",
-            type=QgsProcessingParameterNumber.Double,
+            type=QgsProcessingParameterNumber.Type.Double,
             defaultValue=0.0, minValue=0.0, optional=True),
             "Spacing of the horizontal grid lines. Q_total is marked with a "
             "cross at each of them, so this also sets where the read-off "
@@ -296,13 +296,13 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
         self._add(QgsProcessingParameterNumber(
             self.PLOT_X_TICK,
             "Plot · Discharge Tick Interval (m³/s)  [0 = auto]",
-            type=QgsProcessingParameterNumber.Double,
+            type=QgsProcessingParameterNumber.Type.Double,
             defaultValue=0.0, minValue=0.0, optional=True),
             "Spacing of the vertical grid lines.", True)
 
         self._add(QgsProcessingParameterNumber(
             self.PLOT_DPI, "Plot · Resolution (DPI)",
-            type=QgsProcessingParameterNumber.Integer,
+            type=QgsProcessingParameterNumber.Type.Integer,
             defaultValue=150, minValue=72, maxValue=600),
             "150 is fine on screen and in a report; 300 for print.", True)
 

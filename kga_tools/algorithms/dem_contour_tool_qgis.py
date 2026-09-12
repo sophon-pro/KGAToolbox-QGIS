@@ -144,7 +144,7 @@ def contour_fingerprint(dem_path, dem_mtime, interval, smooth, fmt, tile_rows, o
         "tile_rows": tile_rows, "overlap_rows": overlap_rows,
         "script_version": SCRIPT_VERSION,
     }
-    return hashlib.md5(json.dumps(key, sort_keys=True).encode()).hexdigest()
+    return hashlib.sha256(json.dumps(key, sort_keys=True).encode()).hexdigest()
 
 
 def load_checkpoint(out_dir):
@@ -273,8 +273,6 @@ def generate_contours(dem_path, interval, smooth, fmt, output_dir, feedback,
     else:
         lyr = ds_out.GetLayer(0)
 
-    layer_name = lyr.GetName()
-
     def progress_cb(tile_idx):
         completed.add(tile_idx)
         checkpoint[stage_key] = {"fingerprint": fp, "output_path": cnt_path,
@@ -292,8 +290,16 @@ def generate_contours(dem_path, interval, smooth, fmt, output_dir, feedback,
         feedback.setProgress(15 + int(70 * tidx / num_tiles))
         feedback.pushInfo(f"  Tile {tidx+1}/{num_tiles}  (rows {core_start}:{core_end})")
 
-        # Idempotency: wipe any partial output from a previous crash mid-tile
-        ds_out.ExecuteSQL(f'DELETE FROM "{layer_name}" WHERE tile_id = {tidx}')
+        # Idempotency: wipe any partial output from a previous crash mid-tile.
+        # Through the layer API rather than ExecuteSQL, because OGR's own SQL
+        # dialect has no DELETE and the Shapefile output would silently keep
+        # the half-written tile. FIDs are read out first so the layer is not
+        # mutated while it is being walked.
+        lyr.SetAttributeFilter('tile_id = {:d}'.format(int(tidx)))
+        stale = [feature.GetFID() for feature in lyr]
+        lyr.SetAttributeFilter(None)
+        for fid in stale:
+            lyr.DeleteFeature(fid)
 
         read_start = max(core_start - overlap_rows, 0)
         read_end   = min(core_end + overlap_rows, rows)
@@ -462,14 +468,14 @@ class DEMContourTool(QgsProcessingAlgorithm):
 
         self.addParameter(QgsProcessingParameterFile(
             self.INPUT_CSV, self.tr("Input Point CSV  [Mode A only]"),
-            behavior=QgsProcessingParameterFile.File,
+            behavior=QgsProcessingParameterFile.Behavior.File,
             fileFilter="CSV Files (*.csv);;All Files (*.*)", optional=True,
             defaultValue=_last("input_csv", None, str) or None,
         ))
 
         self.addParameter(QgsProcessingParameterNumber(
             self.RESOLUTION, self.tr("DEM Resolution (m)  [Mode A — 0 = auto-detect]"),
-            type=QgsProcessingParameterNumber.Double,
+            type=QgsProcessingParameterNumber.Type.Double,
             defaultValue=_last("resolution", 0.0, float), minValue=0.0, optional=True,
         ))
 
@@ -482,7 +488,7 @@ class DEMContourTool(QgsProcessingAlgorithm):
 
         self.addParameter(QgsProcessingParameterNumber(
             self.EPSG, self.tr("CRS — EPSG Code  [Mode A only]"),
-            type=QgsProcessingParameterNumber.Integer, defaultValue=_last("epsg", 32648, int),
+            type=QgsProcessingParameterNumber.Type.Integer, defaultValue=_last("epsg", 32648, int),
         ))
 
         self.addParameter(QgsProcessingParameterRasterLayer(
@@ -502,13 +508,13 @@ class DEMContourTool(QgsProcessingAlgorithm):
 
         self.addParameter(QgsProcessingParameterNumber(
             self.CONTOUR_INT, self.tr("Contour Interval (m)"),
-            type=QgsProcessingParameterNumber.Double,
+            type=QgsProcessingParameterNumber.Type.Double,
             defaultValue=_last("contour_interval", 1.0, float), minValue=0.01,
         ))
 
         self.addParameter(QgsProcessingParameterNumber(
             self.CONTOUR_SMOOTH, self.tr("Contour Smoothing — Gaussian σ  (0 = off)"),
-            type=QgsProcessingParameterNumber.Double,
+            type=QgsProcessingParameterNumber.Type.Double,
             defaultValue=_last("contour_smooth", 1.0, float), minValue=0.0,
         ))
 
@@ -520,13 +526,13 @@ class DEMContourTool(QgsProcessingAlgorithm):
 
         self.addParameter(QgsProcessingParameterNumber(
             self.TILE_ROWS, self.tr("Tile height (rows)"),
-            type=QgsProcessingParameterNumber.Integer,
+            type=QgsProcessingParameterNumber.Type.Integer,
             defaultValue=_last("tile_rows", 3000, int), minValue=100,
         ))
 
         self.addParameter(QgsProcessingParameterNumber(
             self.OVERLAP_ROWS, self.tr("Tile overlap (rows)"),
-            type=QgsProcessingParameterNumber.Integer,
+            type=QgsProcessingParameterNumber.Type.Integer,
             defaultValue=_last("overlap_rows", 30, int), minValue=1,
         ))
 

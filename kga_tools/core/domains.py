@@ -28,7 +28,7 @@ supported surface and handles both GPKG and FileGDB.
 import json
 import os
 import sqlite3
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 
 from qgis.core import (
     Qgis,
@@ -359,13 +359,11 @@ def spec_from_qgis(domain):
     range_ = domain_type_value('Range')
 
     kind = CODED
-    try:
+    with suppress(Exception):               # pragma: no cover
         if domain.type() == range_:
             kind = RANGE
         elif domain.type() != coded:
             kind = GLOB
-    except Exception:                       # pragma: no cover
-        pass
 
     spec = DomainSpec(
         name=domain.name(),
@@ -411,12 +409,10 @@ def spec_to_qgis(spec):
         domain = QgsGlobFieldDomain(spec.name, spec.description, field_type,
                                     spec.glob_pattern or '*')
 
-    try:
+    with suppress(Exception):               # pragma: no cover - older builds
         from qgis.core import Qgis as _Q
         domain.setSplitPolicy(_Q.FieldDomainSplitPolicy(spec.split_policy))
         domain.setMergePolicy(_Q.FieldDomainMergePolicy(spec.merge_policy))
-    except Exception:                       # pragma: no cover - older builds
-        pass
     return domain
 
 
@@ -493,19 +489,22 @@ def attach_domain(conn, table, field, domain_name):
             domain_name, table, field, exc))
 
 
-def detach_domain(conn, table, field):
+def detach_domain(conn, table, field, gpkg_path):
     """Clear the domain from one field.
 
     There is no `clearFieldDomainName()`, and passing an empty name through
     `setFieldDomainName` is not accepted by every GDAL build, so this goes
-    straight at `gpkg_data_columns`.
+    straight at `gpkg_data_columns` - through `sqlite3` with bound parameters,
+    the same route `delete_domain` and `rename_domain` take. The provider
+    connection's `executeSql` has no parameter binding, which would leave the
+    table and field names to be pasted into the statement by hand.
     """
-    require(conn, 'ExecuteSql', 'change field domain assignments')
+    _require_gpkg(gpkg_path, 'change field domain assignments')
     try:
-        conn.executeSql(
-            "UPDATE gpkg_data_columns SET constraint_name = NULL "
-            "WHERE table_name = {} AND column_name = {}".format(
-                _sql_text(table), _sql_text(field)))
+        with _sqlite(gpkg_path) as db:
+            db.execute('UPDATE gpkg_data_columns SET constraint_name = NULL '
+                       'WHERE table_name = ? AND column_name = ?',
+                       (table, field))
     except Exception as exc:
         raise DomainError('Could not detach the domain from {}.{}: {}'.format(
             table, field, exc))
@@ -534,11 +533,9 @@ def tables_and_fields(conn, progress=None):
         name = table.tableName()
         if progress is not None:
             progress(done, total, name)
-        try:
+        with suppress(Exception):
             fields = [f.name() for f in conn.fields('', name)]
-        except Exception:
-            continue
-        result.append((name, fields))
+            result.append((name, fields))
     return sorted(result)
 
 
@@ -1059,12 +1056,6 @@ def _text(value):
     if value is None:
         return ''
     return value if isinstance(value, str) else str(value)
-
-
-def _sql_text(value):
-    """Single-quoted SQL literal. Only ever used for identifiers we read back
-    out of the same database, but escaped properly regardless."""
-    return "'" + _text(value).replace("'", "''") + "'"
 
 
 def _number_or_none(value):

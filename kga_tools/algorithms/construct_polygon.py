@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from contextlib import suppress
+
 from qgis.PyQt.QtCore import QCoreApplication
 from qgis.PyQt.QtGui import QFont
 from qgis.PyQt.QtWidgets import QCheckBox, QLabel
@@ -318,12 +320,10 @@ class ConstructPolygonDialog(ModifyFeaturesDialog):
         layer = self.current_layer()
         if not points or layer is None:
             return
-        try:
+        with suppress(Exception):           # pragma: no cover - older build
             self.canvas.flashGeometries(
                 [QgsGeometry.fromPointXY(point) for point in points],
                 layer.crs())
-        except Exception:                   # pragma: no cover - older build
-            pass
 
 
 # --------------------------------------------------------------------------- #

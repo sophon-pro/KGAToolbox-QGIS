@@ -69,7 +69,7 @@ class ShapefilesToGpkg(QgsProcessingAlgorithm):
             QgsProcessingParameterFile(
                 self.INPUT,
                 self.tr('Input folder'),
-                behavior=QgsProcessingParameterFile.Folder
+                behavior=QgsProcessingParameterFile.Behavior.Folder
             )
         )
 
@@ -245,10 +245,10 @@ class ShapefilesToGpkg(QgsProcessingAlgorithm):
 
             if first_write:
                 options.actionOnExistingFile = \
-                    QgsVectorFileWriter.CreateOrOverwriteFile
+                    QgsVectorFileWriter.ActionOnExistingFile.CreateOrOverwriteFile
             else:
                 options.actionOnExistingFile = \
-                    QgsVectorFileWriter.CreateOrOverwriteLayer
+                    QgsVectorFileWriter.ActionOnExistingFile.CreateOrOverwriteLayer
 
             if target_crs.isValid() and layer.crs() != target_crs:
                 options.ct = QgsCoordinateTransform(
@@ -258,7 +258,7 @@ class ShapefilesToGpkg(QgsProcessingAlgorithm):
                 layer, out_gpkg, transform_context, options
             )
 
-            if result[0] == QgsVectorFileWriter.NoError:
+            if result[0] == QgsVectorFileWriter.WriterError.NoError:
                 feedback.pushInfo('  ok: {}  ({} features, {})'.format(
                     name, layer.featureCount(),
                     layer.crs().authid() or 'no CRS'))

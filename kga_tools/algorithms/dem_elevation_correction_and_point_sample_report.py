@@ -7,6 +7,7 @@ import json
 import base64
 import hashlib
 import io
+from contextlib import suppress
 import numpy as np
 from osgeo import gdal
 
@@ -419,7 +420,7 @@ def stage_fingerprint(ref_path, ref_nodata, target_path, target_nodata, method, 
         "idw_fade": p["idw_fade"], "cv_folds": p["cv_folds"], "stride": p["stride"],
         "script_version": SCRIPT_VERSION,
     }
-    return hashlib.md5(json.dumps(key, sort_keys=True).encode()).hexdigest()
+    return hashlib.sha256(json.dumps(key, sort_keys=True).encode()).hexdigest()
 
 
 def load_checkpoint(out_dir):
@@ -545,7 +546,7 @@ def run_correction_chain(sorted_dems, method, p, out_dir, log, checkpoint, force
 def merge_fingerprint(sources, bounds, resolution):
     key = {"sources": sources, "bounds": bounds, "resolution": resolution,
            "script_version": SCRIPT_VERSION}
-    return hashlib.md5(json.dumps(key, sort_keys=True).encode()).hexdigest()
+    return hashlib.sha256(json.dumps(key, sort_keys=True).encode()).hexdigest()
 
 
 def merge_layers(sources, bounds, resolution, out_path, block_rows=800, log=print,
@@ -734,7 +735,7 @@ def build_sample_table(sorted_dems, stride, max_rows, log):
     for label in labels[1:]:
         table[col_name(label)] = cols[label]
 
-    valid_matrix = [ref_valid] + [valids[l] for l in labels[1:]]
+    valid_matrix = [ref_valid] + [valids[label] for label in labels[1:]]
     zone = np.full(len(xs), "", dtype=object)
     for i in range(len(xs)):
         present = [labels[j] for j in range(len(labels)) if valid_matrix[j][i]]
@@ -757,7 +758,9 @@ def build_sample_table(sorted_dems, stride, max_rows, log):
                 diff_cols.append(diff_prev_name)
         prev_name, prev_valid, prev_vals = name, v_valid, v_vals
 
-    columns = ["X", "Y", ref_name] + [col_name(l) for l in labels[1:]] + ["Zone"] + diff_cols
+    columns = (["X", "Y", ref_name]
+               + [col_name(label) for label in labels[1:]]
+               + ["Zone"] + diff_cols)
     return table, columns, stride
 
 
@@ -1040,7 +1043,7 @@ class DemCorrectionReportAlgorithm(QgsProcessingAlgorithm):
             defaultValue="", optional=True))
         self.addParameter(QgsProcessingParameterMultipleLayers(
             self.INPUT_DEMS, self.tr("DEMs to correct against the reference (1 or more)"),
-            layerType=QgsProcessing.TypeRaster))
+            layerType=QgsProcessing.SourceType.TypeRaster))
         self.addParameter(QgsProcessingParameterString(
             self.NODATA_OVERRIDES,
             self.tr("NoData overrides (comma-separated, matching DEM order; blank = use each layer's own NoData)"),
@@ -1050,19 +1053,19 @@ class DemCorrectionReportAlgorithm(QgsProcessingAlgorithm):
             options=METHOD_OPTIONS, defaultValue=0))
         self.addParameter(QgsProcessingParameterNumber(
             self.IDW_POWER, self.tr("IDW power"),
-            type=QgsProcessingParameterNumber.Double, defaultValue=2.0))
+            type=QgsProcessingParameterNumber.Type.Double, defaultValue=2.0))
         self.addParameter(QgsProcessingParameterNumber(
             self.IDW_K, self.tr("IDW neighbors (k)"),
-            type=QgsProcessingParameterNumber.Integer, defaultValue=12))
+            type=QgsProcessingParameterNumber.Type.Integer, defaultValue=12))
         self.addParameter(QgsProcessingParameterNumber(
             self.IDW_FADE, self.tr("IDW full-strength distance (m)"),
-            type=QgsProcessingParameterNumber.Double, defaultValue=3000.0))
+            type=QgsProcessingParameterNumber.Type.Double, defaultValue=3000.0))
         self.addParameter(QgsProcessingParameterNumber(
             self.CV_FOLDS, self.tr("Cross-validation folds"),
-            type=QgsProcessingParameterNumber.Integer, defaultValue=5))
+            type=QgsProcessingParameterNumber.Type.Integer, defaultValue=5))
         self.addParameter(QgsProcessingParameterNumber(
             self.STRIDE, self.tr("Calibration subsample stride"),
-            type=QgsProcessingParameterNumber.Integer, defaultValue=4))
+            type=QgsProcessingParameterNumber.Type.Integer, defaultValue=4))
         self.addParameter(QgsProcessingParameterBoolean(
             self.DO_MERGE, self.tr("Merge finest DEM + all corrected DEMs"), defaultValue=True))
         self.addParameter(QgsProcessingParameterEnum(
@@ -1070,13 +1073,13 @@ class DemCorrectionReportAlgorithm(QgsProcessingAlgorithm):
             options=MERGE_EXTENT_OPTIONS, defaultValue=0))
         self.addParameter(QgsProcessingParameterNumber(
             self.MERGE_RESOLUTION, self.tr("Merge resolution (m)"),
-            type=QgsProcessingParameterNumber.Double, defaultValue=2.5))
+            type=QgsProcessingParameterNumber.Type.Double, defaultValue=2.5))
         self.addParameter(QgsProcessingParameterNumber(
             self.REPORT_STRIDE, self.tr("Report sample stride (for Statistics/Visualization tabs)"),
-            type=QgsProcessingParameterNumber.Integer, defaultValue=20, minValue=1))
+            type=QgsProcessingParameterNumber.Type.Integer, defaultValue=20, minValue=1))
         self.addParameter(QgsProcessingParameterNumber(
             self.REPORT_MAX_POINTS, self.tr("Report max sample points"),
-            type=QgsProcessingParameterNumber.Integer, defaultValue=200000, minValue=100))
+            type=QgsProcessingParameterNumber.Type.Integer, defaultValue=200000, minValue=100))
         self.addParameter(QgsProcessingParameterBoolean(
             self.FORCE_RERUN, self.tr("Force re-run everything (ignore checkpoint.json)"),
             defaultValue=False))
@@ -1170,14 +1173,12 @@ class DemCorrectionReportAlgorithm(QgsProcessingAlgorithm):
         for i, s in enumerate(stages, start=1):
             summary_lines.append(f"  Stage {i}: {s['output_path']}  (method: {s['method_used']})")
 
-        try:
+        with suppress(Exception):
             for s in stages:
                 name = os.path.splitext(os.path.basename(s["output_path"]))[0]
                 lyr = QgsRasterLayer(s["output_path"], name)
                 if lyr.isValid():
                     QgsProject.instance().addMapLayer(lyr)
-        except Exception:
-            pass
 
         out_merge_path = ""
         if do_merge:
@@ -1192,13 +1193,11 @@ class DemCorrectionReportAlgorithm(QgsProcessingAlgorithm):
             out_merge_path, _ = run_merge(sources, bounds, merge_resolution, out_merge_path,
                                            out_dir, checkpoint, log, force=force, cancel_check=cancel_check)
             summary_lines.append(f"Merged output: {out_merge_path}")
-            try:
+            with suppress(Exception):
                 name = os.path.splitext(os.path.basename(out_merge_path))[0]
                 lyr = QgsRasterLayer(out_merge_path, name)
                 if lyr.isValid():
                     QgsProject.instance().addMapLayer(lyr)
-            except Exception:
-                pass
 
         feedback.setProgress(70)
 
@@ -1293,17 +1292,17 @@ class DemPointSampleExportAlgorithm(QgsProcessingAlgorithm):
     def initAlgorithm(self, config=None):
         self.addParameter(QgsProcessingParameterMultipleLayers(
             self.INPUT_DEMS, self.tr("DEM layers to sample (2 or more)"),
-            layerType=QgsProcessing.TypeRaster))
+            layerType=QgsProcessing.SourceType.TypeRaster))
         self.addParameter(QgsProcessingParameterString(
             self.NODATA_OVERRIDES,
             self.tr("NoData overrides (comma-separated, matching DEM order; blank = use each layer's own NoData)"),
             defaultValue="", optional=True))
         self.addParameter(QgsProcessingParameterNumber(
             self.STRIDE, self.tr("Pixel stride (sample every Nth pixel)"),
-            type=QgsProcessingParameterNumber.Integer, defaultValue=20, minValue=1))
+            type=QgsProcessingParameterNumber.Type.Integer, defaultValue=20, minValue=1))
         self.addParameter(QgsProcessingParameterNumber(
             self.MAX_ROWS, self.tr("Max rows (Excel limit is ~1,048,576)"),
-            type=QgsProcessingParameterNumber.Integer, defaultValue=SAFETY_MARGIN_ROWS, minValue=1))
+            type=QgsProcessingParameterNumber.Type.Integer, defaultValue=SAFETY_MARGIN_ROWS, minValue=1))
         self.addParameter(QgsProcessingParameterString(
             self.FILE_NAME, self.tr("Output file name"), defaultValue="dem_point_samples.xlsx"))
         self.addParameter(QgsProcessingParameterFolderDestination(

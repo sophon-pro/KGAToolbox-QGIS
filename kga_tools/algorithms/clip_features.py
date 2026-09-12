@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from contextlib import suppress
+
 from qgis.PyQt.QtCore import QCoreApplication, Qt
 from qgis.PyQt.QtWidgets import QAbstractItemView, QListWidget, QListWidgetItem
 
@@ -294,10 +296,8 @@ class ClipDialog(ModifyFeaturesDialog):
     def cleanup(self):
         for signal, slot in ((QgsProject.instance().layersAdded, self._rebuild_targets),
                              (QgsProject.instance().layersRemoved, self._rebuild_targets)):
-            try:
+            with suppress(Exception):
                 signal.disconnect(slot)
-            except Exception:
-                pass
         super().cleanup()
 
 

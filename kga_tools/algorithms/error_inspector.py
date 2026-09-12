@@ -40,8 +40,8 @@ class ErrorInspectorDialog(QDialog):
         self.setWindowTitle('Error Inspector')
         # Qt.Window gives it a real title bar with minimise/maximise, so the
         # user can park it beside QGIS instead of docking it.
-        self.setWindowFlags(self.windowFlags() | Qt.Window |
-                            Qt.WindowMinMaxButtonsHint)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.Window |
+                            Qt.WindowType.WindowMinMaxButtonsHint)
         self.setMinimumSize(480, 320)
         self.resize(560, 420)
 
@@ -50,11 +50,11 @@ class ErrorInspectorDialog(QDialog):
         self.table = QTableWidget()
         self.table.setColumnCount(3)
         self.table.setHorizontalHeaderLabels(['FID', 'Error Type', 'Layer Name'])
-        self.table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.horizontalHeader().setSectionResizeMode(
-            1, QHeaderView.ResizeToContents)
+            1, QHeaderView.ResizeMode.ResizeToContents)
         self.table.itemSelectionChanged.connect(self.zoom_to_error)
         self._last_zoom_target = None
 
@@ -195,7 +195,7 @@ class ErrorInspectorDialog(QDialog):
                     fid_item = QTableWidgetItem(str(feat.id()))
                     # Keep the backing error-layer ID out of the UI while
                     # retaining it for Zoom to Error.
-                    fid_item.setData(Qt.UserRole, layer.id())
+                    fid_item.setData(Qt.ItemDataRole.UserRole, layer.id())
                     self.table.setItem(row, 0, fid_item)
                     value = feat.attribute(error_idx) if error_idx >= 0 else None
                     self.table.setItem(row, 1, QTableWidgetItem(
@@ -233,7 +233,7 @@ class ErrorInspectorDialog(QDialog):
         item = self.table.item(rows[0].row(), 0)
         if item is None:
             return None
-        return (item.data(Qt.UserRole), int(item.text()))
+        return (item.data(Qt.ItemDataRole.UserRole), int(item.text()))
 
     @staticmethod
     def _error_type(value):
@@ -388,7 +388,7 @@ def show_error_inspector():
         # Already open: catch it up with anything that changed since.
         DIALOG_INSTANCE.populate_table()
 
-    DIALOG_INSTANCE.setWindowModality(Qt.NonModal)
+    DIALOG_INSTANCE.setWindowModality(Qt.WindowModality.NonModal)
     DIALOG_INSTANCE.show()
     DIALOG_INSTANCE.raise_()
     DIALOG_INSTANCE.activateWindow()

@@ -285,14 +285,14 @@ class ValidateAgainstDomainsAlgorithm(QgsProcessingAlgorithm):
                 report.add_violation(violation)
                 out = QgsFeature(fields)
                 out.setAttributes(violation.as_row())
-                sink.addFeature(out, QgsFeatureSink.FastInsert)
+                sink.addFeature(out, QgsFeatureSink.Flag.FastInsert)
                 if point_sink is not None:
                     geometry = geometries.get(violation.feature_id)
                     if geometry is not None and not geometry.isEmpty():
                         point = QgsFeature(fields)
                         point.setAttributes(violation.as_row())
                         point.setGeometry(geometry.centroid())
-                        point_sink.addFeature(point, QgsFeatureSink.FastInsert)
+                        point_sink.addFeature(point, QgsFeatureSink.Flag.FastInsert)
                 total += 1
 
             report.count(self.tr('violations in {name}').format(

@@ -429,7 +429,7 @@ class XlsxToAttributesAlgorithm(QgsProcessingAlgorithm):
         """
         index = target.fields().indexOf(key_field)
         request = QgsFeatureRequest().setSubsetOfAttributes([index])
-        request.setFlags(QgsFeatureRequest.NoGeometry)
+        request.setFlags(QgsFeatureRequest.Flag.NoGeometry)
 
         by_key = {}
         duplicates = set()
@@ -483,7 +483,7 @@ class XlsxToAttributesAlgorithm(QgsProcessingAlgorithm):
         # One pass over the features that are actually referenced.
         current = {}
         request = QgsFeatureRequest().setFilterFids(list(wanted_fids))
-        request.setFlags(QgsFeatureRequest.NoGeometry)
+        request.setFlags(QgsFeatureRequest.Flag.NoGeometry)
         for feature in target.getFeatures(request):
             current[feature.id()] = {
                 name: feature.attribute(index)

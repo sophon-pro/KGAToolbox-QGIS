@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+from contextlib import suppress
 
 from osgeo import ogr, gdal
 
@@ -78,14 +79,12 @@ def sources_from_mimedata(md):
     """Return [(path, layer_name_or_None), ...] from a drop event."""
     found = []
     if md.hasFormat(QGIS_MIME):
-        try:
+        with suppress(Exception):
             for u in QgsMimeDataUtils.decodeUriList(md):
                 path, layer = split_uri(u.uri)
                 if not layer and u.name and is_database(path):
                     layer = u.name
                 found.append((path, layer))
-        except Exception:
-            pass
     if not found and md.hasUrls():
         for url in md.urls():
             local = url.toLocalFile()
@@ -209,7 +208,7 @@ class LayerExportImportDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Layer Export / Import")
-        self.setWindowFlags(self.windowFlags() | Qt.Window)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.Window)
         self.setAcceptDrops(True)
         self.resize(760, 560)
         self.import_path = ""
@@ -229,16 +228,16 @@ class LayerExportImportDialog(QDialog):
         self.export_table.setColumnCount(4)
         self.export_table.setHorizontalHeaderLabels(
             ["Layer", "Geometry", "Features", "Export As"])
-        self.export_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.export_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.export_table.setAlternatingRowColors(True)
         self.export_table.verticalHeader().setDefaultSectionSize(22)
         self.export_table.itemChanged.connect(self.update_export_count)
         self.export_table.cellDoubleClicked.connect(self.toggle_export_row)
         exp_header = self.export_table.horizontalHeader()
-        exp_header.setSectionResizeMode(0, QHeaderView.Stretch)
-        exp_header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        exp_header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        exp_header.setSectionResizeMode(3, QHeaderView.Stretch)
+        exp_header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        exp_header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        exp_header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        exp_header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         exp_header.setHighlightSections(False)
         self.layout_export.addWidget(self.export_table)
 
@@ -322,16 +321,16 @@ class LayerExportImportDialog(QDialog):
         self.import_table.setColumnCount(4)
         self.import_table.setHorizontalHeaderLabels(
             ["Layer", "Geometry", "Features", "Add As"])
-        self.import_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.import_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.import_table.setAlternatingRowColors(True)
         self.import_table.verticalHeader().setDefaultSectionSize(22)
         self.import_table.itemChanged.connect(self.update_import_count)
         self.import_table.cellDoubleClicked.connect(self.toggle_import_row)
         imp_header = self.import_table.horizontalHeader()
-        imp_header.setSectionResizeMode(0, QHeaderView.Stretch)
-        imp_header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        imp_header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        imp_header.setSectionResizeMode(3, QHeaderView.Stretch)
+        imp_header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        imp_header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        imp_header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        imp_header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         imp_header.setHighlightSections(False)
         self.layout_import.addWidget(self.import_table)
 
@@ -427,8 +426,8 @@ class LayerExportImportDialog(QDialog):
         for row in range(self.export_table.rowCount()):
             item = self.export_table.item(row, 0)
             if item:
-                previous[item.data(Qt.UserRole)] = (
-                    item.checkState() == Qt.Checked,
+                previous[item.data(Qt.ItemDataRole.UserRole)] = (
+                    item.checkState() == Qt.CheckState.Checked,
                     self.export_table.item(row, 3).text())
 
         layers, skipped = self.project_vector_layers()
@@ -439,21 +438,21 @@ class LayerExportImportDialog(QDialog):
             was_checked, old_name = previous.get(lyr.id(), (False, None))
 
             name_item = QTableWidgetItem(lyr.name())
-            name_item.setData(Qt.UserRole, lyr.id())
-            name_item.setFlags((name_item.flags() | Qt.ItemIsUserCheckable)
-                               & ~Qt.ItemIsEditable)
-            name_item.setCheckState(Qt.Checked if was_checked else Qt.Unchecked)
+            name_item.setData(Qt.ItemDataRole.UserRole, lyr.id())
+            name_item.setFlags((name_item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                               & ~Qt.ItemFlag.ItemIsEditable)
+            name_item.setCheckState(Qt.CheckState.Checked if was_checked else Qt.CheckState.Unchecked)
 
             geom_item = QTableWidgetItem(geometry_name(lyr))
-            geom_item.setFlags(geom_item.flags() & ~Qt.ItemIsEditable)
+            geom_item.setFlags(geom_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
 
             try:
                 count = lyr.featureCount()
             except Exception:
                 count = -1
             count_item = QTableWidgetItem(format_count(count))
-            count_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            count_item.setFlags(count_item.flags() & ~Qt.ItemIsEditable)
+            count_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            count_item.setFlags(count_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
 
             out_item = QTableWidgetItem(old_name or safe_layer_name(lyr.name()))
             out_item.setToolTip("Double-click to change the name used in the target.")
@@ -471,13 +470,16 @@ class LayerExportImportDialog(QDialog):
         if column == 3:          # let the name column be edited normally
             return
         item = self.export_table.item(row, 0)
-        item.setCheckState(Qt.Unchecked if item.checkState() == Qt.Checked else Qt.Checked)
+        item.setCheckState(
+            Qt.CheckState.Unchecked
+            if item.checkState() == Qt.CheckState.Checked
+            else Qt.CheckState.Checked)
 
     def checked_export_rows(self):
         rows = []
         for row in range(self.export_table.rowCount()):
             item = self.export_table.item(row, 0)
-            if item and item.checkState() == Qt.Checked:
+            if item and item.checkState() == Qt.CheckState.Checked:
                 rows.append(row)
         return rows
 
@@ -496,14 +498,14 @@ class LayerExportImportDialog(QDialog):
     def select_all_export(self):
         self.export_table.blockSignals(True)
         for row in range(self.export_table.rowCount()):
-            self.export_table.item(row, 0).setCheckState(Qt.Checked)
+            self.export_table.item(row, 0).setCheckState(Qt.CheckState.Checked)
         self.export_table.blockSignals(False)
         self.update_export_count()
 
     def clear_all_export(self):
         self.export_table.blockSignals(True)
         for row in range(self.export_table.rowCount()):
-            self.export_table.item(row, 0).setCheckState(Qt.Unchecked)
+            self.export_table.item(row, 0).setCheckState(Qt.CheckState.Unchecked)
         self.export_table.blockSignals(False)
         self.update_export_count()
 
@@ -555,7 +557,7 @@ class LayerExportImportDialog(QDialog):
         layer_map = {lyr.id(): lyr for lyr in self.project_vector_layers()[0]}
 
         progress = QProgressDialog("Exporting layers...", "Cancel", 0, len(rows), self)
-        progress.setWindowModality(Qt.WindowModal)
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
         progress.setMinimumDuration(0)
 
         success, failed, done = 0, 0, 0
@@ -565,7 +567,7 @@ class LayerExportImportDialog(QDialog):
             if progress.wasCanceled():
                 break
 
-            layer_id = self.export_table.item(row, 0).data(Qt.UserRole)
+            layer_id = self.export_table.item(row, 0).data(Qt.ItemDataRole.UserRole)
             layer = layer_map.get(layer_id) or project.mapLayer(layer_id)
             source_name = self.export_table.item(row, 0).text()
 
@@ -600,7 +602,7 @@ class LayerExportImportDialog(QDialog):
             options.fileEncoding = 'UTF-8'
             options.onlySelectedFeatures = only_selected
             # Plain CSV drops the geometry; WKT keeps it in a readable column.
-            if driver == 'CSV' and layer.geometryType() != QgsWkbTypes.NullGeometry:
+            if driver == 'CSV' and layer.geometryType() != QgsWkbTypes.GeometryType.NullGeometry:
                 options.layerOptions = ['GEOMETRY=AS_WKT']
 
             if single_file:
@@ -608,16 +610,16 @@ class LayerExportImportDialog(QDialog):
                 options.layerName = final_name
                 try:
                     options.actionOnExistingFile = (
-                        QgsVectorFileWriter.CreateOrOverwriteFile
+                        QgsVectorFileWriter.ActionOnExistingFile.CreateOrOverwriteFile
                         if not os.path.exists(dest)
-                        else QgsVectorFileWriter.CreateOrOverwriteLayer)
+                        else QgsVectorFileWriter.ActionOnExistingFile.CreateOrOverwriteLayer)
                 except AttributeError:
                     pass
             else:
                 dest = os.path.join(out_dir, final_name + extension)
                 try:
                     options.actionOnExistingFile = \
-                        QgsVectorFileWriter.CreateOrOverwriteFile
+                        QgsVectorFileWriter.ActionOnExistingFile.CreateOrOverwriteFile
                 except AttributeError:
                     pass
 
@@ -643,7 +645,7 @@ class LayerExportImportDialog(QDialog):
                         "file.")
         box = QMessageBox(self)
         box.setWindowTitle("Export Complete")
-        box.setIcon(QMessageBox.Information if failed == 0 else QMessageBox.Warning)
+        box.setIcon(QMessageBox.Icon.Information if failed == 0 else QMessageBox.Icon.Warning)
         box.setText(summary)
         if errors:
             box.setDetailedText("\n".join(errors[:50]))
@@ -667,7 +669,7 @@ class LayerExportImportDialog(QDialog):
             msg = res[1] if len(res) > 1 else ""
         else:
             err, msg = res, ""
-        return err == QgsVectorFileWriter.NoError, msg
+        return err == QgsVectorFileWriter.WriterError.NoError, msg
 
     # ---------------- Tab 2: import into the project ----------------
     def browse_import_file(self):
@@ -709,17 +711,17 @@ class LayerExportImportDialog(QDialog):
         self.import_table.setRowCount(len(layers))
         for row, (name, geom, count) in enumerate(layers):
             name_item = QTableWidgetItem(name)
-            name_item.setData(Qt.UserRole, name)
-            name_item.setFlags((name_item.flags() | Qt.ItemIsUserCheckable)
-                               & ~Qt.ItemIsEditable)
-            name_item.setCheckState(Qt.Checked)
+            name_item.setData(Qt.ItemDataRole.UserRole, name)
+            name_item.setFlags((name_item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                               & ~Qt.ItemFlag.ItemIsEditable)
+            name_item.setCheckState(Qt.CheckState.Checked)
 
             geom_item = QTableWidgetItem(geom or "-")
-            geom_item.setFlags(geom_item.flags() & ~Qt.ItemIsEditable)
+            geom_item.setFlags(geom_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
 
             count_item = QTableWidgetItem(format_count(count))
-            count_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            count_item.setFlags(count_item.flags() & ~Qt.ItemIsEditable)
+            count_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            count_item.setFlags(count_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
 
             as_item = QTableWidgetItem(name)
             as_item.setToolTip("Double-click to change the name used in the project.")
@@ -736,13 +738,16 @@ class LayerExportImportDialog(QDialog):
         if column == 3:          # let the name column be edited normally
             return
         item = self.import_table.item(row, 0)
-        item.setCheckState(Qt.Unchecked if item.checkState() == Qt.Checked else Qt.Checked)
+        item.setCheckState(
+            Qt.CheckState.Unchecked
+            if item.checkState() == Qt.CheckState.Checked
+            else Qt.CheckState.Checked)
 
     def checked_import_rows(self):
         rows = []
         for row in range(self.import_table.rowCount()):
             item = self.import_table.item(row, 0)
-            if item and item.checkState() == Qt.Checked:
+            if item and item.checkState() == Qt.CheckState.Checked:
                 rows.append(row)
         return rows
 
@@ -758,14 +763,14 @@ class LayerExportImportDialog(QDialog):
     def select_all_import(self):
         self.import_table.blockSignals(True)
         for row in range(self.import_table.rowCount()):
-            self.import_table.item(row, 0).setCheckState(Qt.Checked)
+            self.import_table.item(row, 0).setCheckState(Qt.CheckState.Checked)
         self.import_table.blockSignals(False)
         self.update_import_count()
 
     def clear_all_import(self):
         self.import_table.blockSignals(True)
         for row in range(self.import_table.rowCount()):
-            self.import_table.item(row, 0).setCheckState(Qt.Unchecked)
+            self.import_table.item(row, 0).setCheckState(Qt.CheckState.Unchecked)
         self.import_table.blockSignals(False)
         self.update_import_count()
 
@@ -797,7 +802,7 @@ class LayerExportImportDialog(QDialog):
         target_crs = project.crs()
 
         progress = QProgressDialog("Importing layers...", "Cancel", 0, len(rows), self)
-        progress.setWindowModality(Qt.WindowModal)
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
         progress.setMinimumDuration(0)
 
         success, failed, done = 0, 0, 0
@@ -808,7 +813,7 @@ class LayerExportImportDialog(QDialog):
             if progress.wasCanceled():
                 break
 
-            src_name = self.import_table.item(row, 0).data(Qt.UserRole)
+            src_name = self.import_table.item(row, 0).data(Qt.ItemDataRole.UserRole)
             out_name = self.import_table.item(row, 3).text().strip() or src_name
 
             progress.setLabelText("Importing {0}...".format(out_name))
@@ -860,7 +865,7 @@ class LayerExportImportDialog(QDialog):
                         "imported layers to the project' is off.")
         box = QMessageBox(self)
         box.setWindowTitle("Import Complete")
-        box.setIcon(QMessageBox.Information if failed == 0 else QMessageBox.Warning)
+        box.setIcon(QMessageBox.Icon.Information if failed == 0 else QMessageBox.Icon.Warning)
         box.setText(summary)
         if errors:
             box.setDetailedText("\n".join(errors[:50]))
@@ -915,7 +920,7 @@ class LayerExportImportAlgorithm(QgsProcessingAlgorithm):
             from qgis.core import Qgis
             return base | Qgis.ProcessingAlgorithmFlag.NoThreading
         except (ImportError, AttributeError):
-            return base | QgsProcessingAlgorithm.FlagNoThreading
+            return base | QgsProcessingAlgorithm.Flag.FlagNoThreading
 
     def initAlgorithm(self, config=None):
         pass
@@ -947,7 +952,7 @@ class LayerExportImportAlgorithm(QgsProcessingAlgorithm):
             # Still open: the Layers panel may have moved on since it was built.
             DIALOG_INSTANCE.load_project_layers()
 
-        DIALOG_INSTANCE.setWindowModality(Qt.NonModal)
+        DIALOG_INSTANCE.setWindowModality(Qt.WindowModality.NonModal)
         DIALOG_INSTANCE.show()
         DIALOG_INSTANCE.raise_()
         DIALOG_INSTANCE.activateWindow()

@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from contextlib import suppress
+
 from qgis.PyQt.QtCore import QCoreApplication, Qt, pyqtSignal
 from qgis.PyQt.QtGui import QColor
 from qgis.PyQt.QtWidgets import (
@@ -37,6 +39,7 @@ from qgis.gui import QgsMapLayerComboBox, QgsMapTool, QgsRubberBand
 from ..branding import LOG_TAG, docs_url, help_button
 from ..core import schema
 from ..core.compat import no_threading, type_name
+from ..core.guards import tried
 # `qgis.PyQt.sip` is the name that works both where sip is a
 # top-level module and where it is only PyQt5.sip; see modify_base.
 from ..gui.modify_base import is_deleted as _is_deleted
@@ -230,11 +233,9 @@ def sweep_stale_bands(canvas, keep=None):
     for item in items:
         if item is keep:
             continue
-        try:
+        with suppress(Exception):           # pragma: no cover
             if item.data(BAND_TAG_KEY) == BAND_TAG:
                 scene.removeItem(item)
-        except Exception:                   # pragma: no cover
-            continue
 
 
 # --------------------------------------------------------------------------- #
@@ -596,7 +597,7 @@ class PasteSpecialDialog(QDialog):
 
         form = QFormLayout()
         self.target_combo = QgsMapLayerComboBox()
-        self.target_combo.setFilters(QgsMapLayerProxyModel.VectorLayer)
+        self.target_combo.setFilters(QgsMapLayerProxyModel.Filter.VectorLayer)
         form.addRow('Paste into', self.target_combo)
         layout.addLayout(form)
 
@@ -1023,10 +1024,8 @@ class CopyPasteDialog(QDialog):
 
         sweep_stale_bands(self.canvas)
         self._band = QgsRubberBand(self.canvas, geometry_type('Line'))
-        try:
+        with suppress(Exception):           # pragma: no cover
             self._band.setData(BAND_TAG_KEY, BAND_TAG)
-        except Exception:                   # pragma: no cover
-            pass
         self._band.setColor(QColor(255, 120, 0, 190))
         self._band.setWidth(2)
         try:
@@ -1037,7 +1036,7 @@ class CopyPasteDialog(QDialog):
         except AttributeError:              # pragma: no cover - older QGIS
             pass
         try:
-            self._band.setIcon(QgsRubberBand.ICON_CIRCLE)
+            self._band.setIcon(QgsRubberBand.IconType.ICON_CIRCLE)
             self._band.setIconSize(9)
         except AttributeError:              # pragma: no cover
             pass
@@ -1054,7 +1053,7 @@ class CopyPasteDialog(QDialog):
 
         form = QFormLayout()
         self.layer_combo = QgsMapLayerComboBox()
-        self.layer_combo.setFilters(QgsMapLayerProxyModel.VectorLayer)
+        self.layer_combo.setFilters(QgsMapLayerProxyModel.Filter.VectorLayer)
         form.addRow('Copy from', self.layer_combo)
         layout.addLayout(form)
 
@@ -1141,10 +1140,8 @@ class CopyPasteDialog(QDialog):
             self._refresh()
             return
         if self._watched is not None:
-            try:
+            with suppress(Exception):
                 self._watched.selectionChanged.disconnect(self._refresh)
-            except Exception:
-                pass
         self._watched = layer
         if layer is not None:
             layer.selectionChanged.connect(self._refresh)
@@ -1186,9 +1183,7 @@ class CopyPasteDialog(QDialog):
                 continue
             drawn = QgsGeometry(geometry)
             if transform is not None:
-                try:
-                    drawn.transform(transform)
-                except Exception:           # pragma: no cover
+                if not tried(drawn.transform, transform):   # pragma: no cover
                     continue
             # No layer argument: the geometry is already in the canvas CRS.
             self._band.addGeometry(drawn, None)
@@ -1372,12 +1367,10 @@ class CopyPasteDialog(QDialog):
             band.reset(geometry_type('Line'))
             # reset() empties the band but leaves the item in the scene; take
             # it out so the band dies with the dialog instead of outliving it.
-            try:
+            with suppress(Exception):       # pragma: no cover
                 scene = self.canvas.scene()
                 if scene is not None:
                     scene.removeItem(band)
-            except Exception:               # pragma: no cover
-                pass
 
         signals = [(self.canvas.mapToolSet, self._map_tool_set),
                    (self.canvas.destinationCrsChanged, self._refresh_band)]
@@ -1385,10 +1378,8 @@ class CopyPasteDialog(QDialog):
             signals.append((self._watched.selectionChanged, self._refresh))
             self._watched = None
         for signal, slot in signals:
-            try:
+            with suppress(Exception):
                 signal.disconnect(slot)
-            except Exception:
-                pass
         self.canvas.refresh()
 
     def done(self, result):

@@ -263,7 +263,7 @@ class CSVtoDEMContour(QgsProcessingAlgorithm):
 
         self.addParameter(QgsProcessingParameterFile(
             self.INPUT_CSV, self.tr("Input Point CSV"),
-            behavior=QgsProcessingParameterFile.File,
+            behavior=QgsProcessingParameterFile.Behavior.File,
             fileFilter="CSV Files (*.csv);;All Files (*.*)",
         ))
 
@@ -273,7 +273,7 @@ class CSVtoDEMContour(QgsProcessingAlgorithm):
 
         self.addParameter(QgsProcessingParameterNumber(
             self.RESOLUTION, self.tr("DEM Resolution (m)  [0 = auto-detect]"),
-            type=QgsProcessingParameterNumber.Double,
+            type=QgsProcessingParameterNumber.Type.Double,
             defaultValue=0.0, minValue=0.0, optional=True,
         ))
 
@@ -288,7 +288,7 @@ class CSVtoDEMContour(QgsProcessingAlgorithm):
 
         self.addParameter(QgsProcessingParameterNumber(
             self.EPSG, self.tr("CRS – EPSG Code"),
-            type=QgsProcessingParameterNumber.Integer,
+            type=QgsProcessingParameterNumber.Type.Integer,
             defaultValue=32648,
         ))
 
@@ -299,14 +299,14 @@ class CSVtoDEMContour(QgsProcessingAlgorithm):
 
         self.addParameter(QgsProcessingParameterNumber(
             self.CONTOUR_INT, self.tr("Contour Interval (m)"),
-            type=QgsProcessingParameterNumber.Double,
+            type=QgsProcessingParameterNumber.Type.Double,
             defaultValue=1.0, minValue=0.01,
         ))
 
         self.addParameter(QgsProcessingParameterNumber(
             self.CONTOUR_SMOOTH,
             self.tr("Contour Smoothing – Gaussian σ  (0 = off)"),
-            type=QgsProcessingParameterNumber.Double,
+            type=QgsProcessingParameterNumber.Type.Double,
             defaultValue=1.0, minValue=0.0,
         ))
 

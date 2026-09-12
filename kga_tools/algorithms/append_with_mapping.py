@@ -378,7 +378,7 @@ class AppendWithMappingAlgorithm(QgsProcessingAlgorithm):
                 'off.').format(name=key_field))
             return keys
         request = QgsFeatureRequest().setSubsetOfAttributes([index])
-        request.setFlags(QgsFeatureRequest.NoGeometry)
+        request.setFlags(QgsFeatureRequest.Flag.NoGeometry)
         for feature in target.getFeatures(request):
             keys[_key_of(feature.attribute(index))] = feature.id()
         return keys

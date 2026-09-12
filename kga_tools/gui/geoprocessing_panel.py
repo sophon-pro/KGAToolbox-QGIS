@@ -13,6 +13,8 @@ than Qt.UserRole) because the unscoped spelling is removed in PyQt6, which QGIS
 moves to in 4.0. The scoped form works in PyQt5 as well.
 """
 
+from contextlib import suppress
+
 from qgis.core import QgsSettings
 from qgis.gui import QgsDockWidget, QgsFilterLineEdit
 from qgis.PyQt.QtCore import Qt, pyqtSignal
@@ -208,11 +210,9 @@ class KgaGeoprocessingPanel(QgsDockWidget):
     @staticmethod
     def _matches(alg, text):
         haystack = [alg.displayName(), alg.name(), alg.group() or '']
-        try:
+        # tags() is optional on an algorithm and may not be implemented.
+        with suppress(Exception):
             haystack.extend(alg.tags())
-        except Exception:
-            # tags() is optional on an algorithm and may not be implemented.
-            pass
         return any(text in part.lower() for part in haystack if part)
 
     def _add_section(self, label, section_kind, section_icon):

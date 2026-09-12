@@ -13,6 +13,7 @@ because the unscoped spelling is gone in PyQt6, which QGIS 4 moves to.
 """
 
 import os
+from contextlib import suppress
 
 try:
     import configparser
@@ -73,13 +74,11 @@ def _metadata():
     if configparser is None or not os.path.exists(path):
         return version, author
     parser = configparser.ConfigParser(interpolation=None)
-    try:
+    # A malformed metadata.txt should not stop the dialog from opening.
+    with suppress(Exception):
         parser.read(path, encoding='utf-8')
         version = parser.get('general', 'version', fallback=version)
         author = parser.get('general', 'author', fallback=author)
-    except Exception:
-        # A malformed metadata.txt should not stop the dialog from opening.
-        pass
     return version, author
 
 
