@@ -1,25 +1,4 @@
 # -*- coding: utf-8 -*-
-"""Append features into an existing layer, through an explicit field mapping.
-
-`native:mergevectorlayers` unions schemas naively and produces a wide junk
-table when the sources disagree. `native:refactorfields` maps fields properly
-but writes a new layer rather than appending into one that already exists.
-Appending several differently-shaped sources into one target is a routine job
-with no good tool, and this is it.
-
-The mapping UI is `QgsProcessingParameterFieldMapping` — the same parameter
-type that powers Refactor Fields — rather than a bespoke widget, so the dialog
-looks and behaves like the rest of QGIS.
-
-Two rules this module will not bend on:
-
-* Nothing is written until the mapping has been checked against the target's
-  real fields. A mapping that names a field the target does not have is the
-  single most common way an append tool loses data, so it aborts instead.
-* Every conversion that loses information is counted and reported. QGIS will
-  happily write a value that does not fit and leave a NULL behind; `core.schema`
-  catches those and the report names every one.
-"""
 
 import json
 import os
@@ -48,7 +27,7 @@ from qgis.core import (
 )
 from qgis.PyQt.QtCore import QCoreApplication
 
-from ..branding import LOG_TAG
+from ..branding import LOG_TAG, docs_url
 from ..core import schema
 from ..core.changelog import ChangeReport, FieldChange
 from ..core.compat import no_threading
@@ -101,7 +80,7 @@ class AppendWithMappingAlgorithm(QgsProcessingAlgorithm):
         return 'kgaschematools'
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/append_with_mapping'
+        return docs_url('append_with_mapping')
 
     def shortHelpString(self):
         return self.tr(
@@ -563,7 +542,7 @@ class GenerateFieldMappingAlgorithm(QgsProcessingAlgorithm):
         return 'kgaschematools'
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/generate_field_mapping'
+        return docs_url('generate_field_mapping')
 
     def shortHelpString(self):
         return self.tr(

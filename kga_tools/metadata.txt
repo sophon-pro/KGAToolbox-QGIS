@@ -4,7 +4,7 @@ qgisMinimumVersion=3.28
 description=Spatial data management, schema, editing, conversion and topology utilities.
 about=KGA Toolbox bundles the KGA processing algorithms into a single provider with a dedicated toolbar. It adds the things QGIS leaves out: a two-way converter between an ArcGIS File Geodatabase and a GeoPackage that carries field domains and layer aliases across, an editor for GeoPackage field domains, an append tool with a real field mapping, a safe attribute round-trip to Excel, a self-contained layer package format, topology checks with an error inspector, and a set of interactive editing tools modelled on the ArcGIS Pro Modify Features pane.
 version=0.1.0
-author=Sophonthoy, Khmer GRS Academy (KGA)
+author=Khmer GRS Academy (KGA)
 email=khmergiscademy@gmail.com
 
 homepage=https://khmergrs.com/
@@ -21,10 +21,11 @@ tags=processing,topology,geopackage,filegdb,geodatabase,arcgis,conversion,domain
 
 changelog=
     0.1.0 - First public release. The algorithms are registered under one
-            provider, KGA Toolbox, and grouped as KGA Data, KGA Schema Tools,
-            KGA Geometry, KGA Editing Tools, KGA Topology, KGA Packages and
-            KGA Irrigation Tools. Every algorithm carries a Help button that
-            lands on the KGA docs.
+            provider, KGA Toolbox, and grouped as KGA Data Management, KGA
+            Schema Tools, KGA Editing Tools, KGA Geometry Utilities, KGA
+            Topology, KGA Data Conversion and KGA Irrigation Tools. Every
+            algorithm carries a Help button that opens its page in the
+            documentation bundled with the plugin.
             Conversion: File Geodatabase to GeoPackage and GeoPackage to File
             Geodatabase, a whole container at a time. Field domains,
             non-spatial tables, Z/M values and curves travel with the data;

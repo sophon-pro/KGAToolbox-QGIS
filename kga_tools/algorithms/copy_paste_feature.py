@@ -1,42 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Copy-Paste Feature (interactive)
-================================
-
-Replica of the ArcGIS Pro *Copy* / **Paste Special** pair.
-
-Pick a source layer, put features on the KGA clipboard - either from the
-layer's current selection or by clicking them on the map - then press
-**Paste Special** and choose where they land:
-
-  * which layer receives them,
-  * what happens to the attributes: matched by name, mapped by hand field by
-    field, or dropped so the target's own defaults apply,
-  * what happens to the geometry: reprojected to the target CRS, promoted to
-    multipart, exploded into single parts, Z/M added or dropped.
-
-Why not the QGIS clipboard? ``Edit > Paste Features As`` writes a *new* scratch
-layer, and pasting into an existing layer only works when the two schemas
-already line up - values under a differently-spelled field name are dropped
-without a word. This tool never drops a value quietly: every field that could
-not be carried across is either mapped explicitly or named in the paste report.
-
-Three rules this module will not bend on:
-
-* The clipboard holds copies, not references. A source layer that is closed,
-  edited or rolled back after the copy cannot change what gets pasted.
-* Nothing is written outside an edit command. One paste is one undo step, so
-  Ctrl+Z takes the whole thing back.
-* Every value that had to change on the way in is counted and reported.
-  ``core.schema.coerce`` catches the conversions QGIS would otherwise turn into
-  a silent NULL.
-
-Like ``sequential_numbering_dialog``, the dialog is modeless and outlives the
-run that opened it, so ``CopyPasteFeatureAlgorithm`` at the bottom is only a
-launcher: the dialog lives in a module global and is closed by
-``close_copy_paste_feature()``, which ``KgaToolsPlugin.unload`` calls.
-"""
-
 from qgis.PyQt.QtCore import QCoreApplication, Qt, pyqtSignal
 from qgis.PyQt.QtGui import QColor
 from qgis.PyQt.QtWidgets import (
@@ -72,9 +34,12 @@ from qgis.core import (
 )
 from qgis.gui import QgsMapLayerComboBox, QgsMapTool, QgsRubberBand
 
-from ..branding import LOG_TAG
+from ..branding import LOG_TAG, docs_url, help_button
 from ..core import schema
 from ..core.compat import no_threading, type_name
+# `qgis.PyQt.sip` is the name that works both where sip is a
+# top-level module and where it is only PyQt5.sip; see modify_base.
+from ..gui.modify_base import is_deleted as _is_deleted
 
 try:
     from qgis.utils import iface
@@ -1130,6 +1095,7 @@ class CopyPasteDialog(QDialog):
         layout.addLayout(paste_buttons)
 
         close_row = QHBoxLayout()
+        close_row.addWidget(help_button('copy_paste_feature', self))
         close_row.addStretch(1)
         self.close_button = QPushButton('Close')
         close_row.addWidget(self.close_button)
@@ -1439,13 +1405,6 @@ class CopyPasteDialog(QDialog):
 #  launcher: the entry the toolbox, toolbar and Geoprocessing panel see
 # --------------------------------------------------------------------------- #
 
-def _is_deleted(obj):
-    try:
-        import sip
-        return sip.isdeleted(obj)
-    except Exception:
-        return False
-
 
 def close_copy_paste_feature():
     """Close the dialog if one is open. Safe to call when none is.
@@ -1488,7 +1447,7 @@ class CopyPasteFeatureAlgorithm(QgsProcessingAlgorithm):
         return 'kgaeditingtools'
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/copy_paste_feature'
+        return docs_url('copy_paste_feature')
 
     def shortHelpString(self):
         return self.tr(

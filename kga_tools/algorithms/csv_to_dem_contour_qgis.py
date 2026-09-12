@@ -1,14 +1,4 @@
-"""
-╔══════════════════════════════════════════════════════╗
-║   CSV → DEM → Contour  —  QGIS Processing Script   ║
-╠══════════════════════════════════════════════════════╣
-║  INSTALL                                            ║
-║  1. Processing Toolbox → ⚙ → Add Script to Toolbox ║
-║  2. Browse to this file → Open                      ║
-║  3. Scripts → Reservoir → CSV to DEM and Contour   ║
-╚══════════════════════════════════════════════════════╝
-"""
-
+# -*- coding: utf-8 -*-
 from qgis.PyQt.QtCore import QCoreApplication
 from qgis.core import (
     QgsProcessingAlgorithm,
@@ -36,11 +26,10 @@ gdal.UseExceptions()
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from ..branding import docs_url
 
 
-# ═══════════════════════════════════════════════════════
-#  CORE FUNCTIONS
-# ═══════════════════════════════════════════════════════
+# ------------------------------------------------------------- CORE FUNCTIONS
 
 def load_points(csv_path, feedback):
     """Load CSV — supports single-layout and dual side-by-side layout."""
@@ -233,9 +222,7 @@ def generate_contours(zg, geo_transform, epsg,
     feedback.pushInfo(f"  Contour   : {out_path}")
 
 
-# ═══════════════════════════════════════════════════════
-#  QGIS PROCESSING ALGORITHM
-# ═══════════════════════════════════════════════════════
+# -------------------------------------------------- QGIS PROCESSING ALGORITHM
 
 class CSVtoDEMContour(QgsProcessingAlgorithm):
 
@@ -256,7 +243,7 @@ class CSVtoDEMContour(QgsProcessingAlgorithm):
     def groupId(self):     return "kgairrigationtools"
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/csvtodemcontour'
+        return docs_url('csvtodemcontour')
     def tr(self, s):       return QCoreApplication.translate("Processing", s)
     def createInstance(self): return CSVtoDEMContour()
 
@@ -335,7 +322,7 @@ class CSVtoDEMContour(QgsProcessingAlgorithm):
             defaultValue=True,
         ))
 
-    # ── run ──────────────────────────────────────────────────────────────────
+    # -------------------------------------------------------------------- run
 
     def processAlgorithm(self, parameters, context, feedback):
 
@@ -343,7 +330,7 @@ class CSVtoDEMContour(QgsProcessingAlgorithm):
         feedback.pushInfo("  CSV → DEM → Contour")
         feedback.pushInfo("=" * 55)
 
-        # ── parameters ───────────────────────────────────────────────────────
+        # --------------------------------------------------------- parameters
         csv_path    = self.parameterAsFile   (parameters, self.INPUT_CSV,      context)
         out_dir     = self.parameterAsString (parameters, self.OUTPUT_FOLDER,  context)
         res_param   = self.parameterAsDouble (parameters, self.RESOLUTION,     context)
@@ -360,13 +347,13 @@ class CSVtoDEMContour(QgsProcessingAlgorithm):
         base    = Path(csv_path).stem
         os.makedirs(out_dir, exist_ok=True)
 
-        # ── Step 1 : Load CSV ─────────────────────────────────────────────────
+        # -------------------------------------------------- Step 1 : Load CSV
         feedback.pushInfo("\n[1/3]  Loading CSV …")
         feedback.setProgress(5)
         if feedback.isCanceled(): return {}
         df = load_points(csv_path, feedback)
 
-        # ── Step 2 : Generate DEM ─────────────────────────────────────────────
+        # ---------------------------------------------- Step 2 : Generate DEM
         feedback.pushInfo("\n[2/3]  Generating DEM …")
         feedback.setProgress(20)
         if feedback.isCanceled(): return {}
@@ -380,7 +367,7 @@ class CSVtoDEMContour(QgsProcessingAlgorithm):
             df, resolution, method, epsg, dem_path, feedback)
         feedback.setProgress(65)
 
-        # ── Step 3 : Generate Contours ────────────────────────────────────────
+        # ----------------------------------------- Step 3 : Generate Contours
         cnt_path = None
         if do_contour:
             feedback.pushInfo("\n[3/3]  Generating Contours …")
@@ -396,7 +383,7 @@ class CSVtoDEMContour(QgsProcessingAlgorithm):
 
         feedback.setProgress(90)
 
-        # ── Load layers into QGIS ─────────────────────────────────────────────
+        # ---------------------------------------------- Load layers into QGIS
         if load_layers:
             feedback.pushInfo("\n  Loading layers into QGIS canvas …")
 
@@ -416,7 +403,7 @@ class CSVtoDEMContour(QgsProcessingAlgorithm):
                 else:
                     feedback.pushWarning(f"  Could not load contour: {cnt_path}")
 
-        # ── Summary ───────────────────────────────────────────────────────────
+        # ------------------------------------------------------------ Summary
         feedback.setProgress(100)
         feedback.pushInfo("\n" + "=" * 55)
         feedback.pushInfo("  ✔  Done!")

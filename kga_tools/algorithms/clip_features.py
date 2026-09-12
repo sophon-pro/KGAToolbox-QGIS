@@ -1,34 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Clip (interactive)
-==================
-
-Replica of the ArcGIS Pro *Modify Features > Clip* pane.
-
-Select the features that define the cut - a road corridor, a reservoir
-footprint, a proposed canal - give them a buffer distance if the cut is wider
-than they are, and then either take that area out of everything around them or
-keep only that area.
-
-Pro's two words for it are the ones on the pane:
-
-* **Discard the area that intersects** - the clip is a hole. Parcels lose the
-  strip the road takes; a parcel entirely inside the corridor is removed.
-* **Preserve the area that intersects** - the clip is a cookie cutter. Each
-  feature is reduced to the part inside it, and anything outside disappears.
-
-Two things this pane insists on, because getting either wrong is expensive:
-
-* **You choose what gets clipped.** Pro clips every editable layer, which is
-  fine when one layer is open for editing and alarming when six are. The list
-  is explicit, it starts on the layers already in edit mode, and every one of
-  them is opened for editing before a single feature is touched - half a clip
-  is worse than none of one.
-* **The clipping features are never clipped.** When the corridor and the
-  parcels are in the same layer, the selected features are skipped, so the
-  corridor does not eat itself.
-"""
-
 from qgis.PyQt.QtCore import QCoreApplication, Qt
 from qgis.PyQt.QtWidgets import QAbstractItemView, QListWidget, QListWidgetItem
 
@@ -58,6 +28,7 @@ from ..gui.modify_dialog import (
     close_dialog,
     show_dialog,
 )
+from ..branding import docs_url
 
 try:
     from qgis.utils import iface
@@ -68,6 +39,7 @@ except ImportError:  # pragma: no cover - head-less
 class ClipDialog(ModifyFeaturesDialog):
     """The Clip window."""
 
+    ALG_NAME = 'clip_features'
     TITLE = 'Clip'
     ACTION_LABEL = 'Clip'
     HINT = ('Tick the layers to clip and choose whether the overlap is '
@@ -360,7 +332,7 @@ class ClipFeaturesAlgorithm(QgsProcessingAlgorithm):
         return 'kgaeditingtools'
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/clip_features'
+        return docs_url('clip_features')
 
     def shortHelpString(self):
         return self.tr(

@@ -81,6 +81,7 @@ from qgis.core import (
 )
 from qgis.gui import QgsMapLayerComboBox, QgsMapTool, QgsRubberBand
 
+from ..branding import help_button
 from ..core.modify_features import (
     AREA_UNITS,
     DISTANCE_UNITS,
@@ -661,6 +662,11 @@ class ModifyFeaturesDialog(QDialog):
     #: One line under the title saying what to do, the way a Pro pane does.
     HINT = ''
 
+    #: The owning algorithm's `name()`, which is what its documentation page is
+    #: keyed by. Set it and the dialog grows a Help button; leave it empty and
+    #: there is none, since there would be nothing to point it at.
+    ALG_NAME = ''
+
     #: Which layers the source combo offers, and which geometry types the tool
     #: can actually work on. Empty ACCEPTS means "whatever the filter let in".
     LAYER_FILTER = layer_filter('VectorLayer')
@@ -760,6 +766,11 @@ class ModifyFeaturesDialog(QDialog):
                 'result can be worked on in turn.'
                 if self.SKIPS_OWN_OUTPUT else ''))
         buttons.addWidget(self.reset_button)
+
+        # These tools are launched without the Processing parameters dialog, so
+        # its Help button never appears for them. This is the same page.
+        if self.ALG_NAME:
+            buttons.addWidget(help_button(self.ALG_NAME, self))
 
         self.close_button = QPushButton('Close')
         buttons.addWidget(self.close_button)

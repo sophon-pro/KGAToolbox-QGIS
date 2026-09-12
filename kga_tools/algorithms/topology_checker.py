@@ -1,30 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Topology Checker - Overlaps & Gaps
-==================================
-
-A QGIS Processing algorithm that checks polygon layers for:
-  * overlaps  - within a single layer and/or between several layers
-  * gaps      - enclosed holes between polygons (slivers, unfilled voids)
-
-Behaviour
----------
-* No errors found  -> a message box tells the user, and any error layers left
-                      over from a previous run are removed from the layer panel.
-* Errors found     -> memory layers "Topology Errors - Overlaps" / "... - Gaps"
-                      are added to the top of the layer panel with the agreed
-                      symbology:
-                          overlap : fill #FF8080, outline #FF0000
-                          gap     : no fill, outline #FF8080
-
-Install
--------
-Processing Toolbox > Scripts (python icon) > "Add Script to Toolbox..."
-or drop this file in:
-    <profile>/processing/scripts/
-
-Author: KGA Tools
-"""
 
 from qgis.PyQt.QtCore import QCoreApplication, QTimer
 from qgis.PyQt.QtWidgets import QMessageBox
@@ -50,6 +24,7 @@ from qgis.core import (
 from ..core.compat import (
     T_DOUBLE, T_LONGLONG, T_STRING, make_field, no_threading, source_type,
 )
+from ..branding import docs_url
 
 try:
     from qgis.utils import iface
@@ -104,7 +79,7 @@ class TopologyCheckerAlgorithm(QgsProcessingAlgorithm):
         return 'kgatopology'
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/checkoverlapsandgaps'
+        return docs_url('checkoverlapsandgaps')
 
     def shortHelpString(self):
         return self.tr(

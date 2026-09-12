@@ -32,6 +32,7 @@ from ..branding import (
     algorithm_icon,
     group_icon,
     icon,
+    open_docs,
     ordered_algorithms,
     ordered_groups,
 )
@@ -276,6 +277,11 @@ class KgaGeoprocessingPanel(QgsDockWidget):
 
         if alg_id:
             menu.addAction('Run', lambda: self.algorithmTriggered.emit(alg_id))
+            # The one route to a tool's documentation that works for all of
+            # them. The Processing dialog's own Help button never appears for
+            # the tools that open their own window, because they never show
+            # that dialog.
+            menu.addAction('Help', lambda: open_docs(alg_id.split(':', 1)[-1]))
             menu.addSeparator()
             is_fav = alg_id in favorites()
             label = 'Remove from Favorites' if is_fav else 'Add to Favorites'

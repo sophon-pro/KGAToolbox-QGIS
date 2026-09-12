@@ -1,29 +1,4 @@
-# ============================================================
-#  Create Points From Table - KGA Toolbox  (v2)
-#
-#  Processing Toolbox -> KGA Toolbox -> KGA Data Management
-#  -> Create Points From Table
-#
-#  v2 CHANGES
-#    - Every parameter carries a setHelp() tooltip, and the
-#      file-format knobs moved behind Advanced.
-#    - "Label Field" used to be read, matched, warned about and
-#      then ignored - the tool never labelled anything. It now
-#      styles the loaded layer through a post-processor.
-#    - Numeric columns come out as numbers instead of text, so
-#      graduated symbology and field calculations work on the
-#      result. Turn it off with "Detect numeric columns".
-#    - Optional Z column produces a PointZ layer.
-#    - New: worksheet picker, header row, explicit delimiter and
-#      encoding, all of which used to be guessed or hardcoded.
-#    - Failures raise instead of returning an empty result, so a
-#      broken run no longer reports success with no output.
-#    - Warns when the coordinates look like degrees but the CRS
-#      is projected, or the other way round.
-#    - Skipped-row messages are capped, so a bad file no longer
-#      floods the log with one line per row.
-# ============================================================
-
+# -*- coding: utf-8 -*-
 import csv
 import io
 import os
@@ -62,11 +37,10 @@ from ..core.compat import (
     T_LONGLONG,
     T_STRING,
 )
+from ..branding import docs_url
 
 
-# ══════════════════════════════════════════════════════════
-# ── Constants ─────────────────────────────────────────────
-# ══════════════════════════════════════════════════════════
+# ------------------------------------------------------------------ Constants
 
 #: Column headers recognised when the named one is not found. Single
 #: letters other than x/y/z are deliberately absent - an "N" column is
@@ -113,9 +87,7 @@ except AttributeError:                              # QGIS < 3.36
 _LIVE_POST_PROCESSORS = []
 
 
-# ══════════════════════════════════════════════════════════
-# ── Number parsing ────────────────────────────────────────
-# ══════════════════════════════════════════════════════════
+# ------------------------------------------------------------- Number parsing
 
 def _plain_text(value):
     """`value` as trimmed text, or None if it holds nothing usable."""
@@ -250,9 +222,7 @@ def _column_type(values, decimal="."):
     return T_LONGLONG if integral else T_DOUBLE
 
 
-# ══════════════════════════════════════════════════════════
-# ── Header handling ───────────────────────────────────────
-# ══════════════════════════════════════════════════════════
+# ------------------------------------------------------------ Header handling
 
 def _unique_headers(raw_headers):
     """Usable, distinct field names.
@@ -289,9 +259,7 @@ def _match_header(wanted, headers, aliases):
     return None
 
 
-# ══════════════════════════════════════════════════════════
-# ── Labelling the loaded layer ────────────────────────────
-# ══════════════════════════════════════════════════════════
+# ------------------------------------------------- Labelling the loaded layer
 
 class _PointLabelPostProcessor(QgsProcessingLayerPostProcessorInterface):
     """Switches labelling on once QGIS has loaded the output layer.
@@ -336,9 +304,7 @@ class _PointLabelPostProcessor(QgsProcessingLayerPostProcessorInterface):
                     "Could not switch labelling on: {}".format(exc))
 
 
-# ══════════════════════════════════════════════════════════
-# ── Algorithm ─────────────────────────────────────────────
-# ══════════════════════════════════════════════════════════
+# ------------------------------------------------------------------ Algorithm
 
 class CreatePointsFromTable(QgsProcessingAlgorithm):
 
@@ -356,9 +322,7 @@ class CreatePointsFromTable(QgsProcessingAlgorithm):
     ENCODING      = "ENCODING"
     OUTPUT        = "OUTPUT"
 
-    # ══════════════════════════════════════════
-    # ── Inputs ────────────────────────────────
-    # ══════════════════════════════════════════
+    # ----------------------------------------------------------------- Inputs
     def _add(self, param, help_text, advanced=False):
         """Add a parameter, with its help shown as the widget tooltip."""
         param.setHelp(help_text)
@@ -368,7 +332,7 @@ class CreatePointsFromTable(QgsProcessingAlgorithm):
 
     def initAlgorithm(self, config=None):
 
-        # ── The table ─────────────────────────
+        # ---------------------------------------------------------- The table
         self._add(QgsProcessingParameterFile(
             self.INPUT_FILE, "Input Table",
             behavior=QgsProcessingParameterFile.File,
@@ -383,7 +347,7 @@ class CreatePointsFromTable(QgsProcessingAlgorithm):
             "to be loaded in QGIS first. Multi-sheet workbooks use the first "
             "sheet unless you name another one under Advanced.")
 
-        # ── Coordinates ───────────────────────
+        # -------------------------------------------------------- Coordinates
         self._add(QgsProcessingParameterString(
             self.X_FIELD, "X Column  (Easting or Longitude)",
             defaultValue="X", optional=True),
@@ -419,7 +383,7 @@ class CreatePointsFromTable(QgsProcessingAlgorithm):
             "longitude and latitude. The tool warns if the values look like "
             "the wrong kind for the CRS you picked.")
 
-        # ── Output content ────────────────────
+        # ----------------------------------------------------- Output content
         self._add(QgsProcessingParameterString(
             self.LABEL_FIELD, "Label Points With  (optional)",
             defaultValue="", optional=True),
@@ -447,7 +411,7 @@ class CreatePointsFromTable(QgsProcessingAlgorithm):
             "the run and names the offending value - which is what you want "
             "when the table is meant to be complete.")
 
-        # ── Advanced: how the file is read ────
+        # ------------------------------------- Advanced: how the file is read
         self._add(QgsProcessingParameterString(
             self.SHEET, "Workbook · Worksheet",
             defaultValue="", optional=True),
@@ -481,7 +445,7 @@ class CreatePointsFromTable(QgsProcessingAlgorithm):
             "are usually Windows-1252, not UTF-8. Ignored for Excel and "
             "ODS.", True)
 
-        # ── Output ────────────────────────────
+        # ------------------------------------------------------------- Output
         self._add(QgsProcessingParameterFeatureSink(
             self.OUTPUT, "Output Point Layer",
             type=source_type('VectorPoint')),
@@ -515,9 +479,7 @@ class CreatePointsFromTable(QgsProcessingAlgorithm):
 
         return True, ""
 
-    # ══════════════════════════════════════════
-    # ── Reading the file ──────────────────────
-    # ══════════════════════════════════════════
+    # ------------------------------------------------------- Reading the file
     def _read_text(self, path, codec, feedback):
         """File contents as text, plus the encoding that decoded it."""
         candidates = (codec,) if codec else AUTO_ENCODINGS
@@ -644,9 +606,7 @@ class CreatePointsFromTable(QgsProcessingAlgorithm):
             "No worksheet called '{}'. This workbook has: {}.".format(
                 wanted, ", ".join(names)))
 
-    # ══════════════════════════════════════════
-    # ── Sanity check on the coordinates ───────
-    # ══════════════════════════════════════════
+    # ---------------------------------------- Sanity check on the coordinates
     @staticmethod
     def _crs_warning(crs, x_min, x_max, y_min, y_max):
         """Message when the numbers do not suit the chosen CRS, else None."""
@@ -665,9 +625,7 @@ class CreatePointsFromTable(QgsProcessingAlgorithm):
                     "EPSG:4326.".format(crs.authid() or "The chosen CRS"))
         return None
 
-    # ══════════════════════════════════════════
-    # ── Main ──────────────────────────────────
-    # ══════════════════════════════════════════
+    # ------------------------------------------------------------------- Main
     def processAlgorithm(self, parameters, context, feedback):
 
         path = self.parameterAsFile(parameters, self.INPUT_FILE, context)
@@ -708,7 +666,7 @@ class CreatePointsFromTable(QgsProcessingAlgorithm):
             x_wanted or "auto", y_wanted or "auto",
             z_wanted or "none", label_wanted or "none"))
 
-        # ── Read ──────────────────────────────
+        # --------------------------------------------------------------- Read
         feedback.pushInfo("\nReading the table...")
         grid, file_delimiter = self._read_grid(path, opts, feedback)
 
@@ -734,7 +692,7 @@ class CreatePointsFromTable(QgsProcessingAlgorithm):
                 "The table has headers but no data rows below row "
                 "{}.".format(header_row))
 
-        # ── Resolve the columns ───────────────
+        # ------------------------------------------------ Resolve the columns
         x_header = _match_header(x_wanted, headers, X_ALIASES)
         y_header = _match_header(y_wanted, headers, Y_ALIASES)
         if x_header is None or y_header is None:
@@ -780,7 +738,7 @@ class CreatePointsFromTable(QgsProcessingAlgorithm):
         if label_header:
             feedback.pushInfo("   Label     : '{}'".format(label_header))
 
-        # ── Field types ───────────────────────
+        # -------------------------------------------------------- Field types
         index_of = {name: i for i, name in enumerate(headers)}
 
         def cell(row, name):
@@ -814,7 +772,7 @@ class CreatePointsFromTable(QgsProcessingAlgorithm):
                 "   Decimals  : comma-decimal column(s) {}".format(
                     ", ".join(european)))
 
-        # ── Sink ──────────────────────────────
+        # --------------------------------------------------------------- Sink
         geom_type = wkb_type('PointZ') if z_header else wkb_type('Point')
         sink, dest_id = self.parameterAsSink(
             parameters, self.OUTPUT, context, out_fields, geom_type, crs)
@@ -823,7 +781,7 @@ class CreatePointsFromTable(QgsProcessingAlgorithm):
                 "Could not create the output layer. Check the output path "
                 "is writable and not open in another program.")
 
-        # ── Build the points ──────────────────
+        # --------------------------------------------------- Build the points
         feedback.pushInfo("\nBuilding points...")
         total = len(rows)
         created = skipped = bad_z = 0
@@ -894,7 +852,7 @@ class CreatePointsFromTable(QgsProcessingAlgorithm):
                 "unusable X or Y - check the column names in the log against "
                 "what is really in the file.".format(total))
 
-        # ── Labelling ─────────────────────────
+        # ---------------------------------------------------------- Labelling
         if label_header and context.willLoadLayerOnCompletion(dest_id):
             processor = _PointLabelPostProcessor(label_header)
             _LIVE_POST_PROCESSORS.append(processor)
@@ -908,7 +866,7 @@ class CreatePointsFromTable(QgsProcessingAlgorithm):
                 "added to the project, so no style is applied.".format(
                     label_header))
 
-        # ── Summary ───────────────────────────
+        # ------------------------------------------------------------ Summary
         feedback.pushInfo("\n" + "=" * 60)
         feedback.pushInfo("COMPLETED : {} point(s) from {} row(s)".format(
             created, total))
@@ -932,9 +890,7 @@ class CreatePointsFromTable(QgsProcessingAlgorithm):
 
         return {self.OUTPUT: dest_id}
 
-    # ══════════════════════════════════════════
-    # ── Metadata ──────────────────────────────
-    # ══════════════════════════════════════════
+    # --------------------------------------------------------------- Metadata
     def name(self):
         return "create_points_from_table"
 
@@ -948,7 +904,7 @@ class CreatePointsFromTable(QgsProcessingAlgorithm):
         return "kgadatamanagement"
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/create_points_from_table'
+        return docs_url('create_points_from_table')
 
     def shortDescription(self):
         return ("Build a point layer from the XY columns of a CSV, Excel or "

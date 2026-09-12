@@ -1,16 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-GeoPackage -> Shapefiles
-Exports every spatial layer inside a .gpkg to individual ESRI Shapefiles.
-
-Install:
-    Processing Toolbox > Scripts (python icon) > Add Script to Toolbox...
-    It then appears under  Scripts > KGA Toolbox > GeoPackage to Shapefiles
-
-Notes:
-    - Shapefile field names are truncated to 10 characters (DBF limit).
-    - A .cpg sidecar is written so UTF-8 / Khmer attributes survive.
-"""
 
 import os
 import re
@@ -29,6 +17,7 @@ from qgis.core import (
     QgsVectorFileWriter,
     QgsCoordinateReferenceSystem,
 )
+from ..branding import docs_url
 
 
 class GpkgToShapefiles(QgsProcessingAlgorithm):
@@ -57,7 +46,7 @@ class GpkgToShapefiles(QgsProcessingAlgorithm):
         return 'kgadatamanagement'
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/gpkgtoshapefiles'
+        return docs_url('gpkgtoshapefiles')
 
     def shortHelpString(self):
         return self.tr(

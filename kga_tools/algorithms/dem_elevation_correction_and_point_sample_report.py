@@ -1,57 +1,4 @@
-"""
-DEM Elevation Correction and Point Sample Report -- QGIS Processing Toolbox
-=======================================================================
-ONE file, TWO algorithms, both filed under the "Terrain Analysis" category:
-
-    1. DEM Elevation Correction and Point Sample Report
-       (corrects a chain of DEMs, optionally merges them, and produces a
-        "Statistics" tab and a "Visualization" tab in the Processing
-        Results panel summarizing/plotting the correction quality)
-
-    2. DEM Point Sample Export to Excel
-       (full point-grid export to .xlsx/.csv for your own analysis)
-
-HOW TO INSTALL (pick one):
-
-  A) Add Script to Toolbox (matches the screenshot you sent):
-        Processing Toolbox -> right-click "Scripts" -> "Add Script to
-        Toolbox..." -> select this file. It appears at
-        Scripts -> Terrain Analysis -> DEM Elevation Correction and
-        Point Sample Report (and the export tool alongside it).
-
-  B) Run as a script once per session (registers its own top-level
-     provider instead of nesting under "Scripts"):
-        QGIS Python Console -> Show Editor -> open this file -> Run
-        Script.
-
-  C) Permanent auto-load every time QGIS starts:
-        Save this file as <profile_folder>/python/startup.py (find your
-        profile folder via QgsApplication.qgisSettingsDirPath() in the
-        Python console).
-
-WHAT'S NEW IN THIS VERSION:
-    - Renamed to "DEM Elevation Correction and Point Sample Report".
-    - Filed under a "Terrain Analysis" category (instead of showing
-      directly under Scripts).
-    - Explicit "Reference DEM" parameter: pick the elevation truth (e.g.
-      your LiDAR) directly -- it's never modified and no longer has to be
-      the finest-resolution layer. Every other DEM you select is
-      auto-sorted finest -> coarsest and chained onto it (finest corrected
-      against the reference, next-finest corrected against that result,
-      and so on).
-    - After correcting/merging, it automatically samples points across
-      the reference DEM + every corrected output and builds two report
-      tabs shown in the Processing Results panel next to the Log tab:
-        * Statistics    -- tables of CV-RMSE per stage, raw vs.
-                            corrected elevation-difference stats, and
-                            point-sample summary stats.
-        * Visualization -- charts: CV-RMSE by stage, histograms of the
-                            calibration differences, and a boxplot of
-                            post-correction point-sample differences.
-      (Visualization needs matplotlib; if it isn't available in your
-      QGIS Python environment, that tab shows a plain-text notice
-      instead of failing the whole run.)
-"""
+# -*- coding: utf-8 -*-
 
 import os
 import re
@@ -65,8 +12,6 @@ from osgeo import gdal
 
 from qgis.PyQt.QtCore import QCoreApplication
 from qgis.core import (
-    QgsApplication,
-    QgsProcessingProvider,
     QgsProcessingAlgorithm,
     QgsProcessingParameterMultipleLayers,
     QgsProcessingParameterRasterLayer,
@@ -83,6 +28,7 @@ from qgis.core import (
     QgsRasterLayer,
     QgsProject,
 )
+from ..branding import docs_url
 
 gdal.UseExceptions()
 
@@ -1065,7 +1011,7 @@ class DemCorrectionReportAlgorithm(QgsProcessingAlgorithm):
         return CATEGORY_ID
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/demelevationcorrectionandpointsamplereport'
+        return docs_url('demelevationcorrectionandpointsamplereport')
 
     def shortHelpString(self):
         return self.tr(
@@ -1328,7 +1274,7 @@ class DemPointSampleExportAlgorithm(QgsProcessingAlgorithm):
         return CATEGORY_ID
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/dempointsampleexport'
+        return docs_url('dempointsampleexport')
 
     def shortHelpString(self):
         return self.tr(
@@ -1406,39 +1352,3 @@ class DemPointSampleExportAlgorithm(QgsProcessingAlgorithm):
             self.OUTPUT_FILE: final_path,
             self.OUTPUT_SUMMARY: summary,
         }
-
-
-# ===========================================================================
-# PROVIDER (only used if you run this file directly instead of "Add Script
-# to Toolbox" -- registers both algorithms as their own top-level entry).
-# ===========================================================================
-
-class DemCorrectionProvider(QgsProcessingProvider):
-    def id(self):
-        return "demcorrectiontools"
-
-    def name(self):
-        return "DEM Correction Tools"
-
-    def longName(self):
-        return "DEM Correction Tools (Terrain Analysis: elevation correction, merge, point sampling)"
-
-    def loadAlgorithms(self):
-        self.addAlgorithm(DemCorrectionReportAlgorithm())
-        self.addAlgorithm(DemPointSampleExportAlgorithm())
-
-
-def register_dem_correction_provider():
-    registry = QgsApplication.processingRegistry()
-    existing = registry.providerById("demcorrectiontools")
-    if existing is not None:
-        registry.removeProvider(existing)
-    provider = DemCorrectionProvider()
-    registry.addProvider(provider)
-    return provider
-
-
-# Not registered on import: the KGA Toolbox provider discovers the two
-# algorithms above. Call register_dem_correction_provider() by hand only when
-# running this file standalone outside the plugin.
-# _dem_correction_provider = register_dem_correction_provider()

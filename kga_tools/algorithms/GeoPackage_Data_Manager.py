@@ -1,13 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Spatial Data Manager  (KGA Toolbox)
----------------------------------
-Bulk delete / rename / import layers for GeoPackage, File Geodatabase,
-SpatiaLite and Shapefile folders.
-
-Runs MODELESS so you can drag layers or datasets straight from the QGIS
-Browser panel onto the dialog.
-"""
 
 import os
 import sqlite3
@@ -27,6 +18,7 @@ from qgis.PyQt.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
 from qgis.core import (QgsProcessingAlgorithm, QgsMimeDataUtils, QgsProject,
                        QgsVectorLayer, QgsVectorFileWriter, QgsWkbTypes,
                        QgsMapLayer)
+from ..branding import docs_url, help_button
 
 try:
     from qgis.utils import iface
@@ -34,9 +26,7 @@ except ImportError:      # running outside QGIS
     iface = None
 
 
-# --------------------------------------------------------
-# 0. CONSTANTS & HELPERS
-# --------------------------------------------------------
+# ------------------------------------------------------ constants and helpers
 QGIS_MIME = "application/x-vnd.qgis.qgis.uri"
 
 DB_EXTENSIONS = ('.gpkg', '.gdb', '.sqlite', '.db', '.spatialite')
@@ -177,9 +167,7 @@ def unique_name(base, taken):
     return "{0}_{1}".format(base, i)
 
 
-# --------------------------------------------------------
-# 0b. STYLE HELPERS
-# --------------------------------------------------------
+# -------------------------------------------------------------- style helpers
 # Two ways of shipping a style with the data:
 #
 #   * containers (GeoPackage / SpatiaLite) get the style stored in the
@@ -322,9 +310,7 @@ def save_style_to_container(layer, style_name, as_default):
     return (not text), text
 
 
-# --------------------------------------------------------
-# 1. DROP-AWARE WIDGETS
-# --------------------------------------------------------
+# --------------------------------------------------------- drop-aware widgets
 class DropLineEdit(QLineEdit):
     """Line edit that accepts datasets dragged from the QGIS Browser."""
 
@@ -389,9 +375,7 @@ class ImportTable(QTableWidget):
         self.sourcesDropped.emit(sources)
 
 
-# --------------------------------------------------------
-# 2. LAYER PICKER (for databases / multi-layer files)
-# --------------------------------------------------------
+# -------------------------- layer picker, for databases and multi-layer files
 class LayerPickerDialog(QDialog):
     """Multi-select list of the layers stored inside one data source."""
 
@@ -525,9 +509,7 @@ class LayerPickerDialog(QDialog):
         return self.table.rowCount() > 0
 
 
-# --------------------------------------------------------
-# 3. MAIN DIALOG
-# --------------------------------------------------------
+# ----------------------------------------------------------------- the dialog
 class SpatialDataManagerDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -764,6 +746,7 @@ class SpatialDataManagerDialog(QDialog):
         self.btn_close = QPushButton("Close")
         self.btn_close.clicked.connect(self.close)
         footer.addWidget(self.btn_refresh)
+        footer.addWidget(help_button('spatialdatamanager', self))
         footer.addStretch()
         footer.addWidget(self.btn_close)
         self.layout.addLayout(footer)
@@ -1596,9 +1579,7 @@ class SpatialDataManagerDialog(QDialog):
         return err == QgsVectorFileWriter.NoError, msg
 
 
-# --------------------------------------------------------
-# 5. THE QGIS PROCESSING ALGORITHM WRAPPER
-# --------------------------------------------------------
+# ---------------------------- launcher: the entry the toolbox and toolbar see
 # Module-level reference keeps the modeless dialog alive after
 # processAlgorithm() returns (otherwise Python garbage-collects it).
 DIALOG_INSTANCE = None
@@ -1624,7 +1605,7 @@ class GpkgManagerAlgorithm(QgsProcessingAlgorithm):
         return 'kgadatamanagement'
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/spatialdatamanager'
+        return docs_url('spatialdatamanager')
 
     def shortHelpString(self):
         return self.tr(

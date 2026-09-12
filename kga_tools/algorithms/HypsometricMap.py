@@ -1,8 +1,4 @@
-# ============================================================
-#  DEM Legend Bar — Processing Script
-#  Simple version — Legend Bar PNG only
-# ============================================================
-
+# -*- coding: utf-8 -*-
 from qgis.core import (
     QgsProcessingAlgorithm,
     QgsProcessingParameterMultipleLayers,
@@ -18,6 +14,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import matplotlib.colors as mcolors
 import os
+from ..branding import docs_url
 
 
 class HypsometricMap(QgsProcessingAlgorithm):
@@ -99,14 +96,14 @@ class HypsometricMap(QgsProcessingAlgorithm):
             feedback.pushInfo(f"\n[{i+1}/{len(dem_layers)}] {layer.name()}")
 
             try:
-                # ── Get min/max ───────────────
+                # ------------------------------------------------ Get min/max
                 provider = layer.dataProvider()
                 stats    = provider.bandStatistics(1)
                 vmin     = stats.minimumValue
                 vmax     = stats.maximumValue
                 feedback.pushInfo(f"   Min: {vmin:.2f} | Max: {vmax:.2f}")
 
-                # ── Build colormap ────────────
+                # --------------------------------------------- Build colormap
                 if color_scheme == "from_qgis":
                     try:
                         renderer    = layer.renderer()
@@ -152,7 +149,7 @@ class HypsometricMap(QgsProcessingAlgorithm):
                 else:
                     cmap = plt.get_cmap(color_scheme)
 
-                # ── Draw legend bar ───────────
+                # -------------------------------------------- Draw legend bar
                 plt.switch_backend("Agg")
                 mpl.rcParams.update({"font.family": font_family, "font.size": font_tick})
                 fig = plt.figure(figsize=(1.2, 6.0), dpi=legend_dpi)
@@ -161,7 +158,7 @@ class HypsometricMap(QgsProcessingAlgorithm):
                 norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
                 cb   = mpl.colorbar.ColorbarBase(cax, cmap=cmap, norm=norm, orientation="vertical")
 
-                # ── Smart adaptive ticks ──────
+                # --------------------------------------- Smart adaptive ticks
                 range_val = vmax - vmin
                 if range_val <= 10:
                     step = 1
@@ -235,7 +232,7 @@ class HypsometricMap(QgsProcessingAlgorithm):
     def groupId(self):         return "kgairrigationtools"
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/dem_legend_bar'
+        return docs_url('dem_legend_bar')
     def createInstance(self):  return HypsometricMap()
     def shortHelpString(self):
         return ("Generates legend bar PNG for DEM raster(s)\n\n"

@@ -1,29 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Buffer (interactive)
-====================
-
-Replica of the ArcGIS Pro *Modify Features > Buffer* pane.
-
-Select features of any geometry type, type a distance, and buffer polygons
-appear around them in a polygon layer of your choosing. A well becomes its
-protection zone; a canal becomes its right of way; a village point becomes its
-service area.
-
-Press **Buffer**, then hover a feature to see its buffer in cyan and click to
-write it; drag a path across several to buffer them all.
-
-Pro's pane is short - a template, a distance and a unit - and so is the top of
-this one. The end-cap and corner controls below it are QGIS's own and are what
-decide whether a buffered canal ends in a semicircle or squarely at the last
-vertex; they are on the pane rather than buried because a right of way that
-overshoots its channel by the buffer radius is a real error, not a cosmetic one.
-
-Distances are honest on a layer stored in degrees: the buffer is computed in
-the matching UTM zone and brought back, so a 30 m setback is 30 m at the
-equator and 30 m in the north.
-"""
-
 from qgis.PyQt.QtCore import QCoreApplication
 from qgis.PyQt.QtWidgets import QCheckBox, QSpinBox
 
@@ -50,6 +25,7 @@ from ..gui.modify_dialog import (
     close_dialog,
     show_dialog,
 )
+from ..branding import docs_url
 
 try:
     from qgis.utils import iface
@@ -60,6 +36,7 @@ except ImportError:  # pragma: no cover - head-less
 class BufferDialog(ModifyFeaturesDialog):
     """The Buffer window."""
 
+    ALG_NAME = 'buffer_features'
     TITLE = 'Buffer'
     ACTION_LABEL = 'Buffer'
     HINT = ('Set the distance and the polygon layer the buffers go in, press '
@@ -276,7 +253,7 @@ class BufferFeaturesAlgorithm(QgsProcessingAlgorithm):
         return 'kgaeditingtools'
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/buffer_features'
+        return docs_url('buffer_features')
 
     def shortHelpString(self):
         return self.tr(

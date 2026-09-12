@@ -1,10 +1,4 @@
 # -*- coding: utf-8 -*-
-"""Batch domain tools: apply a library, and validate data against domains.
-
-Both are plain parameter-driven algorithms, so they work in a model, in batch
-mode, and from `processing.run()` — which is the point of having them alongside
-the dialog. The dialog is for exploring; these are for repeating.
-"""
 
 from qgis.core import (
     Qgis,
@@ -25,7 +19,7 @@ from qgis.core import (
 )
 from qgis.PyQt.QtCore import QCoreApplication
 
-from ..branding import LOG_TAG
+from ..branding import LOG_TAG, docs_url
 from ..core import domains as D
 from ..core.changelog import ChangeReport, violation_fields
 from ..core.compat import no_threading, point_wkb_type, source_type
@@ -63,7 +57,7 @@ class ApplyDomainLibraryAlgorithm(QgsProcessingAlgorithm):
         return 'kgaschematools'
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/apply_domain_library'
+        return docs_url('apply_domain_library')
 
     def shortHelpString(self):
         return self.tr(
@@ -190,7 +184,7 @@ class ValidateAgainstDomainsAlgorithm(QgsProcessingAlgorithm):
         return 'kgaschematools'
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/validate_against_domains'
+        return docs_url('validate_against_domains')
 
     def shortHelpString(self):
         return self.tr(

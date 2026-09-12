@@ -1,31 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Construct Polygon (interactive)
-===============================
-
-Replica of the ArcGIS Pro *Modify Features > Construct Polygons* pane.
-
-Take the lines that bound something - the courses of a parcel, the banks and
-end walls of a reservoir, the centrelines of a block of streets - and turn the
-area they enclose into a polygon feature.
-
-Press **Construct**, click each line to take it in, and press Enter. Dragging a
-path across them all does it in one gesture, and lines already selected in the
-layer are in hand the moment the tool is switched on.
-
-The lines have to close. That is the whole condition, and it is the one thing
-this tool refuses on: courses that stop short of one another enclose nothing,
-and rather than writing a polygon that is not the boundary anybody drew, the
-tool says where the gaps are and flashes them on the map. A **Tolerance**
-greater than zero pulls ends that are within it onto one point first, which is
-what closes a boundary that is a millimetre short of meeting itself.
-
-What is offered beyond Pro's pane is the running verdict above the buttons: how
-many lines are in hand, whether they currently close, and how many polygons
-they would make. Whether a boundary closes is a question you otherwise only get
-answered by pressing the button.
-"""
-
 from qgis.PyQt.QtCore import QCoreApplication
 from qgis.PyQt.QtGui import QFont
 from qgis.PyQt.QtWidgets import QCheckBox, QLabel
@@ -49,6 +22,7 @@ from ..gui.modify_dialog import (
     close_dialog,
     show_dialog,
 )
+from ..branding import docs_url
 
 try:
     from qgis.utils import iface
@@ -67,6 +41,7 @@ def plural(count, word, ending='s'):
 class ConstructPolygonDialog(ModifyFeaturesDialog):
     """The Construct Polygon window."""
 
+    ALG_NAME = 'construct_polygon'
     TITLE = 'Construct Polygon'
     ACTION_LABEL = 'Construct'
     HINT = ('Choose the polygon layer the result goes in, press Construct, '
@@ -382,7 +357,7 @@ class ConstructPolygonAlgorithm(QgsProcessingAlgorithm):
         return 'kgaeditingtools'
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/construct_polygon'
+        return docs_url('construct_polygon')
 
     def shortHelpString(self):
         return self.tr(

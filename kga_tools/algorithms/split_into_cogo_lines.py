@@ -1,32 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Split into COGO Lines (interactive)
-===================================
-
-Replica of the ArcGIS Pro *Modify Features > Split into COGO Lines* pane.
-
-Take a boundary - a parcel polygon, a right of way, a surveyed traverse - and
-break it into one line feature per course, each carrying the four COGO values
-a deed is written in: **Direction**, **Distance**, **Radius** and **ArcLength**.
-
-The parts that decide whether the result matches the survey it came from:
-
-* **Arcs stay arcs.** A File Geodatabase parcel boundary holds true circular
-  arcs. Segmenting one into chords would lengthen the boundary and lose the
-  curve entirely, so an arc comes through as a single COGO line whose radius
-  and arc length describe it, with Direction and Distance giving the chord -
-  which is what chord bearing and chord distance mean on a plat.
-* **The radius is signed.** Positive turns clockwise from the start of the
-  course, negative counter-clockwise. Reading a description back without the
-  sign gives a mirror image of the curve.
-* **Directions say which convention they are in.** North azimuth, south
-  azimuth, polar and quadrant bearing, written as decimal degrees, packed
-  degrees-minutes-seconds, gradians or radians - the same four by four ArcGIS
-  offers. A number with no convention beside it is not a direction.
-* **Bearings are grid bearings.** They are measured in the projected CRS the
-  lengths are measured in, so a layer stored in degrees is taken through its
-  UTM zone rather than having angles read off a plate carree.
-"""
 
 from qgis.PyQt.QtCore import QCoreApplication
 from qgis.PyQt.QtWidgets import QCheckBox
@@ -66,6 +38,7 @@ from ..gui.modify_dialog import (
     close_dialog,
     show_dialog,
 )
+from ..branding import docs_url
 
 try:
     from qgis.utils import iface
@@ -90,6 +63,7 @@ def find_cogo_field(fields, wanted):
 class SplitIntoCogoLinesDialog(ModifyFeaturesDialog):
     """The Split into COGO Lines window."""
 
+    ALG_NAME = 'split_into_cogo_lines'
     TITLE = 'Split into COGO Lines'
     ACTION_LABEL = 'Split into COGO Lines'
     HINT = ('Press Split into COGO Lines, then hover a boundary to see its '
@@ -412,7 +386,7 @@ class SplitIntoCogoLinesAlgorithm(QgsProcessingAlgorithm):
         return 'kgaeditingtools'
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/split_into_cogo_lines'
+        return docs_url('split_into_cogo_lines')
 
     def shortHelpString(self):
         return self.tr(

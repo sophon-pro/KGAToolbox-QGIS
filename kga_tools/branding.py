@@ -7,13 +7,17 @@ registered in exactly one place.
 
 import os
 
-from qgis.PyQt.QtGui import QIcon
+from qgis.core import Qgis, QgsMessageLog
+from qgis.PyQt.QtCore import QUrl
+from qgis.PyQt.QtGui import QDesktopServices, QIcon
+from qgis.PyQt.QtWidgets import QPushButton
 
 PLUGIN_DIR = os.path.dirname(__file__)
 ICON_DIR = os.path.join(PLUGIN_DIR, 'icons')
 
 LOG_TAG = 'KGA Toolbox'
 KGA_WEBSITE = 'https://khmergrs.com'
+DOCS_URL = 'https://khmergrs.com/docs/qgis/{name}'
 
 # Where to find us. Order is the order the About dialog lists them in.
 KGA_LINKS = [
@@ -106,6 +110,40 @@ def icon(filename):
         return QIcon()
     path = os.path.join(ICON_DIR, filename)
     return QIcon(path) if os.path.exists(path) else QIcon()
+
+
+def docs_url(alg_name):
+    """The Help button target for one algorithm, keyed by its `name()`.
+
+    The page it lands on is transcribed from the same `toolMetadata/<name>.md`
+    that ships in the plugin, so the button and the bundled documentation never
+    disagree.
+    """
+    return DOCS_URL.format(name=alg_name)
+
+
+def open_docs(alg_name):
+    """Open one algorithm's documentation page in the browser."""
+    url = docs_url(alg_name)
+    if not QDesktopServices.openUrl(QUrl(url)):
+        QgsMessageLog.logMessage(
+            'Could not open {}'.format(url), LOG_TAG,
+            Qgis.MessageLevel.Warning)
+
+
+def help_button(alg_name, parent=None):
+    """A Help button for a tool that opens its own window.
+
+    The Processing parameters dialog carries a Help button of its own, wired to
+    `helpUrl()`. A tool with no parameters never shows that dialog - the plugin
+    runs it straight away so an empty parameter window does not land in front of
+    the tool's real one - so it has nowhere to put its help. This is that
+    button, landing on the same page the Processing one would.
+    """
+    button = QPushButton('Help', parent)
+    button.setToolTip('Open the documentation for this tool')
+    button.clicked.connect(lambda: open_docs(alg_name))
+    return button
 
 
 def group_icon(group_name):

@@ -1,46 +1,12 @@
 # -*- coding: utf-8 -*-
 
-"""
-Name  : Geometry Conversion
-Group : KGA Geometry Utilities
-
-A modeless dialog that explodes polygon / line layers into simpler geometries:
-
-    Polygon -> Two-Point Lines    one 2-vertex line per boundary segment
-    Polygon -> Central Point      point on surface or centroid
-    Polygon -> Boundary Points    one point per ring vertex
-    Line    -> Vertices           one point per vertex
-
-The user picks where the result is stored:
-
-    Temporary layer               in-memory, nothing written to disk
-    Folder                        one ESRI Shapefile per run, named below
-    GeoPackage (.gpkg)            a new layer inside an existing/new .gpkg
-    File Geodatabase (.gdb)       a new layer inside an existing/new .gdb
-
-For the two database destinations you browse to the container and type the
-output layer name; existing layers in the container are left untouched.
-
-Install:
-    Processing Toolbox > Scripts (python icon) > Add Script to Toolbox...
-    It then appears under  Scripts > KGA Geometry Utilities > Geometry Conversion
-
-Notes:
-    - Curved geometries (CircularString / CurvePolygon) are segmentised first.
-    - Shapefile field names are truncated to 10 characters (DBF limit); the
-      generated metadata names are shortened up-front so they stay unique.
-    - A .cpg sidecar is written so UTF-8 / Khmer attributes survive in DBF.
-    - File Geodatabase output needs GDAL's OpenFileGDB driver (GDAL 3.6+).
-    - length_m is an ellipsoidal length in metres using the project ellipsoid,
-      falling back to planar CRS units converted to metres when none is set.
-"""
-
 import os
 
 from qgis.PyQt.QtCore import QCoreApplication, Qt, QVariant
-from qgis.PyQt.QtWidgets import (QDialog, QVBoxLayout, QComboBox, QCheckBox,
-                                 QPushButton, QFormLayout, QMessageBox,
-                                 QApplication, QProgressBar, QLineEdit)
+from qgis.PyQt.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QComboBox,
+                                 QCheckBox, QPushButton, QFormLayout,
+                                 QMessageBox, QApplication, QProgressBar,
+                                 QLineEdit)
 from qgis.core import (
     QgsProcessingAlgorithm,
     QgsProject,
@@ -65,6 +31,10 @@ from qgis.core import (
     QgsProviderRegistry,
 )
 from qgis.gui import QgsMapLayerComboBox, QgsFileWidget
+from ..branding import docs_url, help_button
+# `qgis.PyQt.sip` is the name that works both where sip is a
+# top-level module and where it is only PyQt5.sip; see modify_base.
+from ..gui.modify_base import is_deleted as _is_deleted
 
 try:
     from qgis.utils import iface
@@ -108,18 +78,7 @@ RESERVED_FIELDS = {
 CHUNK_SIZE = 10000
 
 
-def _is_deleted(obj):
-    """True when the C++ side of a Qt object has already been destroyed."""
-    try:
-        import sip
-        return sip.isdeleted(obj)
-    except Exception:
-        return False
-
-
-# --------------------------------------------------------
-# 1. DYNAMIC UI & PROCESSING LOGIC
-# --------------------------------------------------------
+# ----------------------------------------------------------------- the dialog
 class DynamicGeometryDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -195,9 +154,12 @@ class DynamicGeometryDialog(QDialog):
 
         layout.addLayout(form)
 
+        buttons = QHBoxLayout()
         self.run_btn = QPushButton("Run Conversion")
         self.run_btn.setMinimumHeight(30)
-        layout.addWidget(self.run_btn)
+        buttons.addWidget(self.run_btn)
+        buttons.addWidget(help_button('geometry_conversion_dynamic', self))
+        layout.addLayout(buttons)
 
         self.progress = QProgressBar()
         self.progress.setVisible(False)
@@ -1026,9 +988,7 @@ class DynamicGeometryDialog(QDialog):
         return count
 
 
-# --------------------------------------------------------
-# 2. THE QGIS PROCESSING ALGORITHM WRAPPER
-# --------------------------------------------------------
+# ---------------------------- launcher: the entry the toolbox and toolbar see
 class GeometryConversionAlgorithm(QgsProcessingAlgorithm):
     def tr(self, string):
         return QCoreApplication.translate('Processing', string)
@@ -1049,7 +1009,7 @@ class GeometryConversionAlgorithm(QgsProcessingAlgorithm):
         return 'kgageometryutilities'
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/geometry_conversion_dynamic'
+        return docs_url('geometry_conversion_dynamic')
 
     def shortHelpString(self):
         return self.tr(

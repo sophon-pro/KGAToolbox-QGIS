@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from qgis.PyQt.QtCore import QCoreApplication
 from qgis.core import (Qgis,
                        QgsFeature,
@@ -12,6 +13,7 @@ from qgis.core import (Qgis,
 import processing
 
 from ..core.compat import no_threading
+from ..branding import docs_url
 
 
 def _provider_capability(name):
@@ -58,7 +60,7 @@ class PlanarizeLinesAlgorithm(QgsProcessingAlgorithm):
         return 'kgageometryutilities'
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/planarizelines'
+        return docs_url('planarizelines')
 
     def shortHelpString(self):
         return self.tr(

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from qgis.PyQt.QtCore import QCoreApplication, QVariant
 from qgis.PyQt.QtWidgets import QMessageBox
 from qgis.core import (
@@ -11,6 +12,7 @@ from qgis.core import (
     Qgis
 )
 import qgis.utils
+from ..branding import docs_url
 
 
 class UpdateXYFields(QgsProcessingAlgorithm):
@@ -33,7 +35,7 @@ class UpdateXYFields(QgsProcessingAlgorithm):
         return 'kgageometryutilities'
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/updatexyfields'
+        return docs_url('updatexyfields')
 
     def shortHelpString(self):
         return self.tr("Updates the selected layer directly. Calculates POINT_X / POINT_Y (Current CRS) or LONGITUDE / LATITUDE (WGS 84). For lines and polygons, it calculates the centroid. Creates fields if missing.")

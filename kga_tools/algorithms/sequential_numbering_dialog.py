@@ -1,25 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Sequential Numbering (interactive)
-==================================
-
-Replica of the ArcGIS Pro *Modify Features > Sequential Numbering* pane.
-
-Pick a layer, a field, a start value and an increment, click the
-**Sequential Numbering** button, then work on the map canvas:
-
-  * click a single feature            -> it gets the next value
-  * press, drag across features, release -> every feature the path crosses is
-    numbered in the order the path enters it
-
-The dashed rubber band mirrors the Pro line. Each stroke is one undoable edit
-command, so Ctrl+Z takes back the whole stroke.
-
-The dialog is modeless and outlives the run that opened it, so
-``SequentialNumberingAlgorithm`` at the bottom of this module is only a
-launcher: the dialog itself is held in a module global and closed by
-``close_sequential_numbering()``, which ``KgaToolsPlugin.unload`` calls.
-"""
 
 from qgis.PyQt.QtCore import QCoreApplication, Qt, pyqtSignal
 from qgis.PyQt.QtGui import QColor
@@ -58,6 +37,10 @@ from qgis.gui import (
 )
 
 from ..core.compat import no_threading
+from ..branding import docs_url, help_button
+# `qgis.PyQt.sip` is the name that works both where sip is a
+# top-level module and where it is only PyQt5.sip; see modify_base.
+from ..gui.modify_base import is_deleted as _is_deleted
 
 try:  # QGIS >= 3.30
     from qgis.core import QgsVariantUtils
@@ -371,6 +354,8 @@ class SequentialNumberingDialog(QDialog):
         self.reset_button.setToolTip('Set the next value back to the start value.')
         buttons.addWidget(self.reset_button)
 
+        buttons.addWidget(help_button('sequential_numbering', self))
+
         self.close_button = QPushButton('Close')
         buttons.addWidget(self.close_button)
         layout.addLayout(buttons)
@@ -552,13 +537,6 @@ class SequentialNumberingDialog(QDialog):
 #  launcher: the entry the toolbox, toolbar and Geoprocessing panel see
 # --------------------------------------------------------------------------- #
 
-def _is_deleted(obj):
-    try:
-        import sip
-        return sip.isdeleted(obj)
-    except Exception:
-        return False
-
 
 def close_sequential_numbering():
     """Close the dialog if one is open. Safe to call when none is.
@@ -596,7 +574,7 @@ class SequentialNumberingAlgorithm(QgsProcessingAlgorithm):
         return 'kgaeditingtools'
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/sequential_numbering'
+        return docs_url('sequential_numbering')
 
     def shortHelpString(self):
         return self.tr(

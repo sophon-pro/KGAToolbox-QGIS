@@ -128,8 +128,9 @@ moved off the QGIS window while the user edits.
 The ArcGIS Pro *Modify Features* replicas — Construct Polygon, Copy Parallel,
 Buffer, Split into COGO Lines, Merge, Divide and Clip — are modeless dialogs
 sharing `gui/modify_dialog.py`. To add another, subclass
-`ModifyFeaturesDialog`, set `TITLE` / `ACTION_LABEL` / `HINT`, build the
-parameters into the form it hands you, and answer `result_for(feature)` and
+`ModifyFeaturesDialog`, set `TITLE` / `ACTION_LABEL` / `HINT` / `ALG_NAME`,
+build the parameters into the form it hands you, and answer
+`result_for(feature)` and
 `apply_to(features)`. The base handles the layer combo, the map tool, the hover
 preview, the edit-session prompt and the single undo step.
 
@@ -142,7 +143,7 @@ and when a link in that chain broke, the pane went on looking correct while
 doing nothing at all. `sequential_numbering_dialog.py` never had that problem
 because it owns its map tool; these follow it.
 
-Three rules they rely on:
+The rules they rely on:
 
 - Each tool exposes a `close_*` helper calling `close_dialog(YourDialog)`, and
   `KgaToolsPlugin.unload` must call it. Otherwise the dialog — and the map tool
@@ -160,6 +161,10 @@ Three rules they rely on:
   and the dialog turns them into a number, because only the dialog knows the
   CRS the operation is carried out in. Divide is the one that uses it; the
   contract is the four `angle_*` methods listed on the tool.
+- `ALG_NAME` is the owning algorithm's `name()`, and it is what the dialog's
+  Help button is keyed by. Leave it unset and the dialog simply has no Help
+  button - these tools never show the Processing parameters dialog, so its own
+  Help button is not there to fall back on.
 - The geometry itself belongs in `core/modify_features.py`, which imports no Qt
   widgets and can be exercised from `python-qgis-ltr.bat` without a canvas.
   What has to know about a canvas — the working CRS for a typed distance, the

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from qgis.PyQt.QtCore import QCoreApplication, QVariant
 from qgis.PyQt.QtWidgets import QMessageBox
 from qgis.core import (
@@ -8,6 +9,7 @@ from qgis.core import (
     Qgis
 )
 import qgis.utils
+from ..branding import docs_url
 
 
 class UpdateGeometryFields(QgsProcessingAlgorithm):
@@ -30,7 +32,7 @@ class UpdateGeometryFields(QgsProcessingAlgorithm):
         return 'kgageometryutilities'
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/updategeometryfields'
+        return docs_url('updategeometryfields')
 
     def shortHelpString(self):
         return self.tr("Silently checks the active layer. Calculates Shape_Length (length for lines, perimeter for polygons) and Shape_Area. Creates fields if missing.")

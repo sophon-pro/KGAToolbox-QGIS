@@ -27,6 +27,7 @@ from qgis.core import (
 )
 
 from ..core.compat import T_LONGLONG, T_STRING, make_field, source_type
+from ..branding import docs_url
 
 try:
     from qgis.utils import iface
@@ -64,7 +65,7 @@ class PointOnBoundaryChecker(QgsProcessingAlgorithm):
         return 'kgatopology'
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/checkpointsonboundary'
+        return docs_url('checkpointsonboundary')
 
     def shortHelpString(self):
         return self.tr(

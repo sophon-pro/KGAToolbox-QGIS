@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import json
 from qgis.PyQt.QtCore import QCoreApplication, Qt, QTimer
 from qgis.PyQt.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
@@ -9,18 +10,14 @@ from qgis.core import (QgsCoordinateTransform, QgsGeometry,
                        QgsVectorLayer)
 from qgis.utils import iface
 import processing
+from ..branding import docs_url, help_button
+
+# `qgis.PyQt.sip` is the name that works both where sip is a
+# top-level module and where it is only PyQt5.sip; see modify_base.
+from ..gui.modify_base import is_deleted as _is_deleted
 
 #: The one open window, so a second run raises it instead of stacking windows.
 DIALOG_INSTANCE = None
-
-
-def _is_deleted(obj):
-    try:
-        import sip
-        return sip.isdeleted(obj)
-    except Exception:
-        return False
-
 
 class ErrorInspectorDialog(QDialog):
     """Modeless window listing the errors on the KGA topology error layers.
@@ -77,6 +74,7 @@ class ErrorInspectorDialog(QDialog):
         buttons.addWidget(self.btn_zoom)
         buttons.addWidget(self.btn_refresh)
         buttons.addWidget(self.btn_validate)
+        buttons.addWidget(help_button('errorinspector', self))
 
         layout.addWidget(self.table)
         layout.addWidget(self.status)
@@ -418,7 +416,7 @@ class ErrorInspectorAlgorithm(QgsProcessingAlgorithm):
         return 'kgatopology'
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/errorinspector'
+        return docs_url('errorinspector')
 
     def shortHelpString(self):
         return self.tr(

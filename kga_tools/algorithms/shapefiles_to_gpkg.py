@@ -1,19 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Shapefiles -> GeoPackage
-Packs every shapefile in a folder into a single .gpkg, one layer per file.
-
-Install:
-    Processing Toolbox > Scripts (python icon) > Add Script to Toolbox...
-    It then appears under  Scripts > KGA Toolbox > Shapefiles to GeoPackage
-
-Notes:
-    - Source encoding is applied on READ. If your shapefiles have Khmer
-      attributes and no .cpg sidecar, set the encoding parameter to UTF-8
-      (or whatever the files actually are) or the text will be mangled.
-    - Field names already truncated to 10 characters by a previous shapefile
-      export cannot be recovered here.
-"""
 
 import os
 import re
@@ -31,6 +16,7 @@ from qgis.core import (
     QgsVectorLayer,
     QgsVectorFileWriter,
 )
+from ..branding import docs_url
 
 
 class ShapefilesToGpkg(QgsProcessingAlgorithm):
@@ -61,7 +47,7 @@ class ShapefilesToGpkg(QgsProcessingAlgorithm):
         return 'kgadatamanagement'
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/shapefilestogpkg'
+        return docs_url('shapefilestogpkg')
 
     def shortHelpString(self):
         return self.tr(

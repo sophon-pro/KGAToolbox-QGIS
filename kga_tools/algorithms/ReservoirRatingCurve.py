@@ -1,18 +1,4 @@
-"""Reservoir Rating Curve — elevation vs outflow.
-
-Builds a static rating curve (water level vs total discharge) for one or more
-reservoir DEMs. Outlets are defined either in three fixed form slots or, for
-more than three, in a CSV table.
-
-    Weir             Q = C  * L * H^1.5
-    Orifice / Pipe   Q = Cd * A * sqrt(2 g H)
-    H = water level - activation elevation, and Q = 0 while H <= 0.
-
-The DEM is only used for the elevation range the curve is tabulated over; the
-optional boundary clips it to the reservoir. Per DEM the tool writes
-rating_{DEM}_{boundary}.csv and a matching .png.
-"""
-
+# -*- coding: utf-8 -*-
 from qgis.core import (
     QgsProcessing,
     QgsProcessingAlgorithm,
@@ -34,6 +20,7 @@ import math
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from osgeo import gdal, ogr, osr
+from ..branding import docs_url
 
 GRAVITY      = 9.81
 OUTLET_TYPES = ["Weir", "Orifice", "Pipe"]
@@ -54,9 +41,7 @@ SLOT_DEFAULTS = [
 ]
 
 
-# ══════════════════════════════════════════════════════════════
-#  Outlet helpers
-# ══════════════════════════════════════════════════════════════
+# ------------------------------------------------------------- Outlet helpers
 def compute_q(type_name, elev, act_elev, la, c_cd):
     """Discharge through one outlet at a given water level."""
     H = float(elev) - float(act_elev)
@@ -90,9 +75,7 @@ def describe_outlet(outlet):
             f"C/Cd={outlet['c_cd']:g}")
 
 
-# ══════════════════════════════════════════════════════════════
-#  Load outlets from CSV
-# ══════════════════════════════════════════════════════════════
+# ------------------------------------------------------ Load outlets from CSV
 def load_outlets_from_csv(csv_path, feedback=None):
     """Read an outlet table. Raises ValueError with a message fit for the UI."""
     try:
@@ -144,9 +127,7 @@ def load_outlets_from_csv(csv_path, feedback=None):
     return outlets
 
 
-# ══════════════════════════════════════════════════════════════
-#  Algorithm
-# ══════════════════════════════════════════════════════════════
+# ------------------------------------------------------------------ Algorithm
 class ReservoirRatingCurve(QgsProcessingAlgorithm):
 
     INPUT_DEMS     = "INPUT_DEMS"
@@ -169,9 +150,7 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
         reader so the two cannot drift apart. Keys: ENABLE TYPE ELEV LA C."""
         return "O{}_{}".format(slot, key)
 
-    # ══════════════════════════════════════════
-    # ── Parameters ────────────────────────────
-    # ══════════════════════════════════════════
+    # ------------------------------------------------------------- Parameters
     def _add(self, param, help_text, advanced=False):
         """Add a parameter, with its help shown as the widget tooltip."""
         param.setHelp(help_text)
@@ -182,7 +161,7 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
 
     def initAlgorithm(self, config=None):
 
-        # ── Reservoir ─────────────────────────
+        # ---------------------------------------------------------- Reservoir
         self._add(QgsProcessingParameterMultipleLayers(
             self.INPUT_DEMS, "DEM Raster Layer(s)",
             layerType=QgsProcessing.TypeRaster),
@@ -207,7 +186,7 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
             "suits most reservoirs; 0.01 m gives a smoother curve and a much "
             "longer table.")
 
-        # ── How outlets are supplied ──────────
+        # ------------------------------------------- How outlets are supplied
         self._add(QgsProcessingParameterEnum(
             self.INPUT_MODE, "Outlet Definition Mode",
             options=INPUT_MODES, defaultValue=0),
@@ -224,7 +203,7 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
             "Example row: 2,Orifice,35.0,0.20,0.61\n"
             "outlet_id must be unique — it names the output column.")
 
-        # ── Outlet slots ──────────────────────
+        # ------------------------------------------------------- Outlet slots
         for slot in (1, 2, 3):
             enabled, type_idx, size, coeff = SLOT_DEFAULTS[slot - 1]
             tag = "Outlet {} ·".format(slot)
@@ -274,13 +253,13 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
                 "Orifice or pipe, Cd: sharp-edged 0.61, rounded entry "
                 "0.80–0.90.")
 
-        # ── Output ────────────────────────────
+        # ------------------------------------------------------------- Output
         self._add(QgsProcessingParameterFolderDestination(
             self.OUTPUT_FOLDER, "Output Folder"),
             "Receives rating_{DEM}_{boundary}.csv and a matching .png for "
             "every DEM. Files of the same name are overwritten.")
 
-        # ── Plot appearance (advanced) ────────
+        # ----------------------------------------- Plot appearance (advanced)
         self._add(QgsProcessingParameterNumber(
             self.PLOT_ELEV_MIN,
             "Plot · Elevation Axis Minimum (m)  [0 = auto]",
@@ -327,9 +306,7 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
             defaultValue=150, minValue=72, maxValue=600),
             "150 is fine on screen and in a report; 300 for print.", True)
 
-    # ══════════════════════════════════════════
-    # ── Validation, before the run starts ─────
-    # ══════════════════════════════════════════
+    # -------------------------------------- Validation, before the run starts
     def checkParameterValues(self, parameters, context):
         ok, msg = super().checkParameterValues(parameters, context)
         if not ok:
@@ -369,9 +346,7 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
 
         return True, None
 
-    # ══════════════════════════════════════════
-    # ── Main process ──────────────────────────
-    # ══════════════════════════════════════════
+    # ----------------------------------------------------------- Main process
     def processAlgorithm(self, parameters, context, feedback):
 
         dem_layers     = self.parameterAsLayerList(
@@ -405,7 +380,7 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
 
         os.makedirs(output_folder, exist_ok=True)
 
-        # ── Load outlets ──────────────────────
+        # ------------------------------------------------------- Load outlets
         feedback.pushInfo("=" * 60)
         feedback.pushInfo("  Reservoir Rating Curve — Elevation vs Q_out")
         feedback.pushInfo("=" * 60)
@@ -502,9 +477,7 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
 
         return {"OUTPUT_FOLDER": output_folder}
 
-    # ══════════════════════════════════════════
-    # ── Process single DEM ────────────────────
-    # ══════════════════════════════════════════
+    # ----------------------------------------------------- Process single DEM
     def _process_single_dem(self, dem_layer, boundary_layer,
                             output_folder, elev_step, outlets,
                             plot_opts, feedback, idx, total):
@@ -524,7 +497,7 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
         feedback.pushInfo("   Pixel size  : {:.4f} × {:.4f}".format(
             abs(gt[1]), abs(gt[5])))
 
-        # ── Boundary mask ─────────────────────
+        # ------------------------------------------------------ Boundary mask
         if boundary_layer:
             feedback.pushInfo("   Rasterizing boundary...")
             cols = dem_ds.RasterXSize
@@ -627,7 +600,7 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
                 q_total += q
             q_totals.append(round(q_total, 6))
 
-        # ── Table ─────────────────────────────
+        # -------------------------------------------------------------- Table
         dem_name = dem_layer.name()
         df = pd.DataFrame({
             "Elevation_m": [round(float(e), 3) for e in elevations]})
@@ -653,9 +626,7 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
             plot_opts=plot_opts, feedback=feedback)
         return csv_path
 
-    # ══════════════════════════════════════════
-    # ── Plot ──────────────────────────────────
-    # ══════════════════════════════════════════
+    # ------------------------------------------------------------------- Plot
     def _plot_rating_curve(self, df, dem_name, boundary_name,
                            output_folder, elev_step, outlets,
                            elev_min, elev_max, plot_opts, feedback):
@@ -675,7 +646,7 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
             fontsize=14, fontweight="bold", fontfamily="Times New Roman",
             color="#1A1A2E", y=0.97)
 
-        # ── Per outlet, stacked ───────────────
+        # ------------------------------------------------ Per outlet, stacked
         q_stack = np.zeros(len(elev_s))
         for k, o in enumerate(outlets):
             q_vals = df[q_column(o)].values
@@ -697,13 +668,13 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
                     color=color, va="bottom")
             q_stack += q_vals
 
-        # ── Q_total ───────────────────────────
+        # ------------------------------------------------------------ Q_total
         ax.plot(qtot_s, elev_s, color="#B71C1C", linewidth=2.8,
                 zorder=5, label="Q_total (m³/s)")
         ax.fill_betweenx(elev_s, qtot_s, alpha=0.06,
                          color="#B71C1C", zorder=1)
 
-        # ── Axis range and ticks ──────────────
+        # ----------------------------------------------- Axis range and ticks
         # Set before the draw below: the grid-line markers are read back off
         # the y ticks, so the locators have to be in place first.
         # Auto limits follow the table, not the DEM: the last row sits one
@@ -723,7 +694,7 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
             ax.xaxis.set_major_locator(
                 ticker.MultipleLocator(plot_opts["x_tick"]))
 
-        # ── Peak annotation ───────────────────
+        # ---------------------------------------------------- Peak annotation
         max_idx = qtot_s.idxmax()
         if qtot_s[max_idx] > 0:
             ax.annotate(
@@ -739,7 +710,7 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
                                 lw=1.2, connectionstyle="arc3,rad=0.2"),
                 zorder=6)
 
-        # ── Read-off crosses on the grid lines ─
+        # --------------------------------- Read-off crosses on the grid lines
         fig.canvas.draw()
         # Only where the table actually has values: np.interp clamps outside
         # its range, which would plant a cross at a level never computed.
@@ -753,7 +724,7 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
                     markeredgecolor="#B71C1C", linestyle="none",
                     zorder=7, label="Q_total at grid lines")
 
-        # ── Style ─────────────────────────────
+        # -------------------------------------------------------------- Style
         ax.set_xlabel("Discharge  Q  (m³/s)", fontsize=12,
                       fontfamily="Times New Roman", labelpad=10)
         ax.set_ylabel("Elevation  (m)", fontsize=12,
@@ -776,7 +747,7 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
                   prop={"family": "Times New Roman"},
                   framealpha=0.92, edgecolor="#CCCCCC")
 
-        # ── Info bar ──────────────────────────
+        # ----------------------------------------------------------- Info bar
         outlet_lines = "  |  ".join(describe_outlet(o) for o in outlets)
         fig.text(
             0.5, 0.038,
@@ -807,9 +778,7 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
         plt.close(fig)
         feedback.pushInfo("   ✅ Graph saved : {}".format(png_path))
 
-    # ══════════════════════════════════════════
-    # ── Metadata ──────────────────────────────
-    # ══════════════════════════════════════════
+    # --------------------------------------------------------------- Metadata
     def name(self):
         return "reservoir_rating_curve"
 
@@ -833,7 +802,7 @@ class ReservoirRatingCurve(QgsProcessingAlgorithm):
                 "DEM's range.")
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/reservoir_rating_curve'
+        return docs_url('reservoir_rating_curve')
 
     # The Processing help panel wraps every line of this string in its own
     # <p> and does not escape it, so spaces used for alignment collapse.

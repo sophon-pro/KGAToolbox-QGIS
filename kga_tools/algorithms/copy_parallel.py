@@ -1,36 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Copy Parallel (interactive)
-===========================
-
-Replica of the ArcGIS Pro *Modify Features > Copy Parallel* pane.
-
-Set an offset distance, press **Copy Parallel**, then work on the map canvas:
-
-  * hover a line                      -> its parallel copies are drawn in cyan
-  * click a line                      -> those copies are written
-  * press, drag across lines, release -> every line the path crosses is copied
-
-A canal centre line becomes its two banks; a road centre line becomes its edge
-of pavement; a boundary becomes its setback.
-
-What this gets right that a plain `offsetCurve` does not:
-
-* **Left and right mean what they mean in Pro** - relative to the direction the
-  line was digitized in. GEOS hands a left-hand offset back walking the other
-  way, so `core.modify_features` turns it round again; without that, half the
-  copies in a run would carry a reversed COGO description.
-* **A distance is a real distance.** On a layer stored in degrees the offset is
-  computed in the right UTM zone and brought back, so "5 meters" is five
-  meters and not five degrees.
-* **Copies can land in another layer.** Pro calls that choosing a template.
-  Here it is a second layer combo, and the attributes are matched by name on
-  the way across.
-
-The dialog and its map tool come from `gui/modify_dialog.py`; see that module
-for why these tools own their map tool rather than borrowing one.
-"""
-
 from qgis.PyQt.QtCore import QCoreApplication
 from qgis.PyQt.QtWidgets import QCheckBox, QSpinBox
 
@@ -54,6 +22,7 @@ from ..gui.modify_dialog import (
     close_dialog,
     show_dialog,
 )
+from ..branding import docs_url
 
 try:
     from qgis.utils import iface
@@ -64,6 +33,7 @@ except ImportError:  # pragma: no cover - head-less
 class CopyParallelDialog(ModifyFeaturesDialog):
     """The Copy Parallel window."""
 
+    ALG_NAME = 'copy_parallel'
     TITLE = 'Copy Parallel'
     ACTION_LABEL = 'Copy Parallel'
     HINT = ('Set the distance, press Copy Parallel, then hover a line to see '
@@ -234,7 +204,7 @@ class CopyParallelAlgorithm(QgsProcessingAlgorithm):
         return 'kgaeditingtools'
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/copy_parallel'
+        return docs_url('copy_parallel')
 
     def shortHelpString(self):
         return self.tr(

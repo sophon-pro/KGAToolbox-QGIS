@@ -1,15 +1,4 @@
 # -*- coding: utf-8 -*-
-"""File Geodatabase <-> GeoPackage, both halves of one round trip.
-
-Two algorithms over one engine (`core.gdb_convert`), split rather than joined
-by a direction switch because a .gdb is a *folder* and a .gpkg is a *file*:
-one dialog would have to show a folder picker and a file picker and grey one
-of them out. Split, each dialog asks only for what it can use.
-
-    KGA Data Conversion
-      File Geodatabase to GeoPackage      bring ArcGIS data in to edit it
-      GeoPackage to File Geodatabase      hand it back when the editing is done
-"""
 
 import os
 
@@ -30,6 +19,7 @@ from qgis.core import (
 
 from ..core import gdb_convert as C
 from ..core.compat import mark_advanced
+from ..branding import docs_url
 
 
 def _split_names(text):
@@ -156,7 +146,7 @@ class FileGdbToGeoPackage(_ConvertBase):
         return self.tr('File Geodatabase to GeoPackage')
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/filegdb_to_geopackage'
+        return docs_url('filegdb_to_geopackage')
 
     def shortHelpString(self):
         return self.tr(
@@ -271,7 +261,7 @@ class GeoPackageToFileGdb(_ConvertBase):
         return self.tr('GeoPackage to File Geodatabase')
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/geopackage_to_filegdb'
+        return docs_url('geopackage_to_filegdb')
 
     def shortHelpString(self):
         return self.tr(

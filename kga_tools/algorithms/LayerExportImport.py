@@ -1,14 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Layer Export / Import  (KGA Toolbox)
-------------------------------------
-Bulk export the vector layers of the current project to GeoPackage, Shapefile,
-GeoJSON, KML or CSV, and pull layers out of any vector file back into the
-project.
-
-Runs MODELESS so you can drag a file or a dataset straight from the QGIS
-Browser panel onto the dialog.
-"""
 
 import os
 
@@ -23,6 +13,7 @@ from qgis.PyQt.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
                                  QProgressDialog, QApplication)
 from qgis.core import (QgsProcessingAlgorithm, QgsMimeDataUtils, QgsProject,
                        QgsVectorLayer, QgsVectorFileWriter, QgsWkbTypes)
+from ..branding import docs_url, help_button
 
 try:
     from qgis.utils import iface
@@ -30,9 +21,7 @@ except ImportError:      # running outside QGIS
     iface = None
 
 
-# --------------------------------------------------------
-# 0. CONSTANTS & HELPERS
-# --------------------------------------------------------
+# ------------------------------------------------------ constants and helpers
 QGIS_MIME = "application/x-vnd.qgis.qgis.uri"
 
 DB_EXTENSIONS = ('.gpkg', '.gdb', '.sqlite', '.db', '.spatialite')
@@ -181,9 +170,7 @@ def format_count(count):
     return "{:,}".format(count) if count is not None and count >= 0 else "-"
 
 
-# --------------------------------------------------------
-# 1. DROP-AWARE WIDGET
-# --------------------------------------------------------
+# ---------------------------------------------------------- drop-aware widget
 class DropLineEdit(QLineEdit):
     """Line edit that accepts files dragged from the QGIS Browser."""
 
@@ -217,9 +204,7 @@ class DropLineEdit(QLineEdit):
         self.pathDropped.emit(path)
 
 
-# --------------------------------------------------------
-# 2. THE DIALOG
-# --------------------------------------------------------
+# ----------------------------------------------------------------- the dialog
 class LayerExportImportDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -382,6 +367,7 @@ class LayerExportImportDialog(QDialog):
         self.layout.addWidget(self.tabs)
 
         close_layout = QHBoxLayout()
+        close_layout.addWidget(help_button('layerexportimport', self))
         close_layout.addStretch()
         self.btn_close = QPushButton("Close")
         self.btn_close.clicked.connect(self.close)
@@ -881,9 +867,7 @@ class LayerExportImportDialog(QDialog):
         box.exec_()
 
 
-# --------------------------------------------------------
-# 3. THE QGIS PROCESSING ALGORITHM WRAPPER
-# --------------------------------------------------------
+# ---------------------------- launcher: the entry the toolbox and toolbar see
 # Module-level reference keeps the modeless dialog alive after
 # processAlgorithm() returns (otherwise Python garbage-collects it).
 DIALOG_INSTANCE = None
@@ -909,7 +893,7 @@ class LayerExportImportAlgorithm(QgsProcessingAlgorithm):
         return 'kgadatamanagement'
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/layerexportimport'
+        return docs_url('layerexportimport')
 
     def shortHelpString(self):
         return self.tr(

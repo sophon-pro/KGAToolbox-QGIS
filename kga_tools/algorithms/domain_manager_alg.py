@@ -1,20 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Domain & Schema Manager - the dialog launcher.
-
-A zero-parameter algorithm whose `processAlgorithm` opens the modeless dialog,
-following the pattern `GeoPackage_Data_Manager.GpkgManagerAlgorithm` set. The
-plugin's `run_algorithm` notices an algorithm with no parameters and runs it
-straight away instead of showing an empty Processing dialog in front of it.
-
-The module is deliberately thin: `provider.py` imports every module in this
-folder at start-up, so the dialog itself lives in `gui/` and is imported only
-when the tool is actually run.
-"""
 
 from qgis.core import QgsProcessingAlgorithm
 from qgis.PyQt.QtCore import QCoreApplication, Qt
 
 from ..core.compat import no_threading
+from ..branding import docs_url
 
 try:
     from qgis.utils import iface
@@ -50,7 +40,7 @@ class DomainManagerAlgorithm(QgsProcessingAlgorithm):
         return 'kgaschematools'
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/domain_manager'
+        return docs_url('domain_manager')
 
     def shortHelpString(self):
         return self.tr(

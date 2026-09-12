@@ -1,14 +1,4 @@
 # -*- coding: utf-8 -*-
-"""Attribute round-trip to Excel.
-
-Export attributes to a workbook a non-GIS colleague can edit, then bring the
-edits back with a diff that says exactly what moved. The import reports first
-and writes second, and the report is the deliverable in a dry run.
-
-The two halves share `core.schema.coerce`, so Excel's habits — turning the text
-code "0042" into the number 42, and a date into the serial 45231 — are handled
-in one place and reported rather than written as a NULL.
-"""
 
 import os
 
@@ -28,7 +18,7 @@ from qgis.core import (
 )
 from qgis.PyQt.QtCore import QCoreApplication
 
-from ..branding import LOG_TAG
+from ..branding import LOG_TAG, docs_url
 from ..core import schema, xlsx_io
 from ..core.changelog import ChangeReport, FieldChange
 from ..core.compat import no_threading, parameter_as_field_list
@@ -68,7 +58,7 @@ class AttributesToXlsxAlgorithm(QgsProcessingAlgorithm):
         return 'kgadataconversion'
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/attributes_to_xlsx'
+        return docs_url('attributes_to_xlsx')
 
     def shortHelpString(self):
         return self.tr(
@@ -239,7 +229,7 @@ class XlsxToAttributesAlgorithm(QgsProcessingAlgorithm):
         return 'kgadataconversion'
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/xlsx_to_attributes'
+        return docs_url('xlsx_to_attributes')
 
     def shortHelpString(self):
         return self.tr(

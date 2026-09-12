@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-Geometry behind the ArcGIS Pro *Modify Features* replicas.
-
 Seven tools in `algorithms/` share this module - Copy Parallel, Buffer, Split
 into COGO Lines, Merge, Divide, Clip and Construct Polygon. Everything here is
 deliberately free of Qt widgets so the arithmetic can be read, reasoned

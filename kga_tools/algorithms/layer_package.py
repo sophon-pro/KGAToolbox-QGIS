@@ -1,10 +1,4 @@
 # -*- coding: utf-8 -*-
-"""Create and open a `.kgalp` layer package.
-
-A QLR references data; this contains it. Package a styled layer — data, style,
-SVG symbols, raster marker images, the group structure — and it opens on a
-machine that has never seen any of it.
-"""
 
 import os
 
@@ -27,7 +21,7 @@ from qgis.core import (
 )
 from qgis.PyQt.QtCore import QCoreApplication
 
-from ..branding import LOG_TAG
+from ..branding import LOG_TAG, docs_url
 from ..core import packaging as P
 from ..core.changelog import ChangeReport
 from ..core.compat import no_threading, source_type
@@ -63,7 +57,7 @@ class CreateLayerPackageAlgorithm(QgsProcessingAlgorithm):
         return 'kgadatamanagement'
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/create_layer_package'
+        return docs_url('create_layer_package')
 
     def shortHelpString(self):
         return self.tr(
@@ -268,7 +262,7 @@ class OpenLayerPackageAlgorithm(QgsProcessingAlgorithm):
         return 'kgadatamanagement'
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/open_layer_package'
+        return docs_url('open_layer_package')
 
     def shortHelpString(self):
         return self.tr(

@@ -1,29 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Merge (interactive)
-===================
-
-Replica of the ArcGIS Pro *Modify Features > Merge* pane.
-
-Select two or more features of one layer and combine them into a single
-feature. Parts that touch dissolve into one; parts that do not stay on as a
-multipart feature - which is what `unaryUnion` does, and what Pro does.
-
-The part of Pro's pane that matters, and that a plain "dissolve" leaves out, is
-the **attribute side**. Merging three parcels means deciding whose parcel
-number the survivor keeps, whose owner name, whose land use code. Pro shows the
-selected features, lets you pick one to preserve the attributes from, and then
-lets you override any single field from any of the others. So does this:
-
-* the list at the top is the selection, and clicking an entry flashes it on the
-  map so you know which parcel you are looking at;
-* the feature marked **(preserved)** is where the attributes start;
-* the table below is every field, with each distinct value any of the selected
-  features holds - pick a different one and only that field changes.
-
-The survivor keeps the preserved feature's identity, not a new one, so joins,
-relates and anything keyed on its id still point at something afterwards.
-"""
 
 from qgis.PyQt.QtCore import QCoreApplication, Qt
 from qgis.PyQt.QtGui import QFont
@@ -54,6 +29,7 @@ from ..gui.modify_dialog import (
     close_dialog,
     show_dialog,
 )
+from ..branding import docs_url
 
 try:
     from qgis.utils import iface
@@ -99,6 +75,7 @@ class MergeDialog(ModifyFeaturesDialog):
     below fills as you click, so what will be merged is never a guess.
     """
 
+    ALG_NAME = 'merge_features'
     TITLE = 'Merge'
     ACTION_LABEL = 'Merge'
     HINT = ('Press Merge, then click the features to combine - Enter merges '
@@ -354,7 +331,7 @@ class MergeFeaturesAlgorithm(QgsProcessingAlgorithm):
         return 'kgaeditingtools'
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/merge_features'
+        return docs_url('merge_features')
 
     def shortHelpString(self):
         return self.tr(

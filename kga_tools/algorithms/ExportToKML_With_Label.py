@@ -1,43 +1,4 @@
-# ============================================================
-#  Export Layers to KML / KMZ - KGA Toolbox  (v5)
-#
-#  Processing Toolbox -> KGA Toolbox -> KGA Data Conversion
-#  -> Export Layers to KML
-#
-#  v5 CHANGES
-#    - Every parameter carries a setHelp() tooltip, so the form
-#      explains itself instead of relying on the help panel.
-#    - Parameters are grouped by the mode they belong to and
-#      named "Rotated Labels - ..." rather than "(mode B)".
-#      Rendering and styling knobs moved to Advanced.
-#    - Label scale is a real number field, not a string that
-#      went into the KML unvalidated. Text and halo colours are
-#      colour pickers with opacity; halo alpha 0 = no halo.
-#    - New: export selected features only, attribute balloon
-#      on/off, font family, bold, line width.
-#    - Rule-based labelling now takes the first rule that has a
-#      label expression, instead of whichever sub-provider came
-#      back first.
-#    - HTML help string, matching the rest of the toolbox.
-#  v4 CHANGES
-#    - Tight label rendering: the PNG is cropped to the actual
-#      glyph ink box, so "label height on ground" now means the
-#      height of the TEXT, not text plus a slab of padding.
-#      In v3 the glyphs filled only ~40% of the overlay.
-#    - Perpendicular offset parameter, in metres, so labels can
-#      be nudged exactly onto (or just clear of) the line.
-#    - Region/LOD tiers: several copies of each label at 4x
-#      ground-size steps, each visible in its own zoom band, so
-#      labels stay roughly readable as you zoom instead of being
-#      locked to one ground size. Costs no extra images - the
-#      tiers all reference the same PNG.
-#  v3
-#    - Rotated ground-overlay label mode + KMZ writer
-#    - Label sanitiser (<sup>2</sup> -> squared sign)
-#  v2
-#    - NoThreading flag, dead-code removal, expression labels,
-#      MultiGeometry, curve segmentising, real styles, <name> fix
-# ============================================================
+# -*- coding: utf-8 -*-
 
 import os
 import re
@@ -73,6 +34,7 @@ from qgis.PyQt.QtCore import QCoreApplication, Qt
 from qgis.PyQt.QtGui import QImage, QPainter, QColor, QFont, QFontMetrics
 
 from ..core.compat import mark_advanced
+from ..branding import docs_url
 
 try:
     from qgis.core import Qgis
@@ -80,9 +42,7 @@ except ImportError:                                    # pragma: no cover
     Qgis = None
 
 
-# ══════════════════════════════════════════════════════════
-# ── Qt5 / Qt6 enum compatibility ──────────────────────────
-# ══════════════════════════════════════════════════════════
+# ----------------------------------------------- Qt5 / Qt6 enum compatibility
 def _enum(owner, scoped, flat):
     obj = owner
     for part in scoped.split("."):
@@ -174,12 +134,10 @@ class ExportToKML(QgsProcessingAlgorithm):
             f |= QgsProcessingAlgorithm.FlagNoThreading
         return f
 
-    # ══════════════════════════════════════════
-    # ── Inputs ────────────────────────────────
-    # ══════════════════════════════════════════
+    # ----------------------------------------------------------------- Inputs
     def initAlgorithm(self, config=None):
 
-        # ── What gets exported ────────────────
+        # ------------------------------------------------- What gets exported
         self._add(QgsProcessingParameterMultipleLayers(
             self.INPUT_LAYERS, "Input Layers",
             layerType=QgsProcessing.TypeVectorAnyGeometry),
@@ -212,7 +170,7 @@ class ExportToKML(QgsProcessingAlgorithm):
             "in a filename are replaced with underscores. Ignored unless "
             "the mode above is Single combined file.")
 
-        # ── Labels ───────────────────────────
+        # ------------------------------------------------------------- Labels
         self._add(QgsProcessingParameterBoolean(
             self.KEEP_LABELS, "Carry Layer Labels Across",
             defaultValue=True),
@@ -243,7 +201,7 @@ class ExportToKML(QgsProcessingAlgorithm):
             "Applies to point and polygon labels always, and to line labels "
             "in Placemark mode.")
 
-        # ── Rotated ground-overlay labels ──────
+        # -------------------------------------- Rotated ground-overlay labels
         self._add(QgsProcessingParameterNumber(
             self.LABEL_HEIGHT,
             "Rotated Labels \u00b7 Text Height on Ground (m)",
@@ -300,7 +258,7 @@ class ExportToKML(QgsProcessingAlgorithm):
             "text has to follow the direction the line runs, such as flow "
             "labels.")
 
-        # ── Advanced: rendering ───────────────
+        # ------------------------------------------------ Advanced: rendering
         self._add(QgsProcessingParameterNumber(
             self.FONT_SIZE, "Rotated Labels \u00b7 Render Resolution (px)",
             type=QgsProcessingParameterNumber.Integer,
@@ -325,7 +283,7 @@ class ExportToKML(QgsProcessingAlgorithm):
             "Bold holds up better against aerial imagery. Untick for "
             "lighter text over plain terrain.", True)
 
-        # ── Advanced: style and content ────────
+        # ---------------------------------------- Advanced: style and content
         self._add(QgsProcessingParameterBoolean(
             self.INCLUDE_ATTRS, "Include Attribute Balloon",
             defaultValue=True),
@@ -342,7 +300,7 @@ class ExportToKML(QgsProcessingAlgorithm):
             "The colours come from each layer own symbology; only the width "
             "is set here.", True)
 
-        # ── Output ───────────────────────────
+        # ------------------------------------------------------------- Output
         self._add(QgsProcessingParameterFolderDestination(
             self.OUTPUT_FOLDER, "Output Folder"),
             "Where the .kml and .kmz files are written. Files of the same "
@@ -379,9 +337,7 @@ class ExportToKML(QgsProcessingAlgorithm):
 
         return True, ""
 
-    # ══════════════════════════════════════════
-    # ── Labeling ──────────────────────────────
-    # ══════════════════════════════════════════
+    # --------------------------------------------------------------- Labeling
     def _get_label_def(self, layer):
         """(label source, is_expression), or None if the layer has none.
 
@@ -477,9 +433,7 @@ class ExportToKML(QgsProcessingAlgorithm):
             s = s.replace(ent, ch)
         return s.strip()
 
-    # ══════════════════════════════════════════
-    # ── XML helpers ───────────────────────────
-    # ══════════════════════════════════════════
+    # ------------------------------------------------------------ XML helpers
     def _xml_escape(self, text):
         text = str(text)
         for a, b in (("&", "&amp;"), ("<", "&lt;"), (">", "&gt;"),
@@ -490,9 +444,7 @@ class ExportToKML(QgsProcessingAlgorithm):
     def _cdata_safe(self, text):
         return str(text).replace("]]>", "]]&gt;")
 
-    # ══════════════════════════════════════════
-    # ── Colours ───────────────────────────────
-    # ══════════════════════════════════════════
+    # ---------------------------------------------------------------- Colours
     def _qgis_color_to_kml(self, color):
         try:
             return "{:02x}{:02x}{:02x}{:02x}".format(
@@ -530,9 +482,7 @@ class ExportToKML(QgsProcessingAlgorithm):
             pass
         return line_color, fill_color
 
-    # ══════════════════════════════════════════
-    # ── Label PNG, cropped to the ink box ─────
-    # ══════════════════════════════════════════
+    # -------------------------------------- Label PNG, cropped to the ink box
     def _render_label_png(self, text, opts):
         """
         Renders text to a transparent PNG cropped to the glyph ink
@@ -609,9 +559,7 @@ class ExportToKML(QgsProcessingAlgorithm):
         self._png_cache[key] = out
         return out
 
-    # ══════════════════════════════════════════
-    # ── Geometry helpers ──────────────────────
-    # ══════════════════════════════════════════
+    # ------------------------------------------------------- Geometry helpers
     def _coords(self, pts):
         return " ".join("{:.8f},{:.8f},0".format(p.x(), p.y()) for p in pts)
 
@@ -668,9 +616,7 @@ class ExportToKML(QgsProcessingAlgorithm):
         except Exception:
             return None
 
-    # ══════════════════════════════════════════
-    # ── Rotated ground overlays with LOD ──────
-    # ══════════════════════════════════════════
+    # --------------------------------------- Rotated ground overlays with LOD
     def _ground_overlays(self, text, pt, rotation, iw, ih, arcname, opts):
         """
         One GroundOverlay per zoom tier. Every tier points at the same
@@ -744,9 +690,7 @@ class ExportToKML(QgsProcessingAlgorithm):
             )
         return out
 
-    # ══════════════════════════════════════════
-    # ── One feature -> KML fragments ──────────
-    # ══════════════════════════════════════════
+    # ------------------------------------------- One feature -> KML fragments
     def _feature_to_kml(self, feat, layer, label_def, expr_ctx, geom_type,
                         xform, style_id, keep_labels, opts):
         placemarks, overlays, images = [], [], {}
@@ -797,7 +741,7 @@ class ExportToKML(QgsProcessingAlgorithm):
                 '    </Placemark>\n'
             ).format(name, pt.x(), pt.y())
 
-        # ── POINT ─────────────────────────────
+        # -------------------------------------------------------------- POINT
         if geom_type == GEOM_POINT:
             pts = g.asMultiPoint() if g.isMultipart() else [g.asPoint()]
             for p in pts:
@@ -806,7 +750,7 @@ class ExportToKML(QgsProcessingAlgorithm):
                          '      </Point>\n').format(p.x(), p.y())
                 placemarks.append(placemark(inner))
 
-        # ── LINE ──────────────────────────────
+        # --------------------------------------------------------------- LINE
         elif geom_type == GEOM_LINE:
             parts = g.asMultiPolyline() if g.isMultipart() else [g.asPolyline()]
             parts = [p for p in parts if p and len(p) >= 2]
@@ -840,7 +784,7 @@ class ExportToKML(QgsProcessingAlgorithm):
                     else:
                         placemarks.append(label_placemark(pt))
 
-        # ── POLYGON ───────────────────────────
+        # ------------------------------------------------------------ POLYGON
         elif geom_type == GEOM_POLYGON:
             polys = g.asMultiPolygon() if g.isMultipart() else [g.asPolygon()]
             polys = [p for p in polys if p]
@@ -878,9 +822,7 @@ class ExportToKML(QgsProcessingAlgorithm):
 
         return placemarks, overlays, images
 
-    # ══════════════════════════════════════════
-    # ── One layer -> KML folder ───────────────
-    # ══════════════════════════════════════════
+    # ------------------------------------------------ One layer -> KML folder
     def _layer_to_kml_content(self, layer, keep_labels, index,
                               context, feedback, opts):
         if not isinstance(layer, QgsVectorLayer) or not layer.isValid():
@@ -980,9 +922,7 @@ class ExportToKML(QgsProcessingAlgorithm):
         )
         return folder, images
 
-    # ══════════════════════════════════════════
-    # ── Header / footer / writers ─────────────
-    # ══════════════════════════════════════════
+    # ---------------------------------------------- Header / footer / writers
     def _kml_header(self, doc_name, label_scale):
         return (
             '<?xml version="1.0" encoding="UTF-8"?>\n'
@@ -1019,9 +959,7 @@ class ExportToKML(QgsProcessingAlgorithm):
                 f.write(kml_text)
         return path
 
-    # ══════════════════════════════════════════
-    # ── Main ──────────────────────────────────
-    # ══════════════════════════════════════════
+    # ------------------------------------------------------------------- Main
     def processAlgorithm(self, parameters, context, feedback):
 
         self._png_cache = {}
@@ -1205,9 +1143,7 @@ class ExportToKML(QgsProcessingAlgorithm):
 
         return {"OUTPUT_FOLDER": output_folder}
 
-    # ══════════════════════════════════════════
-    # ── Metadata ──────────────────────────────
-    # ══════════════════════════════════════════
+    # --------------------------------------------------------------- Metadata
     def name(self):
         return "export_layers_to_kml"
 
@@ -1221,7 +1157,7 @@ class ExportToKML(QgsProcessingAlgorithm):
         return "kgadataconversion"
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/export_layers_to_kml'
+        return docs_url('export_layers_to_kml')
 
     def shortDescription(self):
         return ("Write vector layers to KML or KMZ for Google Earth, with "

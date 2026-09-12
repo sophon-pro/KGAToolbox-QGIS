@@ -1,44 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Divide (interactive)
-====================
-
-Replica of the ArcGIS Pro *Modify Features > Divide* pane.
-
-Cut selected features into parts: a parcel into four equal shares, a long block
-into one-hectare plots, a canal into 500 m maintenance reaches. The pane reads
-differently for a line and for a polygon, exactly as Pro's does, because
-dividing a line is about length and dividing a polygon is about area.
-
-**Lines** are divided into equal parts, into parts of a specified length, or
-into parts of a percentage of the total. A multipart line is measured end to
-end as one run, so a cut can fall in any of its parts.
-
-**Polygons** are divided into parallel strips of the asked-for area, along a
-direction you set. The cut positions are found by bisection rather than by
-formula: a real parcel has notches and holes, and no formula says where the
-line that leaves exactly one hectare behind it falls. Bisection does, because
-the area behind a sweeping line only ever grows.
-
-That direction can be typed, but almost nobody knows a parcel's angle as a
-number: they know it runs parallel to the road, or square to the river, or
-along the line between those two corners. So it can also be clicked - press
-*Edge* and click any boundary on the map, this parcel's or a neighbour's - or
-drawn, with *Draw* and two clicks that snap the way digitizing does. Both only
-fill in the same angle box, so what was picked can still be nudged by hand.
-The angle is read in the CRS the cut is made in rather than the one on screen,
-which for a layer stored in degrees, drawn in Web Mercator and divided in
-hectares are three different things.
-
-Where the leftover goes is a choice, not an accident. Twelve hectares divided
-into five-hectare plots is two plots and two hectares over, and whether that
-two hectares is a small plot at the end, a small plot at the start, or spread
-so all three come out at four hectares is the difference between a legal
-subdivision and a redraft.
-
-The first part keeps the original feature's identity and the rest are added
-beside it, so joins and relates still point at something afterwards.
-"""
 
 from qgis.PyQt.QtCore import QCoreApplication, Qt
 from qgis.PyQt.QtWidgets import (
@@ -93,6 +53,7 @@ from ..gui.modify_dialog import (
     close_dialog,
     show_dialog,
 )
+from ..branding import docs_url
 
 try:
     from qgis.utils import iface
@@ -103,6 +64,7 @@ except ImportError:  # pragma: no cover - head-less
 class DivideDialog(ModifyFeaturesDialog):
     """The Divide window."""
 
+    ALG_NAME = 'divide_features'
     TITLE = 'Divide'
     ACTION_LABEL = 'Divide'
     HINT = ('Choose how the parts are sized, press Divide, then hover a '
@@ -653,7 +615,7 @@ class DivideFeaturesAlgorithm(QgsProcessingAlgorithm):
         return 'kgaeditingtools'
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/divide_features'
+        return docs_url('divide_features')
 
     def shortHelpString(self):
         return self.tr(

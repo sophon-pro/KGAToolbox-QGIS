@@ -1,44 +1,4 @@
-"""
-╔══════════════════════════════════════════════════════════════════╗
-║   DEM & Contour Tool  —  QGIS Processing Toolbox Script          ║
-║                                                                    ║
-║   Mode A : CSV  → DEM → Contour                                   ║
-║   Mode B : DEM  →       Contour only                              ║
-║                                                                    ║
-║   WHERE TO FIND IT                                                ║
-║   Ships with the KGA Toolbox plugin. Processing Toolbox →         ║
-║   KGA Toolbox → KGA Irrigation Tools → DEM & Contour Tool,        ║
-║   or the Irrigation Tools button on the KGA Toolbox toolbar.      ║
-╚══════════════════════════════════════════════════════════════════╝
-
-CHECKPOINT / RESUME  (same pattern as the DEM Elevation Correction tool)
---------------------------------------------------------------------------
-Contours are generated in row TILES. After each tile is written and
-flushed to disk, progress is recorded in a single checkpoint.json in the
-output folder — same idea as the correction tool's stage checkpoints:
-
-    checkpoint[stage_key] = {
-        "fingerprint":      md5 of everything that determines this output,
-        "output_path":      path to the contour file being built,
-        "status":           "in_progress" | "complete",
-        "completed_tiles":  [0, 1, 2, ...],
-        "num_tiles":        total tile count,
-    }
-
-Rerunning the tool with the SAME DEM, output folder, and parameters:
-  - fingerprint matches + status "complete"   -> instantly skipped
-  - fingerprint matches + status "in_progress" -> resumes from the next
-    unfinished tile
-  - fingerprint differs (DEM changed, interval changed, script updated,
-    etc.) -> treated as stale, starts fresh automatically
-  - "Force re-run" checkbox -> ignores checkpoint.json entirely
-
-Just like the correction tool, bump SCRIPT_VERSION whenever the contour
-logic changes, so old checkpoints from a previous version of this script
-are never silently (and wrongly) reused.
-"""
-
-# ── QGIS imports ─────────────────────────────────────────────────────────────
+# -*- coding: utf-8 -*-
 from qgis.PyQt.QtCore import QCoreApplication, QSettings
 from qgis.core import (
     QgsProcessingAlgorithm,
@@ -53,7 +13,7 @@ from qgis.core import (
     QgsProject,
 )
 
-# ── scientific / GDAL ────────────────────────────────────────────────────────
+# scientific / GDAL
 import os, math, json, hashlib
 from pathlib import Path
 
@@ -63,6 +23,9 @@ from scipy.interpolate import griddata
 from scipy.ndimage import gaussian_filter
 
 from osgeo import gdal, ogr, osr
+
+from ..branding import docs_url
+
 gdal.UseExceptions()
 
 # Bump this whenever the contour logic changes, so old checkpoint.json
@@ -71,9 +34,7 @@ gdal.UseExceptions()
 SCRIPT_VERSION = "2"
 
 
-# ═════════════════════════════════════════════════════════════════════════════
-#  SHARED UTILITY FUNCTIONS  (unchanged from the original tool)
-# ═════════════════════════════════════════════════════════════════════════════
+# --------------- SHARED UTILITY FUNCTIONS  (unchanged from the original tool)
 
 def auto_detect_method(df, feedback):
     """Choose interpolation method from point count & density."""
@@ -153,13 +114,11 @@ def idw_interpolate(kxy, kz, qxy, power=2.0, k=16):
     return z
 
 
-# ═════════════════════════════════════════════════════════════════════════════
-#  "REMEMBER LAST SETTINGS"  (QSettings — persists across QGIS restarts,
-#  no file to manage. Same idea as the correction tool's save_last_settings,
-#  just using Qt's native per-user settings store instead of a JSON file
-#  since this is a Processing script with an auto-generated dialog rather
-#  than a hand-built one.)
-# ═════════════════════════════════════════════════════════════════════════════
+# ------------------------------------------------------- remembered settings
+#
+# The dialog here is the one Processing generates from the parameters, not a
+# hand-built form, so there is nowhere to hang a "last used" field. QSettings
+# carries them across restarts instead, with no file to manage.
 
 _SETTINGS_GROUP = "DEMContourTool/last_run"
 
@@ -174,9 +133,7 @@ def _remember(key, value):
     QSettings().setValue(f"{_SETTINGS_GROUP}/{key}", value)
 
 
-# ═════════════════════════════════════════════════════════════════════════════
-#  CHECKPOINT HELPERS  (identical pattern to the DEM correction tool)
-# ═════════════════════════════════════════════════════════════════════════════
+# --------- CHECKPOINT HELPERS  (identical pattern to the DEM correction tool)
 
 def contour_fingerprint(dem_path, dem_mtime, interval, smooth, fmt, tile_rows, overlap_rows):
     """Hash of everything that determines this contour output. If any of
@@ -207,9 +164,7 @@ def save_checkpoint(out_dir, checkpoint):
         json.dump(checkpoint, f, indent=2)
 
 
-# ═════════════════════════════════════════════════════════════════════════════
-#  TILED / CHECKPOINTED CONTOUR ENGINE
-# ═════════════════════════════════════════════════════════════════════════════
+# ---------------------------------------- TILED / CHECKPOINTED CONTOUR ENGINE
 
 def _iter_lines(geom):
     """Yield every LineString piece out of a (Multi)LineString / GeometryCollection."""
@@ -427,13 +382,11 @@ def generate_contours(dem_path, interval, smooth, fmt, output_dir, feedback,
     return cnt_path
 
 
-# ═════════════════════════════════════════════════════════════════════════════
-#  PROCESSING ALGORITHM
-# ═════════════════════════════════════════════════════════════════════════════
+# ------------------------------------------------------- PROCESSING ALGORITHM
 
 class DEMContourTool(QgsProcessingAlgorithm):
 
-    # ── parameter keys ───────────────────────────────────────────────────────
+    # --------------------------------------------------------- parameter keys
     MODE           = "MODE"
     INPUT_CSV      = "INPUT_CSV"
     INPUT_DEM      = "INPUT_DEM"
@@ -458,11 +411,12 @@ class DEMContourTool(QgsProcessingAlgorithm):
     # Options
     LOAD_LAYERS    = "LOAD_LAYERS"
 
-    # ── metadata ─────────────────────────────────────────────────────────────
+    # --------------------------------------------------------------- metadata
     def name(self):        return "demcontourtool"
     def displayName(self): return "DEM and Contour Tool"
     def group(self):       return "KGA Irrigation Tools"
     def groupId(self):     return "kgairrigationtools"
+    def helpUrl(self):     return docs_url("demcontourtool")
     def tr(self, s):       return QCoreApplication.translate("Processing", s)
     def createInstance(self): return DEMContourTool()
 
@@ -497,7 +451,7 @@ class DEMContourTool(QgsProcessingAlgorithm):
             "<b>Default EPSG:</b> 32648 (WGS 84 / UTM zone 48N — Cambodia)"
         )
 
-    # ── parameters ───────────────────────────────────────────────────────────
+    # ------------------------------------------------------------- parameters
     def initAlgorithm(self, config=None):
 
         self.addParameter(QgsProcessingParameterEnum(
@@ -590,7 +544,7 @@ class DEMContourTool(QgsProcessingAlgorithm):
             defaultValue=_last("load_layers", True, bool),
         ))
 
-    # ── main ─────────────────────────────────────────────────────────────────
+    # ------------------------------------------------------------------- main
     def processAlgorithm(self, parameters, context, feedback):
 
         mode_idx    = self.parameterAsEnum   (parameters, self.MODE,          context)
@@ -641,9 +595,7 @@ class DEMContourTool(QgsProcessingAlgorithm):
         dem_path = None
         base     = None
 
-        # ═════════════════════════════════════════════════════════════════════
-        #  MODE A — CSV → DEM
-        # ═════════════════════════════════════════════════════════════════════
+        # ------------------------------------------------- MODE A — CSV → DEM
         if mode == "csv":
 
             if not csv_path or not os.path.isfile(csv_path):
@@ -712,9 +664,7 @@ class DEMContourTool(QgsProcessingAlgorithm):
             feedback.pushInfo(f"  ✔ DEM → {dem_path}")
             feedback.setProgress(60)
 
-        # ═════════════════════════════════════════════════════════════════════
-        #  MODE B — DEM only  (metadata only — no full-raster read)
-        # ═════════════════════════════════════════════════════════════════════
+        # ----------- MODE B — DEM only  (metadata only — no full-raster read)
         else:
             if dem_layer is None:
                 feedback.reportError("Mode B selected but no DEM layer provided.")
@@ -741,9 +691,7 @@ class DEMContourTool(QgsProcessingAlgorithm):
             ds_in = None
             feedback.setProgress(15)
 
-        # ═════════════════════════════════════════════════════════════════════
-        #  CONTOUR  (both modes — tiled & checkpointed)
-        # ═════════════════════════════════════════════════════════════════════
+        # ----------------------- CONTOUR  (both modes — tiled & checkpointed)
         cnt_path   = None
         step_label = "[3/3]" if mode == "csv" else "[2/2]"
 
@@ -761,9 +709,7 @@ class DEMContourTool(QgsProcessingAlgorithm):
 
         feedback.setProgress(90)
 
-        # ═════════════════════════════════════════════════════════════════════
-        #  LOAD INTO CANVAS
-        # ═════════════════════════════════════════════════════════════════════
+        # --------------------------------------------------- LOAD INTO CANVAS
         if load_layers:
             feedback.pushInfo("\n  Loading layers into QGIS canvas …")
 
@@ -783,9 +729,7 @@ class DEMContourTool(QgsProcessingAlgorithm):
                 else:
                     feedback.pushWarning(f"  Could not load contour: {cnt_path}")
 
-        # ═════════════════════════════════════════════════════════════════════
-        #  SUMMARY
-        # ═════════════════════════════════════════════════════════════════════
+        # ------------------------------------------------------------ SUMMARY
         feedback.setProgress(100)
         feedback.pushInfo("\n" + "=" * 55)
         feedback.pushInfo("  ✔  Done (or safely paused — rerun to resume)")

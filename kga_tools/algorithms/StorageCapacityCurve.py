@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from qgis.core import (
     QgsProcessingAlgorithm,
     QgsProcessingParameterMultipleLayers,
@@ -14,6 +15,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from matplotlib.gridspec import GridSpec
 from osgeo import gdal, ogr, osr
+from ..branding import docs_url
 
 
 class StorageCapacityCurve(QgsProcessingAlgorithm):
@@ -63,7 +65,7 @@ class StorageCapacityCurve(QgsProcessingAlgorithm):
             )
         )
 
-        # ── Plot axis controls ─────────────────────────────────────────
+        # ------------------------------------------------- Plot axis controls
         self.addParameter(
             QgsProcessingParameterNumber(
                 self.PLOT_ELEV_MIN,
@@ -128,7 +130,7 @@ class StorageCapacityCurve(QgsProcessingAlgorithm):
         output_folder  = self.parameterAsString(parameters, self.OUTPUT_FOLDER, context)
         elev_step      = self.parameterAsDouble(parameters, self.ELEV_STEP, context)
 
-        # ── Read plot controls ─────────────────
+        # ------------------------------------------------- Read plot controls
         plot_cfg = dict(
             elev_min  = self.parameterAsDouble(parameters, self.PLOT_ELEV_MIN,  context),
             elev_max  = self.parameterAsDouble(parameters, self.PLOT_ELEV_MAX,  context),
@@ -303,7 +305,7 @@ class StorageCapacityCurve(QgsProcessingAlgorithm):
         vol_s  = df["Volume_1000m3"]
         area_s = df["Area_ha"]
 
-        # ── Resolve axis limits (0 = auto) ────────────────────────────
+        # ------------------------------------- Resolve axis limits (0 = auto)
         y_min  = plot_cfg["elev_min"] if plot_cfg["elev_min"] > 0 else elev_s.min()
         y_max  = plot_cfg["elev_max"] if plot_cfg["elev_max"] > 0 else elev_s.max()
         vx_max = plot_cfg["vol_max"]  if plot_cfg["vol_max"]  > 0 else None
@@ -323,7 +325,7 @@ class StorageCapacityCurve(QgsProcessingAlgorithm):
         ax1 = fig.add_subplot(gs[0, 0])
         ax2 = fig.add_subplot(gs[0, 1])
 
-        # ── LEFT : Elevation vs Volume ────────────────────────────────
+        # ----------------------------------------- LEFT : Elevation vs Volume
         ax1.fill_betweenx(elev_s, vol_s, alpha=0.15, color="#1565C0", zorder=2)
         ax1.plot(vol_s, elev_s, color="#1565C0", linewidth=2.2, zorder=3)
         ax1.set_facecolor("#F7F9FC")
@@ -379,7 +381,7 @@ class StorageCapacityCurve(QgsProcessingAlgorithm):
         ax1.legend(fontsize=7.5, loc="lower right",
                    prop={"family": "Times New Roman"}, framealpha=0.9, edgecolor="#CCCCCC")
 
-        # ── RIGHT : Elevation vs Area ─────────────────────────────────
+        # ------------------------------------------ RIGHT : Elevation vs Area
         ax2.fill_betweenx(elev_s, area_s, alpha=0.15, color="#2E7D32", zorder=2)
         ax2.plot(area_s, elev_s, color="#2E7D32", linewidth=2.2, zorder=3)
         ax2.set_facecolor("#F7FCF7")
@@ -427,7 +429,7 @@ class StorageCapacityCurve(QgsProcessingAlgorithm):
         ax2.legend(fontsize=7.5, loc="lower right",
                    prop={"family": "Times New Roman"}, framealpha=0.9, edgecolor="#CCCCCC")
 
-        # ── Info bar ──────────────────────────────────────────────────
+        # ----------------------------------------------------------- Info bar
         # Show which axes are custom vs auto
         y_info  = (f"{y_min:.2f}–{y_max:.2f} m (custom)"
                    if plot_cfg["elev_min"] > 0 or plot_cfg["elev_max"] > 0
@@ -460,14 +462,14 @@ class StorageCapacityCurve(QgsProcessingAlgorithm):
         plt.close(fig)
         feedback.pushInfo(f"  ✅ Graph → {png_path}")
 
-    # ── Metadata ──────────────────────────────────────────────────────
+    # --------------------------------------------------------------- Metadata
     def name(self):        return "storage_capacity_curve"
     def displayName(self): return "Storage Capacity Curve"
     def group(self):       return "KGA Irrigation Tools"
     def groupId(self):     return "kgairrigationtools"
 
     def helpUrl(self):
-        return 'https://khmergrs.com/docs/qgis/storage_capacity_curve'
+        return docs_url('storage_capacity_curve')
     def createInstance(self): return StorageCapacityCurve()
     def tr(self, s): return QCoreApplication.translate("Processing", s)
 

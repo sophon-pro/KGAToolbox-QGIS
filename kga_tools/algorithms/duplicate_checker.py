@@ -1,10 +1,15 @@
 # -*- coding: utf-8 -*-
 from qgis.PyQt.QtCore import QCoreApplication, Qt
-from qgis.PyQt.QtWidgets import (QDialog, QVBoxLayout, QComboBox,
+from qgis.PyQt.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QComboBox,
                                  QPushButton, QFormLayout, QMessageBox)
 from qgis.core import (QgsProcessingAlgorithm, QgsProject, QgsMapLayerProxyModel,
                        QgsCategorizedSymbolRenderer, QgsRendererCategory, QgsSymbol)
 from qgis.gui import QgsMapLayerComboBox, QgsFieldComboBox
+from ..branding import docs_url, help_button
+from ..core.compat import no_threading
+# `qgis.PyQt.sip` is the name that works both where sip is a
+# top-level module and where it is only PyQt5.sip; see modify_base.
+from ..gui.modify_base import is_deleted as _is_deleted
 
 try:
     from qgis.utils import iface
@@ -40,8 +45,11 @@ class DuplicateCheckerDialog(QDialog):
 
         layout.addLayout(self.form)
 
+        buttons = QHBoxLayout()
         self.run_btn = QPushButton("Detect and Highlight Duplicates")
-        layout.addWidget(self.run_btn)
+        buttons.addWidget(self.run_btn)
+        buttons.addWidget(help_button('duplicate_checker', self))
+        layout.addLayout(buttons)
 
         self.layer_combo.layerChanged.connect(self.field_combo.setLayer)
         self.mode_combo.currentIndexChanged.connect(self.update_ui)
@@ -119,12 +127,6 @@ class DuplicateCheckerDialog(QDialog):
         if iface:
             iface.layerTreeView().refreshLayerSymbology(layer)
 
-def _is_deleted(obj):
-    try:
-        import sip
-        return sip.isdeleted(obj)
-    except Exception:
-        return False
 
 def close_duplicate_checker():
     """Close the dialog if one is open. Safe to call when none is.
@@ -148,10 +150,17 @@ class DuplicateCheckerAlgorithm(QgsProcessingAlgorithm):
     def displayName(self): return 'Duplicate Checker'
     def group(self): return 'KGA Geometry Utilities'
     def groupId(self): return 'kgageometryutilities'
-    def helpUrl(self): return 'https://khmergrs.com/docs/qgis/duplicate_checker'
+    def helpUrl(self): return docs_url('duplicate_checker')
     def shortHelpString(self): return "Detects and highlights duplicate attributes or geometries."
 
     def initAlgorithm(self, config=None): pass
+
+    def flags(self):
+        # Builds the dialog below in processAlgorithm, and a QWidget may only
+        # be constructed on the GUI thread. Running from the KGA toolbar is
+        # already on it, but the Processing Toolbox hands the algorithm to a
+        # worker thread unless this says otherwise.
+        return no_threading(super().flags())
 
     def processAlgorithm(self, parameters, context, feedback):
         global DIALOG_INSTANCE

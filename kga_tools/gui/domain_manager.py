@@ -62,7 +62,7 @@ from qgis.PyQt.QtWidgets import (
     QWidget,
 )
 
-from ..branding import LOG_TAG
+from ..branding import LOG_TAG, open_docs
 from ..core import domains as D
 from ..core.compat import (
     NAME_BY_TYPE,
@@ -246,8 +246,13 @@ class DomainManagerDialog(QDialog):
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close, self)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Close
+            | QDialogButtonBox.StandardButton.Help, self)
         buttons.rejected.connect(self.close)
+        # The tool opens straight into this window, so the Processing dialog's
+        # Help button is never in the way to carry it.
+        buttons.helpRequested.connect(lambda: open_docs('domain_manager'))
         layout.addWidget(buttons)
 
         self._set_enabled(False)
