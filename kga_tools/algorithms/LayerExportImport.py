@@ -649,7 +649,7 @@ class LayerExportImportDialog(QDialog):
         box.setText(summary)
         if errors:
             box.setDetailedText("\n".join(errors[:50]))
-        box.exec_()
+        box.exec()
 
     def _write_layer(self, layer, dest_path, options):
         """Run QgsVectorFileWriter across API versions. Returns (ok, message)."""
@@ -869,7 +869,7 @@ class LayerExportImportDialog(QDialog):
         box.setText(summary)
         if errors:
             box.setDetailedText("\n".join(errors[:50]))
-        box.exec_()
+        box.exec()
 
 
 # ---------------------------- launcher: the entry the toolbox and toolbar see

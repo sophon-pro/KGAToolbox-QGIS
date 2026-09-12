@@ -1102,7 +1102,7 @@ class SpatialDataManagerDialog(QDialog):
             QMessageBox.warning(self, "No layers",
                                 "No readable layers found in:\n{0}".format(path))
             return
-        if picker.exec_() != QDialog.DialogCode.Accepted:
+        if picker.exec() != QDialog.DialogCode.Accepted:
             return
         chosen = picker.selected_layers()
         if chosen:
@@ -1225,7 +1225,7 @@ class SpatialDataManagerDialog(QDialog):
         box.setText(summary)
         if errors:
             box.setDetailedText("\n".join(errors[:50]))
-        box.exec_()
+        box.exec()
 
 
     # ---------------- Tab 4: export from the Layers panel ----------------
@@ -1499,7 +1499,7 @@ class SpatialDataManagerDialog(QDialog):
         box.setText(summary)
         if errors:
             box.setDetailedText("\n".join(errors[:50]))
-        box.exec_()
+        box.exec()
 
     def _export_style(self, source, out_name, dest_path, into_container, want_qml):
         """Give the layer just written the styles of the source layer.

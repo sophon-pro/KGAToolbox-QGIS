@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from qgis.PyQt.QtCore import QCoreApplication, QVariant
+from qgis.PyQt.QtCore import QCoreApplication
 from qgis.PyQt.QtWidgets import QMessageBox
 from qgis.core import (
     QgsProcessing,
@@ -8,11 +8,11 @@ from qgis.core import (
     QgsProcessingParameterVectorLayer,
     QgsCoordinateReferenceSystem,
     QgsCoordinateTransform,
-    QgsField,
     Qgis
 )
 import qgis.utils
 from ..branding import docs_url
+from ..core.compat import T_DOUBLE, make_field
 
 
 class UpdateXYFields(QgsProcessingAlgorithm):
@@ -105,7 +105,7 @@ class UpdateXYFields(QgsProcessingAlgorithm):
         # Check and Create Fields
         for fname in fields_to_check:
             if fields.indexOf(fname) == -1:
-                layer.addAttribute(QgsField(fname, QVariant.Type.Double))
+                layer.addAttribute(make_field(fname, T_DOUBLE))
                 created_fields.append(fname)
         
         if created_fields:

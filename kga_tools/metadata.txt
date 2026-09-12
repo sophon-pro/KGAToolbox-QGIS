@@ -1,11 +1,12 @@
 [general]
 name=KGA Toolbox
 qgisMinimumVersion=3.28
+qgisMaximumVersion=4.99.0
 description=Spatial data management, schema, editing, conversion and topology utilities.
 about=KGA Toolbox bundles the KGA processing algorithms into a single provider with a dedicated toolbar. It adds the things QGIS leaves out: a two-way converter between an ArcGIS File Geodatabase and a GeoPackage that carries field domains and layer aliases across, an editor for GeoPackage field domains, an append tool with a real field mapping, a safe attribute round-trip to Excel, a self-contained layer package format, topology checks with an error inspector, and a set of interactive editing tools modelled on the ArcGIS Pro Modify Features pane.
 version=0.1.0
 author=Khmer GRS Academy (KGA)
-email=khmergiscademy@gmail.com
+email=khmergisacademy@gmail.com
 
 homepage=https://khmergrs.com/
 tracker=https://github.com/sophon-pro/KGAToolbox-QGIS/issues

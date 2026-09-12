@@ -6,7 +6,7 @@ from qgis.core import (QgsProcessingAlgorithm, QgsProject, QgsMapLayerProxyModel
                        QgsCategorizedSymbolRenderer, QgsRendererCategory, QgsSymbol)
 from qgis.gui import QgsMapLayerComboBox, QgsFieldComboBox
 from ..branding import docs_url, help_button
-from ..core.compat import no_threading
+from ..core.compat import T_STRING, make_field, no_threading
 # `qgis.PyQt.sip` is the name that works both where sip is a
 # top-level module and where it is only PyQt5.sip; see modify_base.
 from ..gui.modify_base import is_deleted as _is_deleted
@@ -105,9 +105,7 @@ class DuplicateCheckerDialog(QDialog):
         
         layer.startEditing()
         if idx == -1:
-            from qgis.core import QgsField
-            from qgis.PyQt.QtCore import QVariant
-            layer.dataProvider().addAttributes([QgsField(field_name, QVariant.Type.String)])
+            layer.dataProvider().addAttributes([make_field(field_name, T_STRING)])
             layer.updateFields()
             idx = layer.fields().indexOf(field_name)
 

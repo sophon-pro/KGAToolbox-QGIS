@@ -2,7 +2,7 @@
 
 import os
 
-from qgis.PyQt.QtCore import QCoreApplication, Qt, QVariant
+from qgis.PyQt.QtCore import QCoreApplication, Qt
 from qgis.PyQt.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QComboBox,
                                  QCheckBox, QPushButton, QFormLayout,
                                  QMessageBox, QApplication, QProgressBar,
@@ -32,6 +32,7 @@ from qgis.core import (
 )
 from qgis.gui import QgsMapLayerComboBox, QgsFileWidget
 from ..branding import docs_url, help_button
+from ..core.compat import T_DOUBLE, T_LONGLONG, make_field
 # `qgis.PyQt.sip` is the name that works both where sip is a
 # top-level module and where it is only PyQt5.sip; see modify_base.
 from ..gui.modify_base import is_deleted as _is_deleted
@@ -529,8 +530,8 @@ class DynamicGeometryDialog(QDialog):
             [f.name().lower()[:max_len] for f in out_fields] + list(reserved),
             max_len)
 
-        ID_TYPE = QVariant.Type.LongLong
-        DBL_TYPE = QVariant.Type.Double
+        ID_TYPE = T_LONGLONG
+        DBL_TYPE = T_DOUBLE
 
         spec = [('source_id', 'source_id', ID_TYPE)]
         if mode in (MODE_LINES, MODE_BOUNDARY, MODE_VERTICES) or per_part:
@@ -559,7 +560,7 @@ class DynamicGeometryDialog(QDialog):
         for key, base, ftype in spec:
             name = get_safe_field_name(base)
             meta_fields[key] = name
-            out_fields.append(QgsField(name, ftype))
+            out_fields.append(make_field(name, ftype))
 
         # Setup the output sink (memory or file)
         out_layer = None
