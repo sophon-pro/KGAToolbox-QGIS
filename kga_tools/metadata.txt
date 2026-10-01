@@ -16,7 +16,11 @@ about=KGA Toolbox brings a set of practical processing algorithms together under
     - Administrative boundaries, basemaps, elevation models (DEM) and land cover from open data sources
     - Imagery Downloader that stitches web-map tiles into one georeferenced image
     Network use and privacy:
-    Only the Add Open Data & Basemaps and Imagery Downloader tools make outbound requests, and only when the user asks for data. Add Open Data connects to geoBoundaries, the Humanitarian Data Exchange (HDX), Natural Earth (served from GitHub), OpenStreetMap, Google and Esri tile services, the Copernicus DEM and ESA WorldCover open-data buckets on Amazon S3, Esri's Living Atlas land-cover image service, OpenTopography, and any service URL the user enters. The Imagery Downloader connects to the chosen imagery tile service only. OpenTopography is the one source that needs an account: the user enters their own free API key, it is kept in the QGIS authentication database and sent only to OpenTopography. Every other source works without an account or key. The only information sent is what a request needs: a country code, the bounding box of the area asked for, or tile numbers. No project data or layers are uploaded, and nothing runs in the background. Downloads are cached in the QGIS profile directory, and rasters and imagery tiles are written only to the folder the user chooses. No other KGA Toolbox tool uses the network.
+    - Only Add Open Data & Basemaps and Imagery Downloader use the network, and only when the user asks for data. No other tool does, and nothing runs in the background.
+    - Add Open Data connects to geoBoundaries, HDX, Natural Earth (via GitHub), OpenStreetMap, Google and Esri tile services, the Copernicus DEM and ESA WorldCover buckets on Amazon S3, Esri's Living Atlas land-cover service, OpenTopography, and any address the user enters. Imagery Downloader connects only to the chosen tile service.
+    - OpenTopography is the only source that needs an account: the user's own free API key is kept in the QGIS authentication database and sent only to OpenTopography.
+    - Only what a request needs is sent: a country code, the bounding box of the area, or tile numbers. No project data or layers are uploaded.
+    - Downloads are cached in the QGIS profile directory; rasters and imagery are written only to the folder the user chooses.
 version=0.2.0
 author=Khmer GRS Academy (KGA)
 email=khmergisacademy@gmail.com
