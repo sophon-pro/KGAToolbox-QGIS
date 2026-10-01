@@ -8,6 +8,7 @@ kga_tools.zip
 backup/
 NorthArrow/
 release_note/
+tests/
 
 # --- Python -------------------------------------------------------------
 __pycache__/
