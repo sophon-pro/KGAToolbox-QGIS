@@ -7,6 +7,7 @@ kga_tools.zip
 # Dated snapshots, broken-state copies and *.bak files. Git is the history now.
 backup/
 NorthArrow/
+release_note/
 
 # --- Python -------------------------------------------------------------
 __pycache__/
