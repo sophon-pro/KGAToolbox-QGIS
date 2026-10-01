@@ -617,7 +617,7 @@ def _opens_as_raster(path):
 # --------------------------------------------------------------- the API key
 
 #: Where the OpenTopography key lives in the QGIS authentication database.
-API_KEY_SETTING = 'kga_tools/opentopography_api_key'
+OPENTOPO_SETTING_ID = 'kga_tools/opentopography_api_key'
 
 
 def load_api_key():
@@ -629,7 +629,7 @@ def load_api_key():
     """
     try:
         manager = QgsApplication.authManager()
-        value = manager.authSetting(API_KEY_SETTING, '', True)
+        value = manager.authSetting(OPENTOPO_SETTING_ID, '', True)
         return str(value or '')
     except Exception:                       # pragma: no cover - auth unavailable
         return ''
@@ -638,7 +638,7 @@ def load_api_key():
 def has_saved_api_key():
     """True when a key is stored - checked without decrypting it."""
     try:
-        return QgsApplication.authManager().existsAuthSetting(API_KEY_SETTING)
+        return QgsApplication.authManager().existsAuthSetting(OPENTOPO_SETTING_ID)
     except Exception:                       # pragma: no cover - auth unavailable
         return False
 
@@ -648,9 +648,9 @@ def save_api_key(key):
     try:
         manager = QgsApplication.authManager()
         if not key:
-            manager.removeAuthSetting(API_KEY_SETTING)
+            manager.removeAuthSetting(OPENTOPO_SETTING_ID)
             return True
-        return bool(manager.storeAuthSetting(API_KEY_SETTING, key, True))
+        return bool(manager.storeAuthSetting(OPENTOPO_SETTING_ID, key, True))
     except Exception:                       # pragma: no cover - auth unavailable
         return False
 

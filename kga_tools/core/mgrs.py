@@ -42,17 +42,22 @@ them.
 """
 
 import math
+import string
+
+#: The alphabet with I and O left out - 24 letters. The three tables below are
+#: slices of it, so none of them is typed out as a literal.
+_ALPHABET = ''.join(c for c in string.ascii_uppercase if c not in 'IO')
 
 #: 24 letters for the 100 km column, I and O left out.
-COLUMN_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
+COLUMN_LETTERS = _ALPHABET
 
 #: 20 letters for the 100 km row, I and O left out. See the module docstring
 #: for why twenty is the number that makes one formula serve both hemispheres.
-ROW_LETTERS = 'ABCDEFGHJKLMNPQRSTUV'
+ROW_LETTERS = _ALPHABET[:20]
 
 #: The latitude bands, C at 80 S through X. I and O are skipped here too. A, B,
 #: Y and Z belong to the polar UPS grid, which this module does not do.
-BAND_LETTERS = 'CDEFGHJKLMNPQRSTUVWX'
+BAND_LETTERS = _ALPHABET[2:22]
 
 #: The grid spacings MGRS actually names, coarsest first. A reference quoted to
 #: one digit is a 10 km square, to five digits a 1 m square.

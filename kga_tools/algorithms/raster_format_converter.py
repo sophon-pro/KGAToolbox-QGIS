@@ -980,7 +980,7 @@ class RasterFormatConverter(QgsProcessingAlgorithm):
 
         feedback.pushInfo(self.tr('Building overviews {levels} on the '
                                   'mosaic...').format(
-                                      levels=', '.join(str(l) for l in levels)))
+                                      levels=', '.join(str(level) for level in levels)))
         previous = gdal.GetConfigOption('BIGTIFF_OVERVIEW')
         try:
             # A pyramid for an orthophoto this size will not fit in a classic
