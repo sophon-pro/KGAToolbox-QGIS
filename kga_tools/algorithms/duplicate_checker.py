@@ -100,19 +100,33 @@ class DuplicateCheckerDialog(QDialog):
             QMessageBox.information(self, "Result", f"Symbolized {len(duplicates)} duplicate features.")
 
     def apply_symbology(self, layer, duplicate_ids):
-        field_name = "is_dup_temp"
+        # 10 characters: Shapefile/DBF truncates longer names, so the renderer
+        # would point at a field that does not exist and draw nothing.
+        field_name = "dup_status"
         idx = layer.fields().indexOf(field_name)
-        
-        layer.startEditing()
+
+        if not layer.startEditing() and not layer.isEditable():
+            QMessageBox.warning(self, "Error", "The layer could not be put into edit mode.")
+            return
         if idx == -1:
             layer.dataProvider().addAttributes([make_field(field_name, T_STRING)])
             layer.updateFields()
             idx = layer.fields().indexOf(field_name)
+        if idx == -1:
+            layer.rollBack()
+            QMessageBox.warning(self, "Error", f"Could not add the '{field_name}' field to this layer.")
+            return
+        # Use the name the provider actually stored, not the one requested.
+        field_name = layer.fields().at(idx).name()
 
         for feat in layer.getFeatures():
             status = "Duplicate" if feat.id() in duplicate_ids else "Unique"
             layer.changeAttributeValue(feat.id(), idx, status)
-        layer.commitChanges()
+        if not layer.commitChanges():
+            errors = "\n".join(layer.commitErrors())
+            layer.rollBack()
+            QMessageBox.warning(self, "Error", f"Could not save the duplicate flags:\n{errors}")
+            return
 
         cat_dup = QgsRendererCategory("Duplicate", QgsSymbol.defaultSymbol(layer.geometryType()), "Duplicate")
         cat_dup.symbol().setColor(Qt.GlobalColor.red)
@@ -123,7 +137,7 @@ class DuplicateCheckerDialog(QDialog):
         layer.setRenderer(renderer)
         layer.triggerRepaint()
         if iface:
-            iface.layerTreeView().refreshLayerSymbology(layer)
+            iface.layerTreeView().refreshLayerSymbology(layer.id())
 
 
 def close_duplicate_checker():

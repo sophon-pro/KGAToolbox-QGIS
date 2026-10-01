@@ -436,6 +436,10 @@ def collect_resources(layer, writer):
                 value = properties.get(key)
                 if not value or not _looks_like_a_path(value, key):
                     continue
+                if str(value).lower().startswith('base64:'):
+                    # Embedded in the style itself (as ArcGIS Pro packages
+                    # write picture markers), so it travels without copying.
+                    continue
                 name = writer.add_resource(value)
                 if name:
                     mapping[value] = name

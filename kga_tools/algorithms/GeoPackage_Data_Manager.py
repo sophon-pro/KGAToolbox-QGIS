@@ -1661,7 +1661,6 @@ class GpkgManagerAlgorithm(QgsProcessingAlgorithm):
             try:
                 still_open = DIALOG_INSTANCE.isVisible()
             except RuntimeError:        # Qt already destroyed the widget
-                DIALOG_INSTANCE = None
                 still_open = False
             if not still_open:
                 try:
