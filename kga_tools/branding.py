@@ -34,6 +34,8 @@ STANDALONE_ALGS = [
     ('spatialdatamanager', 'spatialDataManager.png'),
     ('layerexportimport', 'import_export.png'),
     ('domain_manager', 'domain.png'),
+    ('add_data', 'addData.png'),
+    ('imagery_downloader', 'imagery_download.png'),
 ]
 
 # Order the group sections. Groups in neither tuple are sorted alphabetically
@@ -50,6 +52,7 @@ GROUP_ORDER = [
 GROUP_LAST = [
     'KGA Data Conversion',
     'KGA Irrigation Tools',
+    'KGA Mapping',
 ]
 
 # Optional per-group icon files in icons/. Missing files fall back to text.
@@ -58,6 +61,7 @@ GROUP_ICONS = {
     'KGA Data Management': 'management.png',
     'KGA Geometry Utilities': 'geometry.png',
     'KGA Irrigation Tools': 'irrigation.png',
+    'KGA Mapping': 'Mapping.png',
     'KGA Topology': 'topology.png',
     'KGA Schema Tools': 'schema.png',
     'KGA Editing Tools': 'editing.png',
@@ -72,6 +76,9 @@ ALG_ICONS = {
     'gpkgtoshapefiles': 'shapefile.png',
     'shapefilestogpkg': 'gpkg.png',
     'layerexportimport': 'import_export.png',
+    'add_data': 'addData.png',
+    'imagery_downloader': 'imagery_download.png',
+    'add_grid': 'addGrid.png',
     'checkoverlapsandgaps': 'alg_topology.png',
     'domain_manager': 'domain.png',
     'apply_domain_library': 'alg_domain_apply.png',
@@ -90,6 +97,7 @@ ALG_ICONS = {
     'clip_features': 'clipFeatures.png',
     'attributes_to_xlsx': 'toExcel.png',
     'xlsx_to_attributes': 'fromExcel.png',
+    'raster_format_converter': 'rasterFormatConverter.png',
     'filegdb_to_geopackage': 'alg_gdb_to_gpkg.png',
     'geopackage_to_filegdb': 'alg_gpkg_to_gdb.png',
     'create_layer_package': 'alg_package_out.png',
@@ -180,6 +188,9 @@ def button_label(group_name):
 # Layer Package", not four entries below it.
 ALG_ORDER = {
     'KGA Data Management': [
+        # Getting data in comes before anything that can be done to it.
+        'add_data',
+        'imagery_downloader',
         'create_layer_package',
         'open_layer_package',
     ],
@@ -198,6 +209,12 @@ ALG_ORDER = {
         'checkoverlapsandgaps',
         'checkpointsonboundary',
         'errorinspector',
+    ],
+    'KGA Mapping': [
+        # Adding a grid to a sheet comes before making the legend that goes
+        # beside it, and alphabetical order would put the legend first.
+        'add_grid',
+        'dem_legend_bar',
     ],
     'KGA Editing Tools': [
         # Copy-Paste Feature leads: it is the one that puts a feature on the

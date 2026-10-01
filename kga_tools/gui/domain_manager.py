@@ -24,17 +24,10 @@ moves to.
 import os
 
 from qgis.core import Qgis, QgsMessageLog, QgsProject, QgsVectorLayer
-from qgis.PyQt.QtCore import (
-    QCoreApplication,
-    QElapsedTimer,
-    QEvent,
-    QEventLoop,
-    Qt,
-)
-from qgis.PyQt.QtGui import QBrush, QColor, QFont, QPainter
+from qgis.PyQt.QtCore import QCoreApplication, Qt
+from qgis.PyQt.QtGui import QBrush, QColor, QFont
 from qgis.PyQt.QtWidgets import (
     QAbstractItemView,
-    QApplication,
     QCheckBox,
     QComboBox,
     QDialog,
@@ -52,7 +45,6 @@ from qgis.PyQt.QtWidgets import (
     QListWidgetItem,
     QMessageBox,
     QPlainTextEdit,
-    QProgressBar,
     QPushButton,
     QSplitter,
     QTabWidget,
@@ -63,6 +55,7 @@ from qgis.PyQt.QtWidgets import (
 )
 
 from ..branding import LOG_TAG, open_docs
+from .busy import BusyOverlay
 from ..core import domains as D
 from ..core.compat import (
     NAME_BY_TYPE,
@@ -93,119 +86,6 @@ NO_DOMAIN = '(none)'
 
 def tr(text):
     return QCoreApplication.translate('KgaDomainManager', text)
-
-
-class _BusyOverlay(QWidget):
-    """A translucent "working" panel laid over the widget it is given.
-
-    Reading a container and building the Assignment grid both run on the GUI
-    thread. A worker thread would not help: the time goes into creating one
-    combo box per field, and widgets can only be made on the GUI thread. So
-    the panel is pumped by hand instead — `step` and `message` run the event
-    loop just long enough to repaint, with user input excluded so a second
-    click on Reload cannot re-enter a rebuild that is still running.
-
-    Calls nest. A grid rebuild started from inside a reload leaves the panel
-    up until the outermost caller finishes, so the dialog never flickers
-    between phases of one operation.
-    """
-
-    #: Milliseconds between repaints. Pumping the event loop more often than
-    #: this costs more than the progress it reports.
-    _REPAINT_MS = 60
-
-    def __init__(self, parent):
-        super().__init__(parent)
-        self._depth = 0
-        self._clock = QElapsedTimer()
-        self._clock.start()
-        parent.installEventFilter(self)
-
-        outer = QVBoxLayout(self)
-
-        panel = QFrame(self)
-        # An object-name selector, not `QFrame` - QLabel is a QFrame too, and
-        # a plain type selector would draw a border around the caption.
-        panel.setObjectName('kgaBusyPanel')
-        panel.setStyleSheet(
-            '#kgaBusyPanel { background: palette(window); '
-            'border: 1px solid palette(mid); border-radius: 4px; }')
-        inner = QVBoxLayout(panel)
-        inner.setContentsMargins(20, 16, 20, 16)
-        inner.setSpacing(10)
-
-        self._label = QLabel('', panel)
-        self._label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        inner.addWidget(self._label)
-
-        self._bar = QProgressBar(panel)
-        self._bar.setFixedWidth(280)
-        self._bar.setTextVisible(False)
-        inner.addWidget(self._bar)
-
-        # Aligned on the *widget*, not the layout: a layout alignment still
-        # lets the panel stretch to the full width of the dialog.
-        outer.addWidget(panel, 0, Qt.AlignmentFlag.AlignCenter)
-        self.hide()
-
-    # -- lifecycle ---------------------------------------------------------
-
-    def begin(self, text):
-        """Raise the panel. Always pair with `end()` in a `finally`."""
-        self._depth += 1
-        if self._depth == 1:
-            self.setGeometry(self.parentWidget().rect())
-            # 0..0 is Qt's marching indeterminate bar, for the reads whose
-            # length is not known until they finish.
-            self._bar.setRange(0, 0)
-            self.show()
-            self.raise_()
-            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        self.message(text, force=True)
-
-    def end(self):
-        self._depth = max(0, self._depth - 1)
-        if self._depth == 0:
-            self.hide()
-            QApplication.restoreOverrideCursor()
-
-    # -- progress ----------------------------------------------------------
-
-    def message(self, text, force=False):
-        """Name the phase, leaving the bar as it is."""
-        self._label.setText(text)
-        self._pump(force)
-
-    def step(self, done, total, text=None):
-        """Report measured progress, turning the bar determinate."""
-        if total > 0:
-            self._bar.setRange(0, total)
-            self._bar.setValue(done)
-        if text is not None:
-            self._label.setText(text)
-        self._pump(False)
-
-    def _pump(self, force):
-        if not force and self._clock.elapsed() < self._REPAINT_MS:
-            return
-        self._clock.restart()
-        QCoreApplication.processEvents(
-            QEventLoop.ProcessEventsFlag.ExcludeUserInputEvents)
-
-    # -- painting ----------------------------------------------------------
-
-    def eventFilter(self, obj, event):
-        if obj is self.parentWidget() and event.type() == QEvent.Type.Resize:
-            self.setGeometry(obj.rect())
-        return super().eventFilter(obj, event)
-
-    def paintEvent(self, event):
-        # A wash of black rather than of palette(window): the window colour
-        # over a window-coloured tab page is no dimming at all, and black at
-        # this alpha reads as "behind glass" in a light theme and a dark one
-        # alike.
-        painter = QPainter(self)
-        painter.fillRect(self.rect(), QColor(0, 0, 0, 70))
 
 
 class DomainManagerDialog(QDialog):
@@ -240,7 +120,7 @@ class DomainManagerDialog(QDialog):
         layout.addWidget(self.tabs, 1)
         # Parented to the tabs so it covers the tab bar too: a rebuild the
         # user cannot interrupt should not look like a tab they can leave.
-        self.busy = _BusyOverlay(self.tabs)
+        self.busy = BusyOverlay(self.tabs)
 
         self.status = QLabel('', self)
         self.status.setWordWrap(True)

@@ -1,6 +1,6 @@
 # KGA Toolbox — Tool Metadata
 
-Reference documentation for all **41 tools** the KGA Toolbox registers, one file
+Reference documentation for all **45 tools** the KGA Toolbox registers, one file
 per tool.
 
 Each file is named after the algorithm's `name()` — the same key used by
@@ -21,10 +21,12 @@ cannot run headless or inside a model.
 
 ---
 
-## KGA Data Management — 7
+## KGA Data Management — 9
 
 | Tool | What it does |
 |---|---|
+| [Add Open Data & Basemaps](add_data.md) | Pull admin boundaries, basemaps, DEMs and land cover in from open data sources. *(Interactive)* |
+| [Imagery Downloader](imagery_downloader.md) | Download web-map imagery tiles for an area, stitch them into one georeferenced image and add it to the map. *(Interactive)* |
 | [Create Layer Package](create_layer_package.md) | Package layers, styles and resources into one `.kgalp` that opens anywhere. |
 | [Open Layer Package](open_layer_package.md) | Unpack a `.kgalp` and rebuild its layers, styles and group structure. |
 | [Create Points From Table](create_points_from_table.md) | Build a point layer from the XY columns of a CSV, Excel or ODS table. |
@@ -77,7 +79,7 @@ All nine are interactive: they open a modeless pane that owns its own map tool.
 | [Check Points on Boundary Vertices](checkpointsonboundary.md) | Flag points that do not sit on a boundary vertex. |
 | [Open Error Inspector](errorinspector.md) | Step through the errors, zoom to each, re-run every check. *(Interactive)* |
 
-## KGA Data Conversion — 5
+## KGA Data Conversion — 6
 
 | Tool | What it does |
 |---|---|
@@ -86,18 +88,25 @@ All nine are interactive: they open a modeless pane that owns its own map tool.
 | [Export Attributes to Excel](attributes_to_xlsx.md) | Write a layer's attributes to a workbook a colleague can edit. |
 | [Import Attributes from Excel](xlsx_to_attributes.md) | Apply the edited workbook back, with a diff first. |
 | [Export Layers to KML](export_layers_to_kml.md) | Write layers to KML/KMZ for Google Earth, labels included. |
+| [Raster Format Converter](raster_format_converter.md) | Convert a raster between ECW, GeoTIFF, JPEG 2000, IMG, PNG and JPEG — resumably. |
 
-## KGA Irrigation Tools — 7
+## KGA Irrigation Tools — 6
 
 | Tool | What it does |
 |---|---|
 | [CSV to DEM and Contour](csvtodemcontour.md) | Turn a surveyed point CSV into a DEM and contour lines. |
 | [DEM Elevation Correction and Point Sample Report](demelevationcorrectionandpointsamplereport.md) | Correct DEMs against a reference, merge them, and report the result. |
-| [DEM Legend Bar](dem_legend_bar.md) | Render a hypsometric legend bar as a PNG for print. |
 | [DEM Point Sample Export to Excel](dempointsampleexport.md) | Sample several DEMs on a grid and export the comparison to Excel. |
 | [DEM and Contour Tool](demcontourtool.md) | The resumable, tiled version of the CSV/DEM-to-contour workflow. |
 | [Reservoir Rating Curve](reservoir_rating_curve.md) | Stage-discharge curve from weir, orifice and pipe outlets. |
 | [Storage Capacity Curve](storage_capacity_curve.md) | Volume and area against elevation for a reservoir. |
+
+## KGA Mapping — 2
+
+| Tool | What it does |
+|---|---|
+| [Add Grid to Layout](add_grid.md) | Put a coordinate grid — including a full MGRS grid — on a layout map, from one window. *(Interactive)* |
+| [DEM Legend Bar](dem_legend_bar.md) | Render a hypsometric legend bar as a PNG for print. |
 
 ---
 
@@ -107,10 +116,11 @@ All nine are interactive: they open a modeless pane that owns its own map tool.
   Attributes from Excel* and *Apply Domain Library* all start with **Dry run
   ticked**: the first run writes nothing and produces a report. That is the
   intended workflow, not an obstacle.
-- **Two tools are resumable.** *DEM and Contour Tool* and *DEM Elevation
-  Correction* write a `checkpoint.json` to the output folder and continue from it
-  when re-run with the same parameters. *Force re-run* ignores it.
-- **Sixteen algorithms take no Processing parameters.** They open a window
+- **Three tools are resumable.** *DEM and Contour Tool*, *DEM Elevation
+  Correction* and *Raster Format Converter* write a `checkpoint.json` beside
+  their output and continue from it when re-run with the same parameters.
+  *Force re-run*, or *Resume* switched off, ignores it.
+- **Seventeen algorithms take no Processing parameters.** They open a window
   instead, and the plugin runs them directly rather than showing an empty
   Processing dialog. They need the QGIS canvas: they cannot run headless or
   inside a model.

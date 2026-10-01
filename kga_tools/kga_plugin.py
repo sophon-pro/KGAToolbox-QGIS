@@ -7,6 +7,7 @@ Icon and group-ordering configuration now lives in branding.py so the toolbar
 and the panel stay in sync.
 """
 
+import traceback
 from functools import partial
 
 from qgis.core import Qgis, QgsApplication, QgsMessageLog
@@ -237,16 +238,23 @@ class KgaToolsPlugin:
         if not group_icon.isNull():
             button.setIcon(group_icon)
 
-    def run_algorithm(self, alg_id):
+    def run_algorithm(self, alg_id, _retry=True):
         try:
             import processing
             alg = QgsApplication.processingRegistry().algorithmById(alg_id)
 
             # Record before running: "recent" should mean recently opened, not
             # recently completed, and the dialog may sit open for a long time.
-            gp.push_recent(alg_id)
-            if self.panel is not None:
-                self.panel.refresh()
+            # Bookkeeping only, so a failure here must not stop the tool.
+            try:
+                gp.push_recent(alg_id)
+                if self.panel is not None:
+                    self.panel.refresh()
+            except Exception:
+                QgsMessageLog.logMessage(
+                    'Could not update the recent list:\n{}'.format(
+                        traceback.format_exc()),
+                    LOG_TAG, Qgis.MessageLevel.Warning)
 
             # Algorithms that declare no parameters build their own dialog in
             # processAlgorithm(). Showing the Processing parameter dialog for
@@ -257,11 +265,26 @@ class KgaToolsPlugin:
             else:
                 processing.execAlgorithmDialog(alg_id, {})
         except Exception as exc:
+            detail = traceback.format_exc()
+            if _retry:
+                # The first launch after QGIS starts, or after the panel
+                # rebuilt itself, has been seen failing where the very next
+                # one works: Processing had not settled its algorithm objects
+                # yet. Try once more on the next turn of the event loop before
+                # bothering the user, and keep the traceback either way.
+                QgsMessageLog.logMessage(
+                    'First attempt to open {} failed, retrying:\n{}'.format(
+                        alg_id, detail),
+                    LOG_TAG, Qgis.MessageLevel.Warning)
+                QTimer.singleShot(
+                    0, partial(self.run_algorithm, alg_id, False))
+                return
             QgsMessageLog.logMessage(
-                'Could not open {}: {}'.format(alg_id, exc), LOG_TAG,
+                'Could not open {}:\n{}'.format(alg_id, detail), LOG_TAG,
                 Qgis.MessageLevel.Critical)
             self.iface.messageBar().pushWarning(
-                'KGA Toolbox', 'Could not open {}'.format(alg_id))
+                'KGA Toolbox',
+                'Could not open {}: {}'.format(alg_id, exc))
 
     # ----------------------------------------------------------------- cleanup
 
@@ -271,13 +294,16 @@ class KgaToolsPlugin:
             self.provider = None
 
         # Some algorithms put a window on the QGIS main window instead of
-        # returning a layer: the Error Inspector window, the Duplicate Checker
-        # dialog, the Sequential Numbering dialog, the Copy-Paste Feature
-        # dialog and the Modify Features dialogs. None is parented to
+        # returning a layer: the Add Open Data window, the Imagery Downloader window, the Add Grid to Layout
+        # window, the Error Inspector window, the Duplicate Checker dialog, the
+        # Sequential Numbering dialog, the Copy-Paste Feature dialog and the
+        # Modify Features dialogs. None is parented to
         # anything the plugin owns, so without this they survive the unload as
         # dead widgets — and the interactive ones would leave a map tool or a
         # rubber band on the canvas.
         from .algorithms import (
+            add_data_alg,
+            add_grid_alg,
             buffer_features,
             clip_features,
             construct_polygon,
@@ -286,11 +312,15 @@ class KgaToolsPlugin:
             divide_features,
             duplicate_checker,
             error_inspector,
+            imagery_downloader_alg,
             merge_features,
             sequential_numbering_dialog,
             split_into_cogo_lines,
         )
-        for close in (error_inspector.close_error_inspector,
+        for close in (add_data_alg.close_add_data,
+                      add_grid_alg.close_add_grid,
+                      imagery_downloader_alg.close_imagery_downloader,
+                      error_inspector.close_error_inspector,
                       duplicate_checker.close_duplicate_checker,
                       sequential_numbering_dialog.close_sequential_numbering,
                       copy_paste_feature.close_copy_paste_feature,

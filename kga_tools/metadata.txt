@@ -2,9 +2,22 @@
 name=KGA Toolbox
 qgisMinimumVersion=3.28
 qgisMaximumVersion=4.99.0
-description=Spatial data management, schema, editing, conversion and topology utilities.
-about=KGA Toolbox bundles the KGA processing algorithms into a single provider with a dedicated toolbar. It adds the things QGIS leaves out: a two-way converter between an ArcGIS File Geodatabase and a GeoPackage that carries field domains and layer aliases across, an editor for GeoPackage field domains, an append tool with a real field mapping, a safe attribute round-trip to Excel, a self-contained layer package format, topology checks with an error inspector, and a set of interactive editing tools modelled on the ArcGIS Pro Modify Features pane.
-version=0.1.0
+description=Spatial data management, schema, editing, conversion and topology utilities, plus open boundaries, basemaps, elevation, land cover and web imagery on demand.
+about=KGA Toolbox brings a set of practical processing algorithms together under one provider with a dedicated toolbar, adding workflows that QGIS lacks or that otherwise take several steps. Key capabilities:
+    - File Geodatabase <-> GeoPackage conversion that carries field domains and layer aliases in both directions
+    - GeoPackage Domain Editor for creating and managing field domains inside QGIS
+    - Append with Field Mapping for controlled transfer between layers
+    - Excel Attribute Round-Trip to edit attributes in Excel and bring the values back safely
+    - KGA Layer Package, a self-contained format that keeps layers, styles and settings together for sharing
+    - Raster Format Converter for large orthophotos, with resumable conversion
+    - Topology checks with an Error Inspector for reviewing data quality issues
+    - Interactive editing tools modelled on the ArcGIS Pro Modify Features pane
+    - Layout grids and graticules, including MGRS
+    - Administrative boundaries, basemaps, elevation models (DEM) and land cover from open data sources
+    - Imagery Downloader that stitches web-map tiles into one georeferenced image
+    Network use and privacy:
+    Only the Add Open Data & Basemaps and Imagery Downloader tools make outbound requests, and only when the user asks for data. Add Open Data connects to geoBoundaries, the Humanitarian Data Exchange (HDX), Natural Earth (served from GitHub), OpenStreetMap, Google and Esri tile services, the Copernicus DEM and ESA WorldCover open-data buckets on Amazon S3, Esri's Living Atlas land-cover image service, OpenTopography, and any service URL the user enters. The Imagery Downloader connects to the chosen imagery tile service only. OpenTopography is the one source that needs an account: the user enters their own free API key, it is kept in the QGIS authentication database and sent only to OpenTopography. Every other source works without an account or key. The only information sent is what a request needs: a country code, the bounding box of the area asked for, or tile numbers. No project data or layers are uploaded, and nothing runs in the background. Downloads are cached in the QGIS profile directory, and rasters and imagery tiles are written only to the folder the user chooses. No other KGA Toolbox tool uses the network.
+version=0.2.0
 author=Khmer GRS Academy (KGA)
 email=khmergisacademy@gmail.com
 
@@ -18,55 +31,28 @@ icon=icons/kga.png
 experimental=False
 deprecated=False
 category=Vector
-tags=processing,topology,geopackage,filegdb,geodatabase,arcgis,conversion,domains,schema,excel,packaging,duplicates,geometry,validation,copy,paste,editing,cogo,survey,parcel,buffer,merge,divide,clip,parallel,polygon
+tags=processing,admin boundaries,administrative,basemap,xyz,satellite,google,esri,opendata,geoboundaries,hdx,download,topology,geopackage,filegdb,geodatabase,arcgis,conversion,domains,schema,excel,packaging,duplicates,geometry,validation,copy,paste,editing,cogo,survey,parcel,buffer,merge,divide,clip,parallel,polygon,raster,orthophoto,ecw,geotiff,jpeg2000,gdal,layout,print,grid,graticule,coordinates,map,mgrs,utm,military,reference,zone
 
 changelog=
-    0.1.0 - First public release. The algorithms are registered under one
-            provider, KGA Toolbox, and grouped as KGA Data Management, KGA
-            Schema Tools, KGA Editing Tools, KGA Geometry Utilities, KGA
-            Topology, KGA Data Conversion and KGA Irrigation Tools. Every
-            algorithm carries a Help button that opens its page in the
-            documentation bundled with the plugin.
-            Conversion: File Geodatabase to GeoPackage and GeoPackage to File
-            Geodatabase, a whole container at a time. Field domains,
-            non-spatial tables, Z/M values and curves travel with the data;
-            layer names are made legal for the target format and the original
-            is kept as the ArcGIS alias, so the round trip gives the names
-            back. The geodatabase side gets OBJECTID, optional Shape_Length
-            and Shape_Area fields and an optional feature dataset, and QGIS
-            styles can ride along in a KGA_layer_styles table. Shapefile and
-            GeoPackage converters, KML export with labels, and a
-            self-contained layer package format.
-            Schema: a Domain & Schema Manager for GeoPackage field domains,
-            Append with Field Mapping, and a safe attribute round-trip to
-            Excel.
-            Topology: line and point checks with an Error Inspector dock that
-            lists the errors a check wrote, zooms to each one and re-runs the
-            check. Planarize Lines, with the option to rewrite the input layer
-            in place. Duplicate Checker, Update Geometry Fields and Update
-            X/Y or Lat/Lon Fields.
-            Editing, each a modeless dialog with a map tool of its own - hover
-            a feature to see the result drawn in cyan, click to write it, or
-            drag a path across several to do them all, one undo step per click
-            or drag: Copy Parallel, Buffer, Split into COGO Lines, Merge,
-            Divide, Clip, Construct Polygon, Sequential Numbering and
-            Copy-Paste Feature.
-            Copy Parallel offsets lines left, right or both ways with mitered,
-            beveled or rounded corners, and keeps the digitized direction that
-            decides which side is which. Split into COGO Lines breaks a
-            boundary into one line per course carrying Direction, Distance,
-            Radius and ArcLength, in any of the four ArcGIS direction types
-            and four direction units; circular arcs stay single courses with a
-            signed radius rather than being chorded. Merge combines features
-            with a per-field value chooser and keeps the preserved feature's
-            id. Divide cuts lines by length and polygons into equal-area
-            strips along a chosen direction. Construct Polygon writes the
-            polygon a set of lines encloses, naming and flashing the loose
-            ends when they do not close. Copy-Paste Feature fits geometry to
-            the target on the way in and reports every value that had to be
-            converted rather than leaving a silent NULL.
-            Distances and areas are honest on a layer stored in degrees: the
-            work is done in the matching UTM zone and brought back.
-            Irrigation: DEM & Contour Tool, CSV to DEM/contour, hypsometric
-            map, reservoir rating curve, storage capacity curve, and DEM
-            elevation correction with a point sample report.
+    0.2.0
+    - Add Raster Format Converter (ECW, GeoTIFF, JPEG 2000, IMG, PNG, JPEG) with resumable block-by-block conversion for large orthophotos
+    - Check for an ECW licence key before conversion starts
+    - Add Open Data & Basemaps tool: admin boundaries from geoBoundaries, HDX and Natural Earth, GeoJSON/ArcGIS REST/WFS URLs, and XYZ basemaps
+    - Open elevation (DEM): Copernicus GLO-30/GLO-90 from AWS with no account, and the OpenTopography catalogue with a free API key; choose the area from the map extent, a drawn shape or a layer, optionally clipped and reprojected
+    - Open land cover: Esri 10 m annual (2017 onward) and ESA WorldCover 10 m (2020, 2021), written as a classified GeoTIFF with class names, colours and an attribute table, plus optional polygons
+    - Downloads are cached and use the QGIS proxy settings
+    - Add Imagery Downloader: download web-map imagery tiles for an area, stitch them into one georeferenced GeoTIFF/JPEG/PNG/JPEG 2000 in the project CRS, with resume after interruption
+    - Add Grid to Layout tool with presets, auto interval, degree graticules and editing of existing grids
+    - Add MGRS grids to print layouts, including 100 km square labels and Norway/Svalbard zone exceptions
+    - Add KGA Mapping group; move DEM Legend Bar into it (algorithm id unchanged)
+    - Duplicate Checker: flags now work on Shapefile layers (the field is named dup_status)
+    - Layer packages carry picture markers embedded in the style
+    0.1.0
+    - First public release under the KGA Toolbox provider
+    - File Geodatabase <-> GeoPackage conversion preserving domains, aliases, Z/M and curves
+    - Shapefile/GeoPackage converters, KML export and layer packages
+    - Domain & Schema Manager, Append with Field Mapping and Excel attribute round-trip
+    - Topology checks with Error Inspector, Planarize Lines and Duplicate Checker
+    - Interactive editing tools: Copy Parallel, Buffer, COGO Lines, Merge, Divide, Clip, Construct Polygon, Sequential Numbering and Copy-Paste Feature
+    - Irrigation tools: DEM & contours, hypsometric map, rating and storage curves, DEM correction
+    - Bundled help page for every algorithm

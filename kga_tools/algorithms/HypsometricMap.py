@@ -228,8 +228,8 @@ class HypsometricMap(QgsProcessingAlgorithm):
 
     def name(self):            return "dem_legend_bar"
     def displayName(self):     return "DEM Legend Bar"
-    def group(self):           return "KGA Irrigation Tools"
-    def groupId(self):         return "kgairrigationtools"
+    def group(self):           return "KGA Mapping"
+    def groupId(self):         return "kgamapping"
 
     def helpUrl(self):
         return docs_url('dem_legend_bar')

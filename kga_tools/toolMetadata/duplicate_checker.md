@@ -50,7 +50,7 @@ Depends on the **Highlight Action**:
 
 - **Select Duplicate Features** — the duplicates end up as the layer's selection.
   Nothing is written; clear the selection and the run leaves no trace.
-- **Symbolize (Categorize)** — the layer gets a text field `is_dup_temp` holding
+- **Symbolize (Categorize)** — the layer gets a text field `dup_status` holding
   `Duplicate` or `Unique` for every feature, and a categorized renderer showing
   duplicates in **red** and the rest in **grey**. This is a real, committed edit.
 
@@ -58,10 +58,10 @@ A message box reports how many duplicates were found, or says none were.
 
 ## Notes and limits
 
-- **`Symbolize (Categorize)` writes to the layer.** It adds the `is_dup_temp`
+- **`Symbolize (Categorize)` writes to the layer.** It adds the `dup_status`
   field, fills it for **every** feature, commits the change, and replaces the
   layer's renderer. The existing symbology is lost. Use *Select* instead if you
-  only want to look — and if you do symbolize, remember to delete `is_dup_temp`
+  only want to look — and if you do symbolize, remember to delete `dup_status`
   and restore your styling afterwards.
 - **All features of a duplicate group are flagged**, including the first one —
   the tool tells you which records collide, not which to delete.

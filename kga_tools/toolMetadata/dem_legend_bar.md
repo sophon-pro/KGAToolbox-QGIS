@@ -3,9 +3,9 @@
 |  |  |
 |---|---|
 | **Algorithm ID** | `kga:dem_legend_bar` |
-| **Group** | KGA Irrigation Tools |
+| **Group** | KGA Mapping |
 | **Source** | `kga_tools/algorithms/HypsometricMap.py` |
-| **Icon** | group icon (`icons/irrigation.png`) |
+| **Icon** | group icon (`icons/Mapping.png`) |
 | **Type** | Batch algorithm |
 
 ## Overview
@@ -35,7 +35,7 @@ you need.
 ## How to use
 
 1. Load the DEM(s) and, if you want the map's own colours, style them first.
-2. Open **KGA Irrigation Tools > DEM Legend Bar**.
+2. Open **KGA Mapping > DEM Legend Bar**.
 3. Pick the DEMs and an output folder.
 4. Leave **Color Scheme** on `from_qgis` to match the map exactly; pick a named
    ramp only when you want the legend to differ from the layer.

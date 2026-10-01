@@ -39,10 +39,15 @@ from ..branding import ICON_DIR, KGA_LINKS, PLUGIN_DIR
 FEATURES = [
     ('Spatial Data Manager',
      'Browse, load and organise project data from one window'),
+    ('Open Data',
+     'Administrative boundaries, basemaps, elevation (DEM) and land cover '
+     'from open sources, and an Imagery Downloader that stitches web-map '
+     'tiles into one georeferenced image'),
     ('Data Conversion',
      'Two-way File Geodatabase and GeoPackage conversion carrying field '
-     'domains, aliases, Z/M values and curves, plus KML export and a safe '
-     'attribute round-trip to Excel'),
+     'domains, aliases, Z/M values and curves, plus KML export, a safe '
+     'attribute round-trip to Excel, and a resumable raster converter for '
+     'orthophotos too large to convert in one pass'),
     ('Schema Tools',
      'Field domain editor, domain libraries, validation against domains, and '
      'append with a real field mapping'),
@@ -57,6 +62,8 @@ FEATURES = [
      'Planarize lines, find duplicates, and update X/Y and geometry fields'),
     ('Irrigation Tools',
      'DEM and contour analysis and reservoir rating curves'),
+    ('Mapping',
+     'Coordinate grids and MGRS on print layouts, and the DEM legend bar'),
 ]
 
 LICENSE_TEXT = 'Licensed under the MIT License'

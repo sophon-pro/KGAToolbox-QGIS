@@ -4,6 +4,15 @@ A QGIS plugin from [Khmer GRS Academy (KGA)](https://khmergrs.com/) that bundles
 the KGA processing algorithms into a single provider with a toolbar of its own.
 It adds the things QGIS leaves out:
 
+- **Open data** — Add Open Data & Basemaps pulls administrative boundaries
+  (geoBoundaries, HDX/OCHA COD-AB, Natural Earth, or any GeoJSON, ArcGIS REST or
+  WFS address), XYZ basemaps, open elevation models (Copernicus DEM, no account;
+  OpenTopography with a free key) and open land cover (Esri 10 m, ESA
+  WorldCover) straight into the project, showing publisher, licence and size
+  first. Imagery Downloader stitches web-map tiles for an area into one
+  georeferenced GeoTIFF, JPEG, PNG or JPEG 2000 and resumes after an
+  interruption. These two tools are the only ones that use the network, and
+  only when asked.
 - **Conversion** — a two-way converter between an ArcGIS File Geodatabase and a
   GeoPackage, a whole container at a time, carrying field domains, layer
   aliases, non-spatial tables, Z/M values and curves across. Also shapefile and
@@ -20,9 +29,16 @@ It adds the things QGIS leaves out:
   Construct Polygon, Sequential Numbering and Copy-Paste Feature. Hover a
   feature to see the result drawn in cyan, click to write it, or drag across
   several to do them all — one undo step per click or drag.
-- **Irrigation** — DEM & Contour Tool, CSV to DEM/contour, hypsometric map,
-  reservoir rating curve, storage capacity curve, and DEM elevation correction
-  with a point sample report.
+- **Irrigation** — DEM & Contour Tool, CSV to DEM/contour, reservoir rating
+  curve, storage capacity curve, and DEM elevation correction with a point
+  sample report.
+- **Mapping** — Add Grid to Layout, which puts a coordinate grid on a print
+  layout map from one window instead of five panels, works the interval out
+  from the map's own extent, and edits the grids a map already has. It also
+  draws a full **MGRS** grid — zone and band, 100 km square letters and
+  principal digits, laid down as three grids in one press — which QGIS has no
+  support for at all. And DEM Legend Bar, the hypsometric legend bar written
+  as a PNG for a layout or a report.
 
 Distances and areas are honest on a layer stored in degrees: the work is done in
 the matching UTM zone and brought back.

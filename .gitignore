@@ -6,6 +6,7 @@ kga_tools.zip
 # --- Local scratch ------------------------------------------------------
 # Dated snapshots, broken-state copies and *.bak files. Git is the history now.
 backup/
+NorthArrow/
 
 # --- Python -------------------------------------------------------------
 __pycache__/
