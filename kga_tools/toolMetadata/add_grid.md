@@ -37,15 +37,16 @@ frame style is *No frame*.
 
 | Control | Type | Default | Description |
 |---|---|---|---|
-| **Layout** | Combo box | The layout whose map is selected | Every print layout in the project. |
+| **Layout** | Combo box | The layout whose map is selected | Every print layout in the project. The **Open** button beside it opens that layout in the designer, or brings its designer to the front. |
 | **Map item** | Combo box | The selected map | The map items of that layout, by name. |
 | **Grid** | Combo box | `<Add a new grid>` | Also lists the grids the map already has, as `Edit: <name>`. Picking one loads its settings into the form. |
 | **Reload** | Button | — | Read the layouts, maps and grids again, after adding or removing one in the designer. |
 | **Grid name** | Text | `Grid` | What the grid is called in the layout designer's grid list. A name already on that map gets ` 2` appended rather than overwriting. |
-| **Grid interval** | Combo box | Automatic | Only shown while the MGRS set is armed. `Automatic` works the spacing out from the map extent; `10 km`, `1 km`, `100 m`, `10 m` and `1 m` name it instead, which is what a sheet drawn to a stated scale needs — a 1:50,000 map carries a 1 km grid whatever its extent happens to suggest. Remembered between sessions. |
-| **Also add** | Two check boxes | Both off | Only shown while the MGRS set is armed. **1 km mesh** adds the fine mesh of a 1:50,000 sheet; **Labels inside too** repeats the numbers against the inside of the frame. Remembered between sessions. |
-| **100 km letters** | Combo box | In the margin | Only shown while the MGRS set is armed. `In the margin, outside the numbers` or `Inside the map, against the frame`. Remembered between sessions. |
-| **Preset** | Combo box | — | Fills the whole form in one pick: *Thin black graticule*, *Exterior ticks, labels outside*, *Zebra frame, labels outside*, *Lat/long graticule in degrees*, *Crosses, labels inside*. It also re-suggests the interval, because a preset can change the CRS. Below the separator sits **MGRS grid**, which is not a preset but a *set* — see *The MGRS preset*. |
+| **Grid interval** | Combo box | Automatic | Only shown while the MGRS set is armed. `Automatic` works the spacing out from the map extent; `10 km`, `1 km`, `100 m`, `10 m` and `1 m` name it instead, which is what a sheet drawn to a stated scale needs — a 1:50,000 map carries a 1 km grid whatever its extent happens to suggest. |
+| **Also add** | Two check boxes | Both off | Only shown while the MGRS set is armed. **1 km mesh** adds the fine mesh of a 1:50,000 sheet; **Labels inside too** repeats the numbers against the inside of the frame. |
+| **Positioning** | Three toggle buttons | Two strips per axis, at 1/4 and 3/4 | Where the interior number strips go: `One strip per axis, centred`, `Two strips per axis, at 1/3 and 2/3`, or `Two strips per axis, at 1/4 and 3/4`. Shown while the MGRS set is armed or the map already has strips, and enabled once **Labels inside too** is ticked. Changing it re-places the strips already on the map. |
+| **100 km letters** | Combo box | In the margin | Only shown while the MGRS set is armed. `In the margin, outside the numbers` or `Inside the map, against the frame`. |
+| **Preset** | Combo box | `Start from...` | Fills the whole form in one pick: *Thin black graticule*, *Exterior ticks, labels outside*, *Zebra frame, labels outside*, *Lat/long graticule in degrees*, *Crosses, labels inside*. It also re-suggests the interval, because a preset can change the CRS. Below the separator sits **MGRS grid**, which is not a preset but a *set* — see *The MGRS preset*. |
 
 ### Grid tab
 
@@ -93,11 +94,12 @@ frame style is *No frame*.
 
 | Button | Description |
 |---|---|
-| **Add MGRS Grid (4 grids)** | What **Add Grid** becomes once the MGRS set is picked. One press writes all three grids as one undo step, then leaves the tool editing the finest of them. Picking a different layout, map or grid puts the button back before it can fire at the wrong target. |
+| **Add MGRS Grid (4 grids)** | What **Add Grid** becomes once the MGRS set is picked. One press writes every grid in the set as one undo step, then leaves the tool editing the finest of them. Picking a different layout, map or grid puts the button back before it can fire at the wrong target. |
 | **Add Grid** / **Apply** | Writes the form to the map. On a new grid it adds one and then selects it, so the next press changes that grid instead of stacking a second one beside it — which is why the button changes its name after the first press. |
 | **Remove Grid** | Deletes the selected grid, after asking. |
 | **Reset** | Every setting back to its default, then a fresh interval suggestion. |
 | **Close** | The grid stays; nothing is undone. |
+| **Help** | This page. |
 
 ## How to use
 
@@ -119,8 +121,9 @@ says so and stops — see *Notes and limits*.
 
 A grid reference such as **48P VT 92 77** is four things: the zone number, the
 latitude band letter, the 100 km square letters and the numeric location. They
-are read off different grids, so the preset lays down four, plus two more you
-can tick on:
+are read off different grids, so the preset lays down four, plus up to three more you
+can tick on (the 1 km mesh is one grid; the interior labels are two, one for
+northings and one for eastings):
 
 | Grid | What it draws | What it labels |
 |---|---|---|
@@ -128,7 +131,7 @@ can tick on:
 | `MGRS 100 km squares` | A 100,000 m grid in the map's UTM zone | The square's column letter on the vertical lines, its row letter on the horizontal ones. **In the margin or inside the map**, your choice |
 | `MGRS corner values` | Nothing — no lines, no frame | One label per margin: the first line's coordinate written out in full, so the short labels along the rest of the margin have something to be read against. Three parts, only the middle one full size — on a 10 km grid `¹26⁰⁰⁰⁰m.N.`, on a 1 km grid `¹²60⁰⁰⁰m.N.` for the same line. **It follows the map** — pan or zoom and it re-finds the first line by itself |
 | `MGRS 1 km mesh` *(optional)* | A 1 km grid, lighter than the one above it | Nothing — see *Notes and limits* |
-| `MGRS interior labels` *(optional)* | Nothing — no lines, no frame | The same principal digits as the fine grid, repeated against the **inside** of the frame |
+| `MGRS interior northing labels` and `MGRS interior easting labels` *(optional)* | Nothing — no lines, no frame | The same principal digits as the fine grid, repeated against the **inside** of the frame: northings on vertical strips, eastings along horizontal ones |
 | `MGRS 1 km` (or 10 km, 100 m…) | The fine grid | The principal digits, **never fewer than two** — `12` on a 1 km grid, `51` on a 10 km grid — with the 100 km digits raised and small on every tenth line: `78 79 ⁴80 81` |
 
 1. Select the map and run the tool as above.
@@ -138,14 +141,14 @@ can tick on:
    beside the preset. The button's count follows what you tick.
 3. Set the font, colours and frame if you want them different — everything the
    set does not fix for itself is taken from the form when you press Add, so a
-   colour picked now still reaches all three.
+   colour picked now still reaches every grid in the set.
 4. Choose whether the **100 km letters** go in the margin or inside the map.
    Inside keeps the margin to the numbers alone, which is how a printed sheet
    does it.
 5. Set the **Grid interval** if `Automatic` is not what the sheet needs.
    Tick **1 km mesh** for the fine mesh a 1:50,000 sheet carries, and
    **Labels inside too** to repeat the numbers against the inside of the
-   frame. All three choices are remembered for next time.
+   frame. Nothing is remembered between sessions; the window opens on the defaults.
 6. Press **Add MGRS Grid**. One undo step; the tool is left editing the fine
    grid, and the others are in the **Grid** list.
 
@@ -182,9 +185,9 @@ degrees — and set **Number format** to *Degree, minute* on the Labels tab. The
   in the QGIS C++ or Python API, `QgsCoordinateFormatter` has no
   grid-reference format, and the `mgrs` Python package is not part of a QGIS
   install. The maths is `kga_tools/core/mgrs.py`: WGS84 only, no UPS, and
-  checked against published references for Phnom Penh, Washington, Paris,
-  Sydney, Bergen, Svalbard and Ushuaia, with its projection agreeing with
-  PROJ to within a nanometre.
+  checked against PROJ (the projection agrees to well under a millimetre,
+  and every 100 km square letter matches an independent derivation) and
+  against the standard `4QFJ 12345 67890` example.
 - **The GZD graticule draws nothing on most sheets.** Its lines are 6° apart
   across and 8° up, so on any map smaller than a zone cell — nearly all of
   them — there is no line to draw and no label to hang on it. The grid is
@@ -194,7 +197,7 @@ degrees — and set **Number format** to *Degree, minute* on the Labels tab. The
 - **Above 84° N and below 80° S there is no MGRS grid.** Those latitudes use
   UPS, which has its own letters and is not something this tool draws. The
   preset refuses and says so.
-- **One sheet, one zone.** All three grids use the zone at the middle of the
+- **One sheet, one zone.** All the grids use the zone at the middle of the
   map. A map crossing a zone boundary is gridded anyway and warned about, in
   the window and in the Processing log, but the numbers and the 100 km letters
   are right only inside that centre zone. That is a property of MGRS, not of
@@ -288,8 +291,9 @@ degrees — and set **Number format** to *Degree, minute* on the Labels tab. The
   different layout in the combo moves it to that layout's designer, and a
   layout with no designer open leaves it on the QGIS main window. **Closing
   that designer closes this window with it** — re-run the tool to get it back.
-  Nothing is lost: the grid is already on the map, and the form reopens on the
-  settings last applied.
+  Nothing is lost: the grid is already on the map. Pick it under **Grid** to
+  load its settings again; the form itself opens on the defaults, because
+  nothing is remembered between sessions.
 - **Fit the page automatically** ignores the interval boxes entirely: QGIS
   computes a fresh interval at every render so the spacing on paper stays
   between the two widths given. That means the numbers on the sheet change when

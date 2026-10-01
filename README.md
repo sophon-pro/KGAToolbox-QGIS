@@ -36,7 +36,7 @@ It adds the things QGIS leaves out:
   layout map from one window instead of five panels, works the interval out
   from the map's own extent, and edits the grids a map already has. It also
   draws a full **MGRS** grid — zone and band, 100 km square letters and
-  principal digits, laid down as three grids in one press — which QGIS has no
+  principal digits, laid down as four linked grids in one press — which QGIS has no
   support for at all. And DEM Legend Bar, the hypsometric legend bar written
   as a PNG for a layout or a report.
 

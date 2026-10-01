@@ -4,7 +4,7 @@
 |---|---|
 | **Algorithm ID** | `kga:add_data` |
 | **Group** | KGA Data Management |
-| **Source** | `kga_tools/algorithms/add_data_alg.py` (dialog in `kga_tools/gui/add_data_dialog.py`, sources in `kga_tools/core/data_sources.py`) |
+| **Source** | `kga_tools/algorithms/add_data_alg.py` (dialog in `kga_tools/gui/add_data_dialog.py`, sources in `kga_tools/core/data_sources.py`, `dem_sources.py` and `landcover_sources.py`) |
 | **Icon** | `icons/addData.png` |
 | **Type** | Interactive dialog — modeless, needs the QGIS window and an internet connection |
 
@@ -17,8 +17,8 @@ data source what it publishes, shows you who produced it, which year it
 represents, under what licence and how many features it holds, then downloads it
 and adds it to the map.
 
-Four sources ship with the tool, plus an escape hatch for anything else with a
-public address:
+Three boundary sources ship with the tool, plus an escape hatch for anything
+else with a public address:
 
 | Source | Coverage | Licence |
 |---|---|---|
@@ -71,7 +71,7 @@ the current choice needs are on screen.
 | **Scale** | Combo box | 1:10m | *Natural Earth only.* `1:10m`, `1:50m`, `1:110m`. See the Natural Earth note below - admin 1 is only worldwide at 1:10m. The 1:10m admin 1 file is about 40 MB, downloaded once and cached. |
 | **Address** | Text | empty | *Custom sources only.* A `https://` address. See **Custom addresses** below. |
 | **Zoom levels** | Two spin boxes | the service's own range | *Basemaps only.* Narrow the range QGIS will request tiles for. |
-| **Also add it to the Browser panel** | Checkbox | off | *Basemaps only.* Writes the tile service into **XYZ Tiles** in the Browser, so it is there in every project without coming back here. |
+| **Also add it to the Browser panel, permanently** | Checkbox | off | *Basemaps only.* Writes the tile service into **XYZ Tiles** in the Browser, so it is there in every project without coming back here. |
 | **Dataset** | Combo box | GLO-30 / COP30 | *DEM only.* The elevation model to read. |
 | **Year** | Combo box | the latest published | *Land cover only.* The year the map represents. Each map summarises that whole year. |
 | **API key** | Password + **Remember** | empty | *OpenTopography only.* Get one free from OpenTopography. **Remember** keeps it encrypted in the QGIS password store (QGIS may ask for its master password), never in plain settings. |
@@ -105,7 +105,7 @@ the current choice needs are on screen.
 The details panel shows the area in km², its bounds, the resolution and an
 estimate of the output size before anything is downloaded. Requests over 700
 million pixels are refused. At GLO-30 that is about 54 square degrees, or
-roughly 650,000 km² near the equator. OpenTopography's own limits are checked too — 450,000 km² for
+roughly 665,000 km² near the equator. OpenTopography's own limits are checked too — 450,000 km² for
 the 30 m datasets and 4,050,000 km² for SRTM GL3 and COP90, measured on the
 area's bounding box.
 

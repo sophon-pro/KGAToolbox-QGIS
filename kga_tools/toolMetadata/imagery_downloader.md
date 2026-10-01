@@ -47,8 +47,9 @@ and checkpoint are removed after a successful export.
 ## Notes and limits
 
 * Google's terms restrict bulk downloading and offline use of map tiles. The
-  tool shows a notice and asks for a one-time-per-session acknowledgement; the
-  user is responsible for having the right to use the imagery.
+  tool's Help text says so and the result layer carries Google's attribution,
+  but **the window does not stop to ask for an acknowledgement** before it
+  downloads. The user is responsible for having the right to use the imagery.
 * Extents crossing the antimeridian are rejected. Latitudes are clamped to
   ±85.0511°. Above 5,000,000 tiles Download is disabled.
 * JPEG is limited to 65,500 px per side and has no alpha (empty areas white).
@@ -56,4 +57,5 @@ and checkpoint are removed after a successful export.
 * The work file needs about 3 bytes per pixel of the tile mosaic in free disk
   space in addition to the final image.
 * Tests: `tests/imagery_downloader/` (tile maths, estimator, checkpoint, engine
-  and dialog against a local fake tile server).
+  and dialog against a local fake tile server). The folder is kept locally and is
+  not part of the repository.

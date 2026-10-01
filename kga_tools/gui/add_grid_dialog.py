@@ -266,8 +266,9 @@ class AddGridDialog(QDialog):
             self.preset_combo.addItem(label, SET_PREFIX + key)
         self.preset_combo.setToolTip(tr(
             'Fill the whole form with a ready-made look, then adjust it. The '
-            'MGRS entry is different: it lays down three grids at once, '
-            'because a grid reference is read off three of them.'))
+            'MGRS entry is different: it lays down several grids at once '
+            '(zone, 100 km squares, corner values and the fine grid), because '
+            'a grid reference is read off all of them.'))
         self.preset_combo.currentIndexChanged.connect(self._on_preset_chosen)
         form.addRow(tr('Preset'), self.preset_combo)
 

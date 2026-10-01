@@ -413,7 +413,7 @@ def preset_spec(key, base=None):
 # own tuple for that reason rather than folded into PRESETS.
 
 GRID_SETS = (
-    ('mgrs', 'MGRS grid - GZD, 100 km squares and a fine grid (adds 3)'),
+    ('mgrs', 'MGRS grid - zone, 100 km squares, corner values and a fine grid'),
 )
 
 
@@ -542,7 +542,7 @@ def mgrs_zone_span(map_item, project=None):
 def mgrs_specs(map_item, base=None, project=None, letters='margin',
                one_km=False, interior=False, step=0.0,
                positioning=IL.DEFAULT_POSITION):
-    """The three grids an MGRS reference is made of, coarsest first.
+    """The grids an MGRS reference is made of, coarsest first.
 
     MGRS is not one grid. '48P VT 92 77' is a zone number, a latitude band, a
     pair of 100 km square letters and a numeric location, and each of the four
@@ -584,7 +584,7 @@ def mgrs_specs(map_item, base=None, project=None, letters='margin',
 
     if lowest and highest and lowest != highest:
         warnings.append(
-            'This map spans UTM zones {} to {}. All three grids use the '
+            'This map spans UTM zones {} to {}. All the grids use the '
             'centre zone, {}. Eastings, northings and 100 km letters read '
             'correctly inside zone {} only - to either side they are the '
             "wrong zone's numbers. Split the sheet by zone if it has to be "
