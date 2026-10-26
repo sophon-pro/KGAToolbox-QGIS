@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North (Khmer) – onesuperior
+     Glyph "onesuperior" at U+00B9 (type '¹' – SUPERSCRIPT ONE) of the "ESRI North (Khmer)" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="275.1" height="730.1" viewBox="-83 -713 275.1 730.1">
+  <path d="M73 -437V-151V-109V0H54V-140V-182V-699L178 -384ZM74 -602V-467L141 -433ZM-30 -101Q-39 -104 -46 -110L-49 -113L-47 -116L-45 -120L-43 -122Q-40 -124 -36 -124L-23 -118L-20 -115Q-15 -112 -11.5 -111Q-8 -110 -3 -108H2H11Q23 -108 30 -113Q41 -120 41 -137Q41 -159 26 -171L11 -180Q-3 -172 -3 -166L2 -157L7 -154L12 -151Q22 -147 29 -132Q29 -127 24.5 -122.5Q20 -118 15 -118Q10 -118 6.5 -118.5Q3 -119 -3 -122Q-6 -126 -6 -127Q-6 -128 -11 -130H-14Q-21 -136 -25.5 -140Q-30 -144 -33 -144L-47 -138L-54 -135Q-58 -128 -61.5 -123Q-65 -118 -67 -113L-69 -103H-62L-49 -96V-11L-47 -3Q-46 0 -42.5 1.5Q-39 3 -36 3H-27L-14 -13L-10 -18V-19L-4 -22H-3L-1 -19L5 -10Q10 -4 11.5 -1.5Q13 1 18 3H24Q41 3 41 -10V-88H24V-31Q24 -19 17 -19Q13 -19 11 -23L7 -28Q3 -33 0.5 -33.5Q-2 -34 -4 -34Q-11 -34 -14 -32L-17 -28Q-23 -19 -25 -19Q-30 -19 -30 -27Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

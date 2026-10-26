@@ -2,7 +2,9 @@
 from qgis.PyQt.QtCore import QCoreApplication
 from qgis.core import (
     QgsProcessingAlgorithm,
+    QgsProcessingException,
     QgsProcessingParameterFile,
+    QgsProcessingParameterString,
     QgsProcessingParameterFolderDestination,
     QgsProcessingParameterNumber,
     QgsProcessingParameterEnum,
@@ -10,216 +12,30 @@ from qgis.core import (
     QgsRasterLayer,
     QgsVectorLayer,
     QgsProject,
+    QgsCoordinateReferenceSystem,
 )
 
-import os, math
 from pathlib import Path
 
-import numpy as np
-import pandas as pd
-from scipy.interpolate import griddata
-from scipy.ndimage import gaussian_filter
-
-from osgeo import gdal, ogr, osr
-gdal.UseExceptions()
-
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 from ..branding import docs_url
+from ..core import csv_dem
+from ..core.compat import mark_advanced
+from ..gui.csv_column_widget import column_wrapper_class
+
+try:
+    from qgis.utils import iface
+except ImportError:                         # pragma: no cover - head-less
+    iface = None
+
+#: The window, kept alive between opens so it is not garbage collected.
+DIALOG_INSTANCE = None
 
 
-# ------------------------------------------------------------- CORE FUNCTIONS
-
-def load_points(csv_path, feedback):
-    """Load CSV — supports single-layout and dual side-by-side layout."""
-    df = pd.read_csv(csv_path, header=0)
-
-    # Dual-layout: two tables side by side (11 columns)
-    if df.shape[1] >= 10:
-        left  = df.iloc[:, 0:5].copy()
-        right = df.iloc[:, 6:11].copy() if df.shape[1] >= 11 else pd.DataFrame()
-        left.columns = ["No", "Easting", "Northing", "Elevation", "Code"]
-        if not right.empty:
-            right.columns = left.columns
-        df = pd.concat([left, right], ignore_index=True)
-    else:
-        df.columns = ["No", "Easting", "Northing", "Elevation", "Code"][: df.shape[1]]
-
-    for c in ["Easting", "Northing", "Elevation"]:
-        df[c] = pd.to_numeric(df[c], errors="coerce")
-    df = df.dropna(subset=["Easting", "Northing", "Elevation"])
-
-    feedback.pushInfo(f"  Points loaded : {len(df):,}")
-    feedback.pushInfo(f"  X range       : {df['Easting'].min():.3f}  –  {df['Easting'].max():.3f}")
-    feedback.pushInfo(f"  Y range       : {df['Northing'].min():.3f}  –  {df['Northing'].max():.3f}")
-    feedback.pushInfo(f"  Elev range    : {df['Elevation'].min():.3f}  –  {df['Elevation'].max():.3f}")
-    return df
-
-
-def auto_resolution(df):
-    """Estimate pixel size from point density (~1/500 of extent, min 0.5 m)."""
-    xr = df["Easting"].max()  - df["Easting"].min()
-    yr = df["Northing"].max() - df["Northing"].min()
-    spacing = math.sqrt((xr * yr) / max(len(df), 1))
-    res = max(min(max(xr, yr) / 500, spacing * 0.8), 0.5)
-    return round(res, 2)
-
-
-def idw_interpolate(kxy, kz, qxy, power=2.0, k=16):
-    """Fast chunk-based IDW."""
-    n, z = qxy.shape[0], np.empty(qxy.shape[0], dtype=np.float64)
-    for s in range(0, n, 30_000):
-        e   = min(s + 30_000, n)
-        d2  = np.sum((kxy[np.newaxis] - qxy[s:e, np.newaxis]) ** 2, axis=2)
-        if kxy.shape[0] > k:
-            idx = np.argpartition(d2, k, axis=1)[:, :k]
-            d2  = np.take_along_axis(d2, idx, axis=1)
-            zl  = kz[idx]
-        else:
-            zl  = np.tile(kz, (e - s, 1))
-        exact = d2 == 0
-        w     = np.where(d2 == 0, 0.0, 1.0 / (d2 ** (power / 2)))
-        ws    = w.sum(1, keepdims=True); ws[ws == 0] = 1
-        zi    = (w * zl).sum(1) / ws.squeeze()
-        for i in np.where(exact.any(1))[0]:
-            zi[i] = zl[i, np.argmax(exact[i])]
-        z[s:e] = zi
-    return z
-
-
-def generate_dem(df, resolution, method, epsg, out_path, feedback):
-    """Interpolate points → GeoTIFF DEM via GDAL."""
-    x, y, z = df["Easting"].values, df["Northing"].values, df["Elevation"].values
-
-    # Extent with 1-pixel buffer
-    x0, x1 = x.min() - resolution, x.max() + resolution
-    y0, y1 = y.min() - resolution, y.max() + resolution
-
-    cols = max(int(math.ceil((x1 - x0) / resolution)), 2)
-    rows = max(int(math.ceil((y1 - y0) / resolution)), 2)
-    feedback.pushInfo(f"  Grid      : {cols} cols × {rows} rows")
-    feedback.pushInfo(f"  Resolution: {resolution} m")
-
-    # Build query grid (top → bottom raster order)
-    xi = np.linspace(x0, x1, cols)
-    yi = np.linspace(y1, y0, rows)
-    gx, gy = np.meshgrid(xi, yi)
-    qxy = np.column_stack([gx.ravel(), gy.ravel()])
-    kxy = np.column_stack([x, y])
-
-    feedback.pushInfo(f"  Method    : {method.upper()}")
-    if method == "idw":
-        zg = idw_interpolate(kxy, z, qxy).reshape(rows, cols)
-    else:
-        zg = griddata(kxy, z, qxy, method=method).reshape(rows, cols)
-        nan_mask = np.isnan(zg)
-        if nan_mask.any():
-            feedback.pushInfo("  Filling edge NoData gaps with nearest …")
-            zg[nan_mask] = griddata(kxy, z, qxy[nan_mask.ravel()], method="nearest")
-
-    # Write GeoTIFF
-    os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
-    drv = gdal.GetDriverByName("GTiff")
-    ds  = drv.Create(out_path, cols, rows, 1, gdal.GDT_Float32,
-                     ["COMPRESS=LZW", "TILED=YES",
-                      "BLOCKXSIZE=256", "BLOCKYSIZE=256"])
-    pw =  (x1 - x0) / cols
-    ph = -(y1 - y0) / rows
-    ds.SetGeoTransform([x0, pw, 0, y1, 0, ph])
-    srs = osr.SpatialReference(); srs.ImportFromEPSG(epsg)
-    ds.SetProjection(srs.ExportToWkt())
-    band = ds.GetRasterBand(1)
-    band.SetNoDataValue(-9999.0)
-    band.WriteArray(zg.astype(np.float32))
-    band.FlushCache(); ds = None
-
-    geo_transform = (x0, pw, 0, y1, 0, ph)
-    feedback.pushInfo(f"  Elev range: {np.nanmin(zg):.3f}  –  {np.nanmax(zg):.3f} m")
-    feedback.pushInfo(f"  DEM saved : {out_path}")
-    return zg, geo_transform
-
-
-def generate_contours(zg, geo_transform, epsg,
-                      interval, smooth_sigma,
-                      out_path, fmt, feedback):
-    """Extract contour lines → Shapefile or GeoPackage via OGR."""
-    rows, cols = zg.shape
-    work = gaussian_filter(zg, sigma=smooth_sigma) if smooth_sigma > 0 else zg.copy()
-
-    z_min, z_max = float(np.nanmin(zg)), float(np.nanmax(zg))
-    levels = np.arange(
-        math.floor(z_min / interval) * interval,
-        math.ceil (z_max / interval) * interval + interval,
-        interval,
-    )
-    feedback.pushInfo(f"  Levels    : {len(levels)}  (interval = {interval} m)")
-
-    # Pixel-centre world coordinates
-    x0, pw, _, y0, _, ph = geo_transform
-    xs = np.array([x0 + (j + 0.5) * pw for j in range(cols)])
-    ys = np.array([y0 + (i + 0.5) * ph for i in range(rows)])
-
-    # Extract contour paths with matplotlib (Agg, no display)
-    fig, ax = plt.subplots()
-    cs = ax.contour(xs, ys, work, levels=levels)
-    plt.close(fig)
-
-    # Write with OGR
-    drv_name = "GPKG" if fmt == "gpkg" else "ESRI Shapefile"
-    drv = ogr.GetDriverByName(drv_name)
-    if os.path.exists(out_path):
-        drv.DeleteDataSource(out_path)
-    os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
-    ds_out = drv.CreateDataSource(out_path)
-    srs    = osr.SpatialReference(); srs.ImportFromEPSG(epsg)
-    lyr    = ds_out.CreateLayer(Path(out_path).stem, srs=srs,
-                                geom_type=ogr.wkbLineString)
-    lyr.CreateField(ogr.FieldDefn("elevation", ogr.OFTReal))
-    lyr.CreateField(ogr.FieldDefn("elev_m",    ogr.OFTInteger))
-    lyr.CreateField(ogr.FieldDefn("interval",  ogr.OFTReal))
-
-    # matplotlib >= 3.8 removed .collections; use .allsegs instead
-    import matplotlib as _mpl
-    _mpl_ver = tuple(int(x) for x in _mpl.__version__.split(".")[:2])
-
-    fc = 0
-    if _mpl_ver >= (3, 8):
-        # New API: allsegs is a list-of-lists of numpy arrays
-        for lvl, segs in zip(cs.levels, cs.allsegs):
-            for seg in segs:
-                if len(seg) < 2:
-                    continue
-                line = ogr.Geometry(ogr.wkbLineString)
-                for vx, vy in seg:
-                    line.AddPoint(float(vx), float(vy))
-                feat = ogr.Feature(lyr.GetLayerDefn())
-                feat.SetGeometry(line)
-                feat.SetField("elevation", float(lvl))
-                feat.SetField("elev_m",    int(round(lvl)))
-                feat.SetField("interval",  float(interval))
-                lyr.CreateFeature(feat)
-                fc += 1
-    else:
-        # Old API (matplotlib < 3.8)
-        for lvl, col_obj in zip(cs.levels, cs.collections):
-            for path in col_obj.get_paths():
-                if len(path.vertices) < 2:
-                    continue
-                line = ogr.Geometry(ogr.wkbLineString)
-                for vx, vy in path.vertices:
-                    line.AddPoint(float(vx), float(vy))
-                feat = ogr.Feature(lyr.GetLayerDefn())
-                feat.SetGeometry(line)
-                feat.SetField("elevation", float(lvl))
-                feat.SetField("elev_m",    int(round(lvl)))
-                feat.SetField("interval",  float(interval))
-                lyr.CreateFeature(feat)
-                fc += 1
-
-    ds_out = None
-    feedback.pushInfo(f"  Features  : {fc:,}")
-    feedback.pushInfo(f"  Contour   : {out_path}")
+def _alive(dialog):
+    try:
+        return dialog is not None and not dialog._torn_down
+    except RuntimeError:                    # the Qt object is already gone
+        return False
 
 
 # -------------------------------------------------- QGIS PROCESSING ALGORITHM
@@ -227,6 +43,9 @@ def generate_contours(zg, geo_transform, epsg,
 class CSVtoDEMContour(QgsProcessingAlgorithm):
 
     INPUT_CSV      = "INPUT_CSV"
+    X_FIELD        = "X_FIELD"
+    Y_FIELD        = "Y_FIELD"
+    Z_FIELD        = "Z_FIELD"
     OUTPUT_FOLDER  = "OUTPUT_FOLDER"
     RESOLUTION     = "RESOLUTION"
     METHOD         = "METHOD"
@@ -236,6 +55,14 @@ class CSVtoDEMContour(QgsProcessingAlgorithm):
     CONTOUR_SMOOTH = "CONTOUR_SMOOTH"
     CONTOUR_FMT    = "CONTOUR_FMT"
     LOAD_LAYERS    = "LOAD_LAYERS"
+    POWER          = "POWER"
+    NEIGHBOURS     = "NEIGHBOURS"
+    RADIUS         = "RADIUS"
+    FILL_EDGES     = "FILL_EDGES"
+    CLAMP          = "CLAMP"
+    RBF_KERNEL     = "RBF_KERNEL"
+    RBF_NEIGHBOURS = "RBF_NEIGHBOURS"
+    RBF_SMOOTHING  = "RBF_SMOOTHING"
 
     def name(self):        return "csvtodemcontour"
     def displayName(self): return "CSV to DEM and Contour"
@@ -249,171 +76,365 @@ class CSVtoDEMContour(QgsProcessingAlgorithm):
 
     def shortHelpString(self):
         return (
-            "<b>CSV → DEM → Contour</b><br><br>"
-            "Converts a surveyed point CSV into:<br>"
-            "① A DEM GeoTIFF<br>"
-            "② Contour lines (Shapefile or GeoPackage)<br><br>"
-            "<b>CSV columns:</b> No, Easting, Northing, Elevation, Code<br>"
-            "Dual side-by-side layout is detected automatically.<br><br>"
-            "<b>Methods:</b> IDW · Linear · Cubic · Nearest<br>"
-            "<b>Default EPSG:</b> 32648 (WGS 84 / UTM zone 48N)"
+            "<p>Turns a table of surveyed points (easting, northing, elevation) "
+            "into a <b>DEM GeoTIFF</b> and, optionally, <b>contour lines</b>.</p>"
+
+            "<h3>The input CSV</h3>"
+            "<p>One row per surveyed point. Once a CSV is chosen, the X, Y "
+            "and Z boxes list its column headers; pick from the list (the "
+            "obvious ones are pre-selected) or type a name or column number "
+            "(1 = first column). Clear all three and the tool finds them "
+            "itself:</p>"
+            "<table border='1' cellpadding='4' cellspacing='0'>"
+            "<tr><th>If the file has</th><th>The tool uses</th></tr>"
+            "<tr><td>Headers like Easting / Northing / Elevation, or X / Y / Z "
+            "(also East, North, Lat, Lon, Height, RL, Alt)</td>"
+            "<td>Those columns, wherever they sit</td></tr>"
+            "<tr><td>3 columns, no known headers</td><td>X, Y, Z</td></tr>"
+            "<tr><td>4 columns</td><td>No, X, Y, Z</td></tr>"
+            "<tr><td>5 to 9 columns</td><td>No, X, Y, Z, Code</td></tr>"
+            "<tr><td>10 or 11 columns</td><td>Two No, X, Y, Z, Code tables "
+            "side by side, read as one</td></tr>"
+            "</table>"
+            "<p>Comma, semicolon and tab separated files all work. Rows whose "
+            "X, Y or Z is not a number are skipped; the log reports how many "
+            "points were read.</p>"
+
+            "<h3>Interpolation method</h3>"
+            "<p>The survey points are scattered; a DEM is a regular grid. The "
+            "method decides how the height of each grid cell is estimated "
+            "from the points around it, so it changes the surface and "
+            "therefore every contour drawn on it.</p>"
+            "<table border='1' cellpadding='4' cellspacing='0'>"
+            "<tr><th>Method</th><th>How it works</th><th>Use it when</th></tr>"
+            "<tr><td><b>IDW</b></td><td>Weighted average of the 16 nearest "
+            "points; nearer points count more (weight = 1 / distance&sup2;). "
+            "The surface passes through every point and never goes above the "
+            "highest or below the lowest value nearby.</td>"
+            "<td>General purpose and the safest default. Fills the whole "
+            "bounding box. Can leave small flat 'bullseyes' around isolated "
+            "points.</td></tr>"
+            "<tr><td><b>Linear</b></td><td>Joins the points into triangles "
+            "(Delaunay) and tilts a flat plane across each one.</td>"
+            "<td>Dense, evenly spread points such as a grid survey. Honest "
+            "to the data but the contours look angular.</td></tr>"
+            "<tr><td><b>Cubic</b></td><td>Like Linear, but the triangles are "
+            "blended into a smooth curved surface.</td>"
+            "<td>Gently rolling ground where smooth contours are wanted. "
+            "Can overshoot, giving heights above or below your highest or "
+            "lowest point, where points are sparse or uneven.</td></tr>"
+            "<tr><td><b>Nearest</b></td><td>Each cell copies the height of "
+            "the closest point.</td>"
+            "<td>Blocky surface; for a quick look only. "
+            "Not suited to contours.</td></tr>"
+            "<tr><td><b>RBF</b></td><td>Radial basis functions: fits a smooth "
+            "surface through the nearest points around each cell.</td>"
+            "<td>Smooth natural ground from scattered points. Slower than the "
+            "others and can overshoot.</td></tr>"
+            "</table>"
+            "<p>Each method has its own settings, shown only when it is "
+            "chosen: IDW &ndash; power, neighbours, search radius; Linear "
+            "&ndash; edge fill; Cubic &ndash; edge fill, clamp to surveyed "
+            "range; RBF &ndash; kernel, neighbours, smoothing. In the window "
+            "they appear beside the method; in the Processing form they sit "
+            "under Advanced Parameters.</p>"
+            "<p>Linear and Cubic only know the ground inside the outline of "
+            "the points. Cells outside that outline are filled with the "
+            "nearest point's height, which gives flat edges.</p>"
+
+            "<h3>Resolution</h3>"
+            "<p>The size of one DEM cell, in metres. Smaller is more detailed "
+            "but the grid grows with the square of the number: halving the "
+            "cell size makes four times as many cells and a slower, larger "
+            "run. A cell much smaller than the point spacing adds no real "
+            "detail, it only repeats the interpolation. <b>0</b> picks a size "
+            "from the point density (about 1/500 of the site width, never "
+            "below 0.5 m); the log reports the value used.</p>"
+
+            "<h3>Contours</h3>"
+            "<table border='1' cellpadding='4' cellspacing='0'>"
+            "<tr><th>Setting</th><th>Meaning</th></tr>"
+            "<tr><td>Interval</td><td>Vertical distance between lines, in "
+            "metres. Lines fall on multiples of the interval (0.5, 1.0, 1.5 "
+            "for 0.5 m). A small interval on a large, steep site makes a "
+            "very large file.</td></tr>"
+            "<tr><td>Smoothing (&sigma;)</td><td>Blurs the grid, in cells, "
+            "before the lines are traced, which removes the stair-steps and "
+            "sharp kinks. 0 = off, 1 = light, 2 to 3 = strong. Higher values "
+            "round off real features such as ditches and bunds and shift "
+            "lines slightly. The DEM itself is not smoothed.</td></tr>"
+            "<tr><td>Format</td><td>Shapefile or GeoPackage. Each line "
+            "carries <i>elevation</i>, <i>elev_m</i> (rounded to whole "
+            "metres) and <i>interval</i>.</td></tr>"
+            "</table>"
+
+            "<h3>Coordinate system</h3>"
+            "<p>The EPSG code of the CSV's coordinates (default 32648, "
+            "WGS 84 / UTM zone 48N). The tool does <b>not</b> reproject: it "
+            "stamps this CRS on the outputs, so a wrong code puts the DEM in "
+            "the wrong place. Use a projected CRS in metres, as the "
+            "resolution and contour interval are in metres.</p>"
+
+            "<h3>Outputs</h3>"
+            "<p>Written to the output folder, named after the CSV: "
+            "<i>name_DEM.tif</i> (Float32, NoData = -9999) and "
+            "<i>name_Contour_&lt;interval&gt;m.shp / .gpkg</i>. Existing "
+            "files with the same name are overwritten.</p>"
+
+            "<h3>Watch out for</h3>"
+            "<ul>"
+            "<li>Heights in the wrong column: check the Elevation range in "
+            "the log against what you expect.</li>"
+            "<li>Duplicate points at the same X, Y with different heights "
+            "make the surface ambiguous there; clean the data first.</li>"
+            "<li>The DEM is only as good as the survey: it cannot show "
+            "features between points.</li>"
+            "<li>Very large point counts with IDW and a fine resolution are "
+            "slow.</li>"
+            "</ul>"
         )
+
+    def _add(self, param, help_text, advanced=False):
+        """Add a parameter, with its help shown as the widget tooltip."""
+        param.setHelp(help_text)
+        if advanced:
+            mark_advanced(param)
+        self.addParameter(param)
+
+    def checkParameterValues(self, parameters, context):
+        ok, msg = super().checkParameterValues(parameters, context)
+        if not ok:
+            return ok, msg
+        fields = [(self.parameterAsString(parameters, k, context) or "").strip()
+                  for k in (self.X_FIELD, self.Y_FIELD, self.Z_FIELD)]
+        if any(fields) and not all(fields):
+            return False, ("Set all three of the X, Y and Z fields, or leave "
+                           "all three blank to auto-detect.")
+        if all(fields) and len({f.lower() for f in fields}) < 3:
+            return False, "The X, Y and Z fields must be three different columns."
+        epsg = self.parameterAsInt(parameters, self.EPSG, context)
+        if not QgsCoordinateReferenceSystem.fromEpsgId(epsg).isValid():
+            return False, f"EPSG:{epsg} is not a known coordinate system."
+        return True, ""
 
     def initAlgorithm(self, config=None):
 
-        self.addParameter(QgsProcessingParameterFile(
-            self.INPUT_CSV, self.tr("Input Point CSV"),
+        self._add(QgsProcessingParameterFile(
+            self.INPUT_CSV, self.tr("Input · Point CSV"),
             behavior=QgsProcessingParameterFile.Behavior.File,
             fileFilter="CSV Files (*.csv);;All Files (*.*)",
-        ))
+        ), "Surveyed points, one per row, with easting, northing and "
+           "elevation columns.")
 
-        self.addParameter(QgsProcessingParameterFolderDestination(
-            self.OUTPUT_FOLDER, self.tr("Output Folder"),
-        ))
+        for key, axis, label, hint in (
+            (self.X_FIELD, "X", "Input · X (Easting) field",
+             "Pick the easting column from the CSV's header (or type a name or "
+             "column number)."),
+            (self.Y_FIELD, "Y", "Input · Y (Northing) field",
+             "Pick the northing column from the CSV's header."),
+            (self.Z_FIELD, "Z", "Input · Z (Elevation) field",
+             "Pick the elevation column from the CSV's header."),
+        ):
+            param = QgsProcessingParameterString(
+                key, self.tr(label), optional=True)
+            param.setMetadata({"widget_wrapper": {
+                "class": column_wrapper_class()},
+                "csv_param": self.INPUT_CSV, "axis": axis})
+            self._add(param, hint + " Blank = auto-detect; fill all three or none.")
 
-        self.addParameter(QgsProcessingParameterNumber(
-            self.RESOLUTION, self.tr("DEM Resolution (m)  [0 = auto-detect]"),
-            type=QgsProcessingParameterNumber.Type.Double,
-            defaultValue=0.0, minValue=0.0, optional=True,
-        ))
-
-        self.addParameter(QgsProcessingParameterEnum(
-            self.METHOD, self.tr("Interpolation Method"),
+        self._add(QgsProcessingParameterEnum(
+            self.METHOD, self.tr("DEM · Interpolation method"),
             options=["IDW – Inverse Distance Weighting",
                      "Linear – Delaunay triangulation",
                      "Cubic – smooth surface",
-                     "Nearest Neighbour"],
+                     "Nearest Neighbour",
+                     "RBF – Radial basis functions (smooth)"],
             defaultValue=0,
-        ))
+        ), "How cell heights are estimated from the points. IDW is the safe "
+           "default; Linear for dense even points; Cubic for smooth ground "
+           "(may overshoot); Nearest is blocky. See the help panel.")
 
-        self.addParameter(QgsProcessingParameterNumber(
-            self.EPSG, self.tr("CRS – EPSG Code"),
+        self._add(QgsProcessingParameterNumber(
+            self.RESOLUTION, self.tr("DEM · Cell size (m)  [0 = auto]"),
+            type=QgsProcessingParameterNumber.Type.Double,
+            defaultValue=0.0, minValue=0.0, optional=True,
+        ), "Size of one DEM cell in metres. Halving it quadruples the cell "
+           "count. 0 = chosen from the point density (min 0.5 m).")
+
+        self._add(QgsProcessingParameterNumber(
+            self.EPSG, self.tr("DEM · CRS (EPSG code)"),
             type=QgsProcessingParameterNumber.Type.Integer,
             defaultValue=32648,
-        ))
+        ), "EPSG code of the CSV coordinates, e.g. 32648 = WGS 84 / UTM 48N. "
+           "Only labels the outputs; no reprojection is done.")
 
-        self.addParameter(QgsProcessingParameterBoolean(
-            self.DO_CONTOUR, self.tr("Generate Contour Lines"),
+        d = csv_dem.DEFAULT_OPTIONS
+        for key, label, hint, default, lo, kind in (
+            (self.POWER, "IDW · Power",
+             "How fast influence falls with distance. 2 is standard; higher "
+             "makes the surface follow the nearest points more tightly.",
+             d["power"], 0.1, "double"),
+            (self.NEIGHBOURS, "IDW · Neighbours",
+             "Nearest survey points averaged per cell.",
+             d["neighbours"], 1, "int"),
+            (self.RADIUS, "IDW · Search radius (m)  [0 = no limit]",
+             "Ignore points further away than this. A cell with none in range "
+             "takes the nearest point's height.",
+             d["radius"], 0.0, "double"),
+            (self.RBF_NEIGHBOURS, "RBF · Neighbours",
+             "Nearest points used for each local fit. More is smoother and "
+             "slower.", d["rbf_neighbours"], 5, "int"),
+            (self.RBF_SMOOTHING, "RBF · Smoothing",
+             "0 passes through every point. Raise it to relax the surface "
+             "when points disagree (noisy survey, duplicates).",
+             d["rbf_smoothing"], 0.0, "double"),
+        ):
+            kind_t = (QgsProcessingParameterNumber.Type.Integer if kind == "int"
+                      else QgsProcessingParameterNumber.Type.Double)
+            self._add(QgsProcessingParameterNumber(
+                key, self.tr(label), type=kind_t,
+                defaultValue=default, minValue=lo), hint, advanced=True)
+
+        self._add(QgsProcessingParameterEnum(
+            self.RBF_KERNEL, self.tr("RBF · Kernel"),
+            options=list(csv_dem.RBF_KERNELS),
+            defaultValue=csv_dem.RBF_KERNELS.index(d["rbf_kernel"]),
+        ), "Shape of the fitted surface. thin_plate_spline is the usual "
+           "choice for terrain.", advanced=True)
+
+        for key, label, hint, default in (
+            (self.FILL_EDGES, "Linear/Cubic · Fill outside the point outline",
+             "Linear and Cubic only know the ground inside the outline of the "
+             "points. On: the rest takes the nearest point's height. Off: "
+             "left as NoData.", d["fill_edges"]),
+            (self.CLAMP, "Cubic · Clamp to the surveyed height range",
+             "Stops Cubic overshooting above the highest or below the lowest "
+             "surveyed point.", d["clamp"]),
+        ):
+            self._add(QgsProcessingParameterBoolean(
+                key, self.tr(label), defaultValue=default), hint, advanced=True)
+
+        self._add(QgsProcessingParameterBoolean(
+            self.DO_CONTOUR, self.tr("Contours · Generate contour lines"),
             defaultValue=True,
-        ))
+        ), "Untick to produce only the DEM.")
 
-        self.addParameter(QgsProcessingParameterNumber(
-            self.CONTOUR_INT, self.tr("Contour Interval (m)"),
+        self._add(QgsProcessingParameterNumber(
+            self.CONTOUR_INT, self.tr("Contours · Interval (m)"),
             type=QgsProcessingParameterNumber.Type.Double,
             defaultValue=1.0, minValue=0.01,
-        ))
+        ), "Vertical distance between contour lines, in metres.")
 
-        self.addParameter(QgsProcessingParameterNumber(
+        self._add(QgsProcessingParameterNumber(
             self.CONTOUR_SMOOTH,
-            self.tr("Contour Smoothing – Gaussian σ  (0 = off)"),
+            self.tr("Contours · Smoothing, Gaussian σ (0 = off)"),
             type=QgsProcessingParameterNumber.Type.Double,
             defaultValue=1.0, minValue=0.0,
-        ))
+        ), "Blur in cells applied before tracing lines. 0 = none, 1 = light, "
+           "2-3 = strong. The DEM itself is unchanged.", advanced=True)
 
-        self.addParameter(QgsProcessingParameterEnum(
-            self.CONTOUR_FMT, self.tr("Contour Output Format"),
+        self._add(QgsProcessingParameterEnum(
+            self.CONTOUR_FMT, self.tr("Contours · Output format"),
             options=["Shapefile (.shp)", "GeoPackage (.gpkg)"],
             defaultValue=0,
-        ))
+        ), "File format of the contour layer.", advanced=True)
 
-        self.addParameter(QgsProcessingParameterBoolean(
+        self._add(QgsProcessingParameterFolderDestination(
+            self.OUTPUT_FOLDER, self.tr("Output · Folder"),
+        ), "DEM and contours are written here, named after the CSV.")
+
+        self._add(QgsProcessingParameterBoolean(
             self.LOAD_LAYERS,
-            self.tr("Add output layers to QGIS map canvas"),
+            self.tr("Output · Add results to the map"),
             defaultValue=True,
-        ))
+        ), "Load the DEM and contours into the current project.", advanced=True)
 
     # -------------------------------------------------------------------- run
 
+    def createCustomParametersWidget(self, parent=None):
+        """Open the CSV to DEM and Contour window instead of the plain form.
+
+        The parameters above stay, so scripts (`processing.run`), the modeller
+        and batch still work; only the Toolbox dialog is replaced.
+        """
+        global DIALOG_INSTANCE
+        if iface is None:
+            return None
+        from ..gui.csv_dem_dialog import CsvDemDialog
+
+        if not _alive(DIALOG_INSTANCE):
+            DIALOG_INSTANCE = CsvDemDialog(iface.mainWindow())
+        return DIALOG_INSTANCE
+
+    def options(self, parameters, context):
+        """The method-specific settings, keyed as in `csv_dem.DEFAULT_OPTIONS`."""
+        return {
+            "power": self.parameterAsDouble(parameters, self.POWER, context),
+            "neighbours": self.parameterAsInt(parameters, self.NEIGHBOURS, context),
+            "radius": self.parameterAsDouble(parameters, self.RADIUS, context),
+            "fill_edges": self.parameterAsBoolean(parameters, self.FILL_EDGES, context),
+            "clamp": self.parameterAsBoolean(parameters, self.CLAMP, context),
+            "rbf_kernel": csv_dem.RBF_KERNELS[
+                self.parameterAsEnum(parameters, self.RBF_KERNEL, context)],
+            "rbf_neighbours": self.parameterAsInt(parameters, self.RBF_NEIGHBOURS, context),
+            "rbf_smoothing": self.parameterAsDouble(parameters, self.RBF_SMOOTHING, context),
+        }
+
     def processAlgorithm(self, parameters, context, feedback):
+        def as_str(key):
+            return self.parameterAsString(parameters, key, context) or ""
 
-        feedback.pushInfo("=" * 55)
-        feedback.pushInfo("  CSV → DEM → Contour")
-        feedback.pushInfo("=" * 55)
+        cnt_int = self.parameterAsDouble(parameters, self.CONTOUR_INT, context)
+        fmt = ["shp", "gpkg"][self.parameterAsEnum(parameters, self.CONTOUR_FMT, context)]
+        try:
+            result = csv_dem.run(
+                self.parameterAsFile(parameters, self.INPUT_CSV, context),
+                self.parameterAsString(parameters, self.OUTPUT_FOLDER, context),
+                feedback,
+                x_field=as_str(self.X_FIELD), y_field=as_str(self.Y_FIELD),
+                z_field=as_str(self.Z_FIELD),
+                resolution=self.parameterAsDouble(parameters, self.RESOLUTION, context),
+                method=csv_dem.METHODS[self.parameterAsEnum(parameters, self.METHOD, context)],
+                options=self.options(parameters, context),
+                epsg=self.parameterAsInt(parameters, self.EPSG, context),
+                contour=self.parameterAsBoolean(parameters, self.DO_CONTOUR, context),
+                interval=cnt_int,
+                smoothing=self.parameterAsDouble(parameters, self.CONTOUR_SMOOTH, context),
+                fmt=fmt)
+        except csv_dem.Canceled:
+            return {}
+        except ValueError as exc:
+            raise QgsProcessingException(str(exc))
 
-        # --------------------------------------------------------- parameters
-        csv_path    = self.parameterAsFile   (parameters, self.INPUT_CSV,      context)
-        out_dir     = self.parameterAsString (parameters, self.OUTPUT_FOLDER,  context)
-        res_param   = self.parameterAsDouble (parameters, self.RESOLUTION,     context)
-        method_idx  = self.parameterAsEnum   (parameters, self.METHOD,         context)
-        epsg        = self.parameterAsInt    (parameters, self.EPSG,           context)
-        do_contour  = self.parameterAsBoolean(parameters, self.DO_CONTOUR,     context)
-        cnt_int     = self.parameterAsDouble (parameters, self.CONTOUR_INT,    context)
-        cnt_smooth  = self.parameterAsDouble (parameters, self.CONTOUR_SMOOTH, context)
-        cnt_fmt_idx = self.parameterAsEnum   (parameters, self.CONTOUR_FMT,    context)
-        load_layers = self.parameterAsBoolean(parameters, self.LOAD_LAYERS,    context)
-
-        method  = ["idw", "linear", "cubic", "nearest"][method_idx]
-        cnt_fmt = ["shp", "gpkg"][cnt_fmt_idx]
-        base    = Path(csv_path).stem
-        os.makedirs(out_dir, exist_ok=True)
-
-        # -------------------------------------------------- Step 1 : Load CSV
-        feedback.pushInfo("\n[1/3]  Loading CSV …")
-        feedback.setProgress(5)
-        if feedback.isCanceled(): return {}
-        df = load_points(csv_path, feedback)
-
-        # ---------------------------------------------- Step 2 : Generate DEM
-        feedback.pushInfo("\n[2/3]  Generating DEM …")
-        feedback.setProgress(20)
-        if feedback.isCanceled(): return {}
-
-        resolution = res_param if res_param > 0 else auto_resolution(df)
-        feedback.pushInfo(f"  Auto-res  : {resolution} m" if res_param <= 0
-                          else f"  Resolution: {resolution} m")
-
-        dem_path = os.path.join(out_dir, f"{base}_DEM.tif")
-        zg, geo_transform = generate_dem(
-            df, resolution, method, epsg, dem_path, feedback)
-        feedback.setProgress(65)
-
-        # ----------------------------------------- Step 3 : Generate Contours
-        cnt_path = None
-        if do_contour:
-            feedback.pushInfo("\n[3/3]  Generating Contours …")
-            if feedback.isCanceled(): return {}
-            ext      = "gpkg" if cnt_fmt == "gpkg" else "shp"
-            cnt_path = os.path.join(out_dir,
-                                    f"{base}_Contour_{cnt_int}m.{ext}")
-            generate_contours(zg, geo_transform, epsg,
-                              cnt_int, cnt_smooth,
-                              cnt_path, cnt_fmt, feedback)
-        else:
-            feedback.pushInfo("\n[3/3]  Contour skipped.")
-
-        feedback.setProgress(90)
-
-        # ---------------------------------------------- Load layers into QGIS
-        if load_layers:
-            feedback.pushInfo("\n  Loading layers into QGIS canvas …")
-
+        dem_path, cnt_path, base = result["dem"], result["contour"], result["base"]
+        if self.parameterAsBoolean(parameters, self.LOAD_LAYERS, context):
             rl = QgsRasterLayer(dem_path, f"{base} DEM")
             if rl.isValid():
                 QgsProject.instance().addMapLayer(rl)
-                feedback.pushInfo(f"  ✔ {base} DEM")
             else:
-                feedback.pushWarning(f"  Could not load DEM: {dem_path}")
-
-            if cnt_path and os.path.exists(cnt_path):
-                vl = QgsVectorLayer(cnt_path,
-                                    f"{base} Contour {cnt_int}m", "ogr")
+                feedback.pushWarning(f"Could not load DEM: {dem_path}")
+            if cnt_path:
+                vl = QgsVectorLayer(cnt_path, f"{base} Contour {cnt_int}m", "ogr")
                 if vl.isValid():
                     QgsProject.instance().addMapLayer(vl)
-                    feedback.pushInfo(f"  ✔ {base} Contour {cnt_int}m")
                 else:
-                    feedback.pushWarning(f"  Could not load contour: {cnt_path}")
+                    feedback.pushWarning(f"Could not load contour: {cnt_path}")
 
-        # ------------------------------------------------------------ Summary
-        feedback.setProgress(100)
-        feedback.pushInfo("\n" + "=" * 55)
-        feedback.pushInfo("  ✔  Done!")
-        feedback.pushInfo(f"  DEM     → {Path(dem_path).name}")
+        feedback.pushInfo(f"\nDone. DEM: {Path(dem_path).name}"
+                          + (f"  Contour: {Path(cnt_path).name}" if cnt_path else ""))
+        out = {"DEM": dem_path}
         if cnt_path:
-            feedback.pushInfo(f"  Contour → {Path(cnt_path).name}")
-        feedback.pushInfo(f"  Folder  → {out_dir}")
-        feedback.pushInfo("=" * 55)
+            out["Contour"] = cnt_path
+        return out
 
-        result = {"DEM": dem_path}
-        if cnt_path:
-            result["Contour"] = cnt_path
-        return result
+
+def close_csv_dem():
+    """Stop any running job and close the window on plugin unload."""
+    global DIALOG_INSTANCE
+    dialog, DIALOG_INSTANCE = DIALOG_INSTANCE, None
+    if dialog is None:
+        return
+    try:
+        dialog.shutdown()
+    except RuntimeError:                    # already destroyed by Qt
+        pass

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – Udieresis
+     Glyph "Udieresis" at U+00DC (type 'Ü' – LATIN CAPITAL LETTER U WITH DIAERESIS) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="680" height="833" viewBox="-16 -817 680 833">
+  <path d="M378 -270 323 0 269 -270 0 -325 269 -379 323 -650 378 -379 648 -324ZM323 -626 273 -377 323 -324ZM24 -324 273 -273 323 -324ZM323 -324V-25L374 -273ZM374 -377 323 -324H623ZM264 -801H291L361 -718V-783Q361 -788 360 -791.5Q359 -795 357 -796Q355 -799 348 -799H347V-801H383V-799H380Q372 -799 369 -795V-693H366L293 -777V-713Q293 -700 294 -699Q297 -696 303 -696H308V-694H270V-696H273Q277 -696 279.5 -697.5Q282 -699 284 -700Q285 -702 285 -713V-787Q284 -787 283 -788Q278 -792 276.5 -793.5Q275 -795 270 -796Q269 -798 264 -798Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

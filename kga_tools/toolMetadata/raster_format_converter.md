@@ -144,6 +144,6 @@ creation option and does not apply to it.
   another reason (a full disk, say) also keeps the blocks and says so.
 - **A one-pass conversion cannot be resumed.** Cancelling one removes the
   unfinished file.
-- Resuming is the same idea the **[DEM and Contour Tool](demcontourtool.md)** and
+- Resuming is the same idea the
   **[DEM Elevation Correction](demelevationcorrectionandpointsamplereport.md)**
-  use, so a long job in this toolbox behaves the same way wherever you meet one.
+  tool uses, so a long job in this toolbox behaves the same way wherever you meet one.

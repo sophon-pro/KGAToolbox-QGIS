@@ -52,13 +52,31 @@ controls below are the window's.
 | **Reproject to the project CRS on import (creates a memory layer)** | Checkbox | unticked | On, each layer arrives reprojected — as a memory layer, so save it if you want to keep it. |
 | **Import Checked Layers** | Button | — | Runs the import and reports a summary. |
 
+### Tab 3 — Save Temporary Layers
+
+Finds the temporary (memory) layers in the Layers panel — Processing results left
+as *Temporary output*, scratch layers, reprojected imports — and saves them for
+good.
+
+| Control | Type | Default | Description |
+|---|---|---|---|
+| Temporary layer table | Checkable table | every temporary layer ticked | Columns: *Layer*, *Geometry*, *Features*, *Save As*. The list **refreshes by itself** when a temporary layer is added, removed, renamed or edited. *Save As* is editable. |
+| **Select All** / **Clear All** | Buttons | — | Tick or untick every row. |
+| **Save To** | Combo box | **Project database** | `Project database (GeoPackage)` writes one table per layer into the GeoPackage; `Folder` writes one file per layer. |
+| **GeoPackage** | Path box | the project's default database | Created if it does not exist. |
+| **Format** / **Folder** | Combo box, path box | GeoPackage, the project's default folder | Folder mode only. Formats: GeoPackage, Shapefile, GeoJSON. |
+| **Replace the temporary layer in the project…** | Checkbox | **ticked** | The saved layer takes the temporary one's place in the Layers panel, with its style and visibility. Untick to leave the temporary layer and add nothing. |
+| **Save Checked Layers** | Button | — | Saves and reports a summary. |
+
+Existing tables and files are never overwritten; a clash gets a numbered name.
+
 ## How to use
 
 **To export:**
 
 1. Open **KGA Data Management > Layer Export / Import**, or press its button on
    the KGA toolbar. Close the Processing window once the pane appears.
-2. On **1. Export Layers**, tick the layers. Edit the *Export As* cell to rename
+2. On **Export Layers**, tick the layers. Edit the *Export As* cell to rename
    one on the way out.
 3. Choose the **Output Format**. GeoPackage puts everything in one file; the
    others write one file per layer.
@@ -67,7 +85,7 @@ controls below are the window's.
 
 **To import:**
 
-1. Switch to **2. Import Layers**.
+1. Switch to **Import Layers**.
 2. Drag the source file onto **Source File** from the Browser panel, or use
    **Browse File**. The layers it holds are listed.
 3. Tick the ones you want, edit the *Add As* names if needed.

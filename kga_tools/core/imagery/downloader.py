@@ -86,7 +86,7 @@ class ImageryTask(QgsTask):
 
     def __init__(self, spec, fetch=qgis_fetch, decode=decode_tile, backoff=1.0):
         flag = getattr(QgsTask, 'Flag', QgsTask)     # scoped enum, QGIS 3.36+
-        super().__init__('KGA imagery download: %s' % spec.name,
+        super().__init__('Imagery download: %s' % spec.name,
                          flag.CanCancel)
         self.spec = spec
         self._fetch = fetch

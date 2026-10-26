@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – Otilde
+     Glyph "Otilde" at U+00D5 (type 'Õ' – LATIN CAPITAL LETTER O WITH TILDE) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="353" height="833" viewBox="-16 -817 353 833">
+  <path d="M142 -444 145 -447 169 -442Q148 -465 120.5 -476.5Q93 -488 64 -488Q44 -488 25 -482V-17L36 -46L42 -44L25 0H18V-688L8 -659H0L22 -801L45 -659H36L25 -688V-490Q50 -495 64 -495Q94 -495 123 -483Q152 -471 173 -447L169 -469L171 -471L179 -436ZM321 -678 313 -682 301 -731 285 -687 278 -689 295 -733 257 -703 249 -706 306 -751ZM216 -525 223 -522 206 -477 199 -480ZM87 -183 94 -181 77 -136 70 -138ZM275 -661 258 -616 251 -618 268 -663ZM113 -251 120 -249 103 -204 96 -206ZM190 -456 197 -454 180 -409 173 -411ZM139 -320 145 -317 128 -272 122 -275ZM68 -112 51 -67 45 -70 62 -115ZM242 -593 248 -590 231 -546 225 -548ZM171 -386 154 -341 148 -343 165 -388Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

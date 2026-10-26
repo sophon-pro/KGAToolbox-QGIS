@@ -124,7 +124,7 @@ def qt_type(type_id):
     """The value to hand to `QgsField(name, <here>)` on this build."""
     if HAS_QMETATYPE:
         return QMetaType.Type(int(type_id))
-    return QVariant.Type(int(type_id))
+    return getattr(QVariant, "Type")(int(type_id))
 
 
 def make_field(name, type_id, length=0, precision=0, type_name_hint=''):
@@ -215,3 +215,20 @@ def mark_advanced(parameter):
         flag = QgsProcessingParameterDefinition.Flag.FlagAdvanced
     parameter.setFlags(parameter.flags() | flag)
     return parameter
+
+
+def enum_value(*candidates):
+    """The first enum member that exists in this QGIS / Qt version.
+
+    Each candidate is `(owner, "Enum.Member")` or `(owner, "Member")`, looked up by name so the
+    scoped spelling (QGIS 4, PyQt6) is tried before the unscoped one that older builds need.
+    """
+    for owner, path in candidates:
+        obj = owner
+        try:
+            for part in path.split('.'):
+                obj = getattr(obj, part)
+            return obj
+        except AttributeError:
+            continue
+    raise AttributeError('none of the enum spellings exist: {}'.format([p for _o, p in candidates]))

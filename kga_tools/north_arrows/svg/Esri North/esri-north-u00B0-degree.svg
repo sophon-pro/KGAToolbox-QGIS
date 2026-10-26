@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – degree
+     Glyph "degree" at U+00B0 (type '°' – DEGREE SIGN) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="730.2" height="732.2" viewBox="-14.1 -718.1 730.2 732.2">
+  <path d="M0 -349Q0 -497 0 -349ZM702 -349Q702 -496 601 -600Q500 -704 354 -704Q205 -704 102 -601Q0 -497 0 -349Q0 -201 103 -101Q207 0 354 0Q499 0 600 -101Q702 -203 702 -349ZM354 -704 528 -58 354 -116 174 -58Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

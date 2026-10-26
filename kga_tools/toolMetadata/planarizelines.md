@@ -3,7 +3,7 @@
 |  |  |
 |---|---|
 | **Algorithm ID** | `kga:planarizelines` |
-| **Group** | KGA Geometry Utilities |
+| **Group** | KGA Editing Tools |
 | **Source** | `kga_tools/algorithms/planarize_line.py` |
 | **Icon** | `icons/planarizeTool.png` |
 | **Type** | Batch algorithm (runs on the GUI thread — the in-place branch writes into a project layer) |
@@ -28,7 +28,7 @@ a break at every crossing.
 
 ## How to use
 
-1. Open **KGA Geometry Utilities > Planarize Lines**.
+1. Open **KGA Editing Tools > Planarize Lines**.
 2. Pick the **Input Line Layer**.
 3. Leave the in-place box off for the first run — check the result, then decide.
 4. Press **Run**.

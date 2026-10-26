@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – I
+     Glyph "I" at U+0049 (type 'I' – LATIN CAPITAL LETTER I) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="799.8" height="790.8" viewBox="-15.4 -775.4 799.8 790.8">
+  <path d="M769 -380Q769 -301 738.5 -232Q708 -163 656 -111.5Q604 -60 533.5 -30Q463 0 384 0Q304 0 234 -30Q164 -60 112 -111.5Q60 -163 30 -232Q0 -301 0 -380Q0 -459 30 -528Q60 -597 112 -648.5Q164 -700 234 -730Q304 -760 384 -760Q463 -760 533.5 -730Q604 -700 656 -648.5Q708 -597 738.5 -528Q769 -459 769 -380ZM382 -699 144 -476H248V-412H538V-476H619ZM499 -372 444 -194 333 -372H256L172 -108H250L308 -285L418 -108H495L580 -372Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

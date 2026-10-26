@@ -57,6 +57,7 @@ from qgis.PyQt.QtWidgets import (
 from ..branding import LOG_TAG, open_docs
 from .busy import BusyOverlay
 from ..core import domains as D
+from ..core import output_defaults as od
 from ..core.compat import (
     NAME_BY_TYPE,
     T_DATE,
@@ -93,7 +94,7 @@ class DomainManagerDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle(tr('KGA Domain & Schema Manager'))
+        self.setWindowTitle(tr('Domain & Schema Manager'))
         self.setObjectName('KgaDomainManagerDialog')
         self.resize(940, 620)
 
@@ -993,10 +994,17 @@ class DomainManagerDialog(QDialog):
 
     # -------------------------------------------------------------- library
 
+
+    def _export_start(self, suffix):
+        """Where a Save dialog opens: the project folder, else beside the file."""
+        name = os.path.splitext(os.path.basename(self.path))[0] + suffix
+        folder = od.project_folder() or os.path.dirname(self.path)
+        return os.path.join(folder, name)
+
     def _export_library(self):
         if self.conn is None:
             return
-        start = os.path.splitext(self.path)[0] + '_domains.json'
+        start = self._export_start('_domains.json')
         path, _ = QFileDialog.getSaveFileName(
             self, tr('Export domain library'), start, tr('JSON (*.json)'))
         if not path:
@@ -1067,7 +1075,7 @@ class DomainManagerDialog(QDialog):
         if not self.path:
             return
         import shutil
-        start = os.path.splitext(self.path)[0] + '_copy.gpkg'
+        start = self._export_start('_copy.gpkg')
         target, _ = QFileDialog.getSaveFileName(
             self, tr('Copy container to'), start, tr('GeoPackage (*.gpkg)'))
         if not target:

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – ordfeminine
+     Glyph "ordfeminine" at U+00AA (type 'ª' – FEMININE ORDINAL INDICATOR) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="833.1" height="860.1" viewBox="-16.5 -843.5 833.1 860.1">
+  <path d="M470 -346Q450 -245 436 -185.5Q422 -126 415 -91Q400 -160 386.5 -219Q373 -278 359 -346L91 -400L359 -454L415 -738L470 -454L738 -400ZM450 -367 586 -400 450 -433 415 -586 379 -433 244 -400 379 -367 415 -243ZM415 -715V-607L454 -438L466 -451ZM363 -349 415 -115V-223L375 -362ZM363 -451 115 -400H223L375 -438ZM454 -362 466 -349 714 -400H607ZM56 -371H48L36 -419H34L22 -371H14L0 -426H7Q9 -419 11 -408.5Q13 -398 18 -382L30 -426H40Q45 -405 52 -382L63 -426H71ZM429 -771 401 -813V-771H393V-827H401L428 -785V-827H437V-771ZM757 -371V-426H798V-420H766V-404H795V-397H766V-378H800V-371ZM400 -19Q400 -7 415 -7Q429 -7 429 -15Q429 -18 427.5 -19.5Q426 -21 423 -23Q421 -24 413 -25.5Q405 -27 403 -29Q395 -32 395 -41Q395 -47 400.5 -51.5Q406 -56 414 -56Q423 -56 428 -51Q433 -46 435 -40H428Q426 -49 415 -49Q402 -49 402 -41Q402 -38 404 -36Q406 -34 415 -32.5Q424 -31 426 -29Q436 -25 436 -16Q436 -8 430 -4Q424 0 415 0Q393 0 393 -19Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

@@ -185,9 +185,11 @@ class PointOnBoundaryChecker(QgsProcessingAlgorithm):
         vertices = []
 
         for feat in boundary_source.getFeatures():
-            if feedback.isCanceled(): return {}
+            if feedback.isCanceled():
+                return {}
             geom = feat.geometry()
-            if geom.isNull(): continue
+            if geom.isNull():
+                continue
             for v in geom.vertices():
                 point = QgsPointXY(v)
                 f = QgsFeature()
@@ -210,9 +212,11 @@ class PointOnBoundaryChecker(QgsProcessingAlgorithm):
 
         skipped = 0
         for current, feat in enumerate(point_source.getFeatures()):
-            if feedback.isCanceled(): return {}
+            if feedback.isCanceled():
+                return {}
             geom = feat.geometry()
-            if geom.isNull(): continue
+            if geom.isNull():
+                continue
 
             if xform:
                 try:

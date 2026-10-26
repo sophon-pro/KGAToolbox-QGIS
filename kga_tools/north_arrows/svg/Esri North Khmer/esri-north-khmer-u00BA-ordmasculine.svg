@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North (Khmer) – ordmasculine
+     Glyph "ordmasculine" at U+00BA (type 'º' – MASCULINE ORDINAL INDICATOR) of the "ESRI North (Khmer)" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="275" height="727" viewBox="-83 -713 275 727">
+  <path d="M54 -699 178 -384 73 -437V-151V-109V0H54V-140V-182ZM-32 -556Q-36 -558 -39.5 -559.5Q-43 -561 -47 -564L-50 -567L-48 -569L-46 -572L-44 -575Q-42 -576 -38 -576L-25 -571L-22 -568Q-18 -566 -14.5 -565Q-11 -564 -6 -563H-1H7Q19 -563 26 -567Q36 -573 36 -587Q36 -606 21 -616L7 -624Q-6 -617 -6 -612L-1 -605L3 -602L9 -599Q18 -596 24 -583Q24 -579 20 -575Q16 -571 11 -571Q6 -571 3 -571.5Q0 -572 -6 -575Q-9 -578 -9 -578.5Q-9 -579 -14 -581H-17Q-31 -593 -35 -593L-48 -588L-54 -585Q-59 -580 -62 -575.5Q-65 -571 -67 -567L-69 -558H-63L-50 -552V-479L-48 -472Q-46 -467 -37 -467H-29L-16 -481L-12 -485V-486L-7 -489H-6L-4 -486L2 -478Q8 -469 14 -467H20Q36 -467 36 -478V-545H20V-496Q20 -486 13 -486Q8 -486 7 -490L3 -494Q0 -498 -2.5 -498.5Q-5 -499 -7 -499Q-14 -499 -16 -497L-19 -494Q-25 -486 -27 -486Q-32 -486 -32 -493Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

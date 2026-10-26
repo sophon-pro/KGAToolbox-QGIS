@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – onesuperior
+     Glyph "onesuperior" at U+00B9 (type '¹' – SUPERSCRIPT ONE) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="206" height="727" viewBox="-14 -713 206 727">
+  <path d="M73 -437V-151L115 -83V-224H137V-48H113L73 -109V0H54V-140L22 -189V-48H0V-224H26L54 -182V-699L178 -384ZM74 -602V-467L141 -433Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – Odieresis
+     Glyph "Odieresis" at U+00D6 (type 'Ö' – LATIN CAPITAL LETTER O WITH DIAERESIS) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="352" height="833" viewBox="-16 -817 352 833">
+  <path d="M141 -436 149 -471 151 -469 147 -447Q168 -471 197 -483Q226 -495 256 -495Q270 -495 295 -490V-688L284 -659H275L298 -801L320 -659H312L302 -688V0H295L278 -44L284 -46L295 -17V-482Q275 -488 256 -488Q227 -488 199.5 -476.5Q172 -465 151 -442L175 -447L178 -444ZM14 -751 71 -706 63 -703 25 -733 42 -689 35 -687 19 -731 7 -682 0 -678ZM121 -480 114 -477 97 -522 104 -525ZM250 -138 243 -136 226 -181 233 -183ZM52 -663 69 -618 62 -616 45 -661ZM224 -206 217 -204 200 -249 207 -251ZM147 -411 140 -409 123 -454 130 -456ZM198 -275 192 -272 175 -317 181 -320ZM258 -115 275 -70 269 -67 252 -112ZM95 -548 89 -546 72 -590 78 -593ZM155 -388 172 -343 166 -341 149 -386Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

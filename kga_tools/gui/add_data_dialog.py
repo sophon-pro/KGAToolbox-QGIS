@@ -48,6 +48,7 @@ from qgis.PyQt.QtWidgets import (
     QMessageBox,
     QProgressDialog,
     QPushButton,
+    QSizePolicy,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -58,10 +59,12 @@ from ..core import data_sources as DS
 from ..core import dem_sources as DEM
 from ..core import landcover_sources as LC
 from ..core import layer_loader as LL
+from .output_fields import FollowingField
 from ..core import net
 from ..core.countries import COUNTRIES, DEFAULT_ISO3, label_for, name_for
 from ..core.modify_features import layer_filter
 from .busy import BusyOverlay
+from .kga_picker import KgaPicker
 from .roi_tools import (SHAPE_POLYGON, SHAPE_RECTANGLE, RoiMapTool,
                         drop_band, make_band)
 
@@ -132,7 +135,7 @@ class AddDataDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle(tr('KGA Add Open Data & Basemaps'))
+        self.setWindowTitle(tr('Add Open Data & Basemaps'))
         self.setObjectName('KgaAddDataDialog')
         self.resize(660, 560)
 
@@ -174,6 +177,7 @@ class AddDataDialog(QDialog):
         body_column.setContentsMargins(0, 0, 0, 0)
         body_column.setSpacing(8)
         body_column.addWidget(self._build_form())
+        body_column.addWidget(self.kga_group, 1)
         body_column.addWidget(self._build_details())
         layout.addWidget(self.body)
 
@@ -250,6 +254,30 @@ class AddDataDialog(QDialog):
         self.level_combo = QComboBox(box)
         self.level_combo.currentIndexChanged.connect(self._refresh_item)
         form.addRow(tr('Admin level'), self.level_combo)
+
+        # The KGA database's unit picker. It is a group box of its own, not a
+        # form row: a form row is squeezed below its minimum when the window
+        # is short, and a list needs its room. Hidden until that source is
+        # chosen.
+        self.kga_picker = KgaPicker(self, villages=self._kga_villages)
+        self.kga_picker.changed.connect(self._on_picker_changed)
+        self.kga_picker.keySaved.connect(self._on_key_saved)
+        self.kga_group = QGroupBox(tr('Choose the units'), self)
+        group_column = QVBoxLayout(self.kga_group)
+        group_column.addWidget(self.kga_picker)
+        # Minimum, not the default Preferred: the layout then treats the size
+        # hint as the least the group may have. Qt's own minimum for it comes
+        # out a few pixels short once the wrapped details text above and below
+        # is counted, which squeezed the list under its buttons.
+        self.kga_group.setSizePolicy(QSizePolicy.Policy.Preferred,
+                                     QSizePolicy.Policy.MinimumExpanding)
+        self.kga_group.setVisible(False)
+        #: True while the picker itself caused the refresh, so the window does
+        #: not push the state back into it.
+        self._from_picker = False
+        #: The last sentence from a source that could not be read, shown in the
+        #: details panel when there is no level to describe.
+        self._source_error = ''
 
         # One row per source-specific option, built once and reused: the
         # widgets are created empty here and filled in _on_source_changed.
@@ -401,6 +429,8 @@ class AddDataDialog(QDialog):
             'Where to write the GeoTIFF. Leave it empty for a temporary file, '
             'which QGIS deletes when it closes.'))
         form.addRow(tr('Save to'), self.output_widget)
+        # In a project the field starts at a new file in the project folder.
+        self._output_follow = FollowingField(self.output_widget, 'tif')
 
     def _build_details(self):
         box = QGroupBox(tr('Details'), self)
@@ -478,6 +508,12 @@ class AddDataDialog(QDialog):
         self._set_row_visible(self.level_combo, bool(
             source is not None and source.kind == DS.KIND_ADMIN
             and not custom_url))
+        picker = bool(source is not None and source.uses_unit_picker)
+        if picker and not self.kga_group.isVisibleTo(self):
+            # The picker adds a list and four rows: give the window the room
+            # once, rather than squeezing the list to fit the old height.
+            self.resize(max(self.width(), 700), max(self.height(), 860))
+        self.kga_group.setVisible(picker)
         self._set_row_visible(self.url_edit, custom_url or custom_tiles)
         self._set_row_visible(self.zoom_widget, basemap)
         self._set_row_visible(self.remember_check, basemap)
@@ -524,19 +560,37 @@ class AddDataDialog(QDialog):
             self.source_combo.addItem(tr('Custom XYZ URL...'),
                                       DS.CUSTOM_BASEMAP)
         else:
-            model = self.source_combo.model()
             for source in DS.sources_for(kind):
                 self.source_combo.addItem(source.label, source.id)
-                if not source.enabled:
-                    index = self.source_combo.count() - 1
-                    item = model.item(index)
-                    if item is not None:
-                        item.setEnabled(False)
-                    self.source_combo.setItemData(
-                        index, source.disabled_note,
-                        Qt.ItemDataRole.ToolTipRole)
+            self._update_source_availability()
 
         self._loading = False
+
+    def _update_source_availability(self):
+        """Grey out the sources that cannot serve the chosen country.
+
+        A source stays listed when it cannot serve the country - "there is a
+        KGA database, just not for Thailand" is worth knowing - with the reason
+        as its tooltip.
+        """
+        if self._current_kind() == DS.KIND_BASEMAP:
+            return
+        iso3 = self._iso3()
+        model = self.source_combo.model()
+        for index in range(self.source_combo.count()):
+            source = DS.source_by_id(self.source_combo.itemData(index))
+            if source is None:
+                continue
+            note = ''
+            if not source.enabled:
+                note = source.disabled_note
+            elif not source.available_for(iso3):
+                note = source.unavailable_note
+            item = model.item(index)
+            if item is not None:
+                item.setEnabled(not note)
+            self.source_combo.setItemData(index, note,
+                                          Qt.ItemDataRole.ToolTipRole)
 
     def _on_source_changed(self):
         if self._loading:
@@ -630,6 +684,23 @@ class AddDataDialog(QDialog):
         if self._loading:
             return
         self._name_touched = False
+        self._update_source_availability()
+        source = self._current_source()
+        if source is not None and source.enabled \
+                and not source.available_for(self._iso3()):
+            # The chosen source cannot serve this country: fall back to the
+            # first one that can, and say why.
+            note = source.unavailable_note
+            for index in range(self.source_combo.count()):
+                other = DS.source_by_id(self.source_combo.itemData(index))
+                if other is not None and other.enabled \
+                        and other.available_for(self._iso3()):
+                    self._loading = True
+                    self.source_combo.setCurrentIndex(index)
+                    self._loading = False
+                    self._on_source_changed()
+                    self._say(note, warn=True)
+                    return
         self._schedule_reload()
 
     def _schedule_reload(self):
@@ -678,6 +749,9 @@ class AddDataDialog(QDialog):
         # False for every widget of a window that has not been shown yet, which
         # would leave the address behind on the first describe.
         values['url'] = self.url_edit.text().strip()
+        source = self._current_source()
+        if source is not None and source.uses_unit_picker:
+            values['kga'] = self.kga_picker.selection()
         if with_roi and self._current_kind() in AREA_KINDS:
             values['api_key'] = self.api_key_edit.text().strip()
             try:
@@ -703,11 +777,14 @@ class AddDataDialog(QDialog):
             return
 
         wanted = self.level_combo.property('lastLevel')
+        self._source_error = ''
         self.busy.begin(tr('Asking {0} which levels it publishes...').format(
             source.label.split(' (')[0]), BUSY_DELAY_MS)
         try:
             available = source.levels(self._iso3(), self._options())
         except net.NetError as exc:
+            self._source_error = str(exc)
+            self.kga_picker.clear_manifest()
             self._say(str(exc), warn=True)
             return
         except Exception as exc:            # pragma: no cover - defensive
@@ -724,9 +801,11 @@ class AddDataDialog(QDialog):
             return
 
         model = self.level_combo.model()
-        for level in range(0, 6):
+        labels = source.level_labels
+        for level in (sorted(labels) if labels else range(0, 6)):
             self.level_combo.addItem(
-                LEVEL_LABELS.get(level, 'ADM{0}'.format(level)), level)
+                labels[level] if labels
+                else LEVEL_LABELS.get(level, 'ADM{0}'.format(level)), level)
             if level not in available:
                 # Shown but disabled, so the gap is visible: "this country has
                 # no ADM4" is information, and hiding the row would leave the
@@ -740,7 +819,7 @@ class AddDataDialog(QDialog):
                     Qt.ItemDataRole.ToolTipRole)
 
         target = wanted if wanted in available else available[
-            min(1, len(available) - 1)]
+            0 if labels else min(1, len(available) - 1)]
         self.level_combo.setCurrentIndex(self.level_combo.findData(target))
         self._say('')
 
@@ -777,10 +856,15 @@ class AddDataDialog(QDialog):
         level = self.level_combo.currentData()
         if source.kind == DS.KIND_ADMIN and source.id != DS.CustomUrlSource.id:
             if level is None:
-                self._set_details(tr('Choose an admin level.'))
+                self._set_details(self._source_error
+                                  or tr('Choose an admin level.'))
                 self.add_button.setEnabled(False)
                 return
             self.level_combo.setProperty('lastLevel', level)
+
+        if source.uses_unit_picker and not self._from_picker:
+            if not self._sync_kga(source, level):
+                return
 
         self.busy.begin(tr('Reading the details...'), BUSY_DELAY_MS)
         try:
@@ -807,7 +891,67 @@ class AddDataDialog(QDialog):
         self.add_button.setEnabled(True)
         if not self._name_touched:
             self.name_edit.setText(self._default_name(item))
+        self._output_follow.suggest(self._chosen_name(item.title))
         self._set_details(self._details_html(source, item))
+
+    def _sync_kga(self, source, level):
+        """Bring the picker in line with the level and feature type.
+
+        Returns False when the release could not be read, after saying why.
+        """
+        try:
+            manifest = source.manifest()
+        except net.NetError as exc:
+            self._source_error = str(exc)
+            self.kga_picker.clear_manifest()
+            self._set_details(str(exc))
+            self.add_button.setEnabled(False)
+            return False
+
+        # Villages are points only: pin the feature type and grey the other.
+        combo = self._option_widgets.get('geometry')
+        if combo is not None:
+            self._loading = True
+            try:
+                boundary = combo.findData('boundary')
+                item = combo.model().item(boundary)
+                if item is not None:
+                    item.setEnabled(level != 4)
+                if level == 4:
+                    combo.setCurrentIndex(combo.findData('center'))
+            finally:
+                self._loading = False
+        geometry = combo.currentData() if combo is not None else 'boundary'
+        self.kga_picker.configure(manifest, level, geometry)
+        return True
+
+    def _kga_villages(self, pro_code):
+        """The village list of one province, fetching its pack on demand."""
+        from ..core import kga_release as KR
+
+        source = self._current_source()
+        self.busy.begin(tr('Reading the villages of this province...'),
+                        BUSY_DELAY_MS)
+        try:
+            return KR.village_rows(source.manifest(), pro_code)
+        finally:
+            self.busy.end()
+
+    def _on_picker_changed(self):
+        """A tick or filter changed in the picker: describe it again."""
+        if self._loading:
+            return
+        self._name_touched = False
+        self._from_picker = True
+        try:
+            self._refresh_item()
+        finally:
+            self._from_picker = False
+
+    def _on_key_saved(self):
+        """A new access key: read the release again with it."""
+        self._say(tr('Access key saved.'))
+        self._reload_now()
 
     def _describe_basemap(self):
         basemap = DS.basemap_by_id(self.source_combo.currentData())
@@ -868,6 +1012,24 @@ class AddDataDialog(QDialog):
 
     def _set_details(self, html):
         self.details.setText(html)
+        self._fit_height()
+
+    def _fit_height(self):
+        """Grow the window to what its wrapped text needs, up to the screen.
+
+        Qt sizes a window to its layout's plain minimum, not to the height the
+        layout needs once the details text wraps at the current width, so a
+        long description squeezes the list above it. Only the KGA picker is
+        tall enough to suffer, so only it asks for this.
+        """
+        if not self.isVisible() or not self.kga_group.isVisibleTo(self):
+            return
+        need = self.layout().minimumHeightForWidth(self.width())
+        screen = self.screen()
+        if screen is not None:
+            need = min(need, screen.availableGeometry().height() - 40)
+        if need > self.height():
+            self.resize(self.width(), need)
 
     # ------------------------------------------------------------------- add
 
@@ -939,8 +1101,11 @@ class AddDataDialog(QDialog):
         project = QgsProject.instance()
         name = LL.unique_name(project, self._chosen_name(item.title))
         try:
-            layer = LL.to_temp_layer(path, name, item.sublayer,
-                                     item.filter_fields, item.filter_value)
+            if hasattr(source, 'load_layer'):
+                layer = source.load_layer(item, path, name)
+            else:
+                layer = LL.to_temp_layer(path, name, item.sublayer,
+                                         item.filter_fields, item.filter_value)
         except LL.LoadError as exc:
             self._warn(str(exc))
             return
@@ -1046,7 +1211,7 @@ class AddDataDialog(QDialog):
 
         progress = QProgressDialog(
             tr('Reading {0}...').format(item.title), tr('Cancel'), 0, 0, self)
-        progress.setWindowTitle(tr('KGA Add Open Data'))
+        progress.setWindowTitle(tr('Add Open Data'))
         progress.setWindowModality(Qt.WindowModality.WindowModal)
         progress.setMinimumDuration(0)
         progress.setAutoClose(False)
@@ -1143,7 +1308,7 @@ class AddDataDialog(QDialog):
         progress = QProgressDialog(
             tr('Reading {0}...').format(item.title), tr('Cancel'), 0, 100,
             self)
-        progress.setWindowTitle(tr('KGA Add Open Data'))
+        progress.setWindowTitle(tr('Add Open Data'))
         progress.setWindowModality(Qt.WindowModality.WindowModal)
         progress.setMinimumDuration(0)
         progress.setAutoClose(False)
@@ -1263,6 +1428,7 @@ class AddDataDialog(QDialog):
 
     def _dem_output_path(self, item):
         """(path, is_temporary), or (None, False) when the path is unusable."""
+        self._output_follow.renew(self._chosen_name(item.title))
         path = (self.output_widget.filePath() or '').strip()
         if not path:
             stem = re.sub(r'[^A-Za-z0-9_-]+', '_',
@@ -1520,7 +1686,7 @@ class AddDataDialog(QDialog):
         box.setText(message)
         box.setInformativeText(tr(
             'Right-click the layer and choose Export > Save Features As, or '
-            'use the KGA Layer Export / Import tool, to write it to a '
+            'use the Layer Export / Import tool, to write it to a '
             'GeoPackage or shapefile.'))
         if item is not None and item.attribution:
             box.setDetailedText(tr('Attribution: {0}').format(item.attribution))
@@ -1554,12 +1720,10 @@ class AddDataDialog(QDialog):
         """Drop what is cached for the current selection and describe it again."""
         source = self._current_source()
         if source is not None and self._item is not None:
-            cached = source.cached_file(self._item)
-            if cached:
-                try:
-                    os.remove(cached)
-                except OSError:             # pragma: no cover - locked file
-                    pass
+            try:
+                source.forget(self._item)
+            except net.NetError as exc:
+                self._say(str(exc), warn=True)
         self._reload_now()
         self._say(tr('Re-read from the source.'))
 
@@ -1590,7 +1754,7 @@ class AddDataDialog(QDialog):
 
     def _warn(self, text):
         self._say(text, warn=True)
-        QMessageBox.warning(self, tr('KGA Add Open Data'), text)
+        QMessageBox.warning(self, tr('Add Open Data'), text)
 
     def _push_message(self, text, warn=False):
         if iface is None:

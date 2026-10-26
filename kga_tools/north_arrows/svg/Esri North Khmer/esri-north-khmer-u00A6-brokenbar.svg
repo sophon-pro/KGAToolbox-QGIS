@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North (Khmer) – brokenbar
+     Glyph "brokenbar" at U+00A6 (type '¦' – BROKEN BAR) of the "ESRI North (Khmer)" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="189.4" height="919.4" viewBox="-12.7 -898.7 189.4 919.4">
+  <path d="M159 -498 119 -535 77 -115 42 -535 5 -501 78 -881ZM77 -578V-846L16 -521ZM113 -539 78 -571V-187ZM57 -80Q53 -82 49.5 -83.5Q46 -85 42 -87L39 -90L41 -92L43 -95L45 -97Q47 -98 51 -98L64 -94L67 -91Q71 -89 75 -88Q79 -87 84 -86H89H97Q110 -86 117 -90Q127 -96 127 -109Q127 -126 112 -136L97 -143Q84 -136 84 -132L89 -125L93 -123L99 -120Q109 -117 115 -105Q115 -101 110.5 -97.5Q106 -94 101 -94Q96 -94 93 -94.5Q90 -95 84 -97Q81 -100 81 -100.5Q81 -101 76 -103H72Q59 -114 54 -114L41 -110L34 -107Q29 -102 26 -98Q23 -94 21 -90L19 -82H25L39 -76V-8L41 -2Q43 3 52 3H60L74 -10L78 -14V-15L83 -17H84L86 -15L92 -7Q98 1 104 3H111Q127 3 127 -7V-70H111V-24Q111 -15 103 -15Q98 -15 97 -18L93 -22Q90 -26 87.5 -26.5Q85 -27 83 -27Q76 -27 74 -25L70 -22Q64 -15 62 -15Q57 -15 57 -21Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

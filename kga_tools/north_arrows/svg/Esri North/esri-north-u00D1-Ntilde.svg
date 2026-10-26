@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – Ntilde
+     Glyph "Ntilde" at U+00D1 (type 'Ñ' – LATIN CAPITAL LETTER N WITH TILDE) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="153" height="833" viewBox="-16 -817 153 833">
+  <path d="M20 -266H0V-420H21L57 -366V-600H4V-616L57 -801H70V-616H86V-600H70V-346L101 -300V-420H121V-266H99L70 -310V0H57V-329L20 -385ZM57 -616V-758L18 -616Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

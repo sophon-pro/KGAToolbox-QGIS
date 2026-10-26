@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – percent
+     Glyph "percent" at U+0025 (type '%' – PERCENT SIGN) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="213.9" height="829.9" viewBox="-15 -815 213.9 829.9">
+  <path d="M32 -644V-1H1V-799L93 -544ZM156 -216 160 -208Q153 -203 146 -198Q139 -193 133 -188Q124 -208 115.5 -226Q107 -244 99 -261L79 -197L62 -190L90 -279L86 -286L115 -304Q132 -263 147 -234L167 -295L183 -304Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

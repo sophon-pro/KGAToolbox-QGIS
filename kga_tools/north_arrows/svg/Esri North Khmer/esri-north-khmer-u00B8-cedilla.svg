@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North (Khmer) – cedilla
+     Glyph "cedilla" at U+00B8 (type '¸' – CEDILLA) of the "ESRI North (Khmer)" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="222" height="728" viewBox="-14 -715 222 728">
+  <path d="M106 -407V-194Q125 -194 145 -181Q193 -152 193 -97Q193 -55 165.5 -28Q138 -1 96 -1Q56 -1 28 -29Q0 -57 0 -97Q0 -148 41 -177Q66 -194 87 -194V-701L194 -407ZM106 -595V-425H168ZM175 -97Q175 -130 152 -153Q129 -176 96 -176Q63 -176 40.5 -153Q18 -130 18 -97Q18 -65 41 -42Q64 -19 96 -19Q129 -19 152 -41.5Q175 -64 175 -97ZM76 -108Q73 -110 69.5 -111Q66 -112 63 -114L60 -116L62 -118L64 -120L65 -122Q67 -123 71 -123L82 -119L85 -117Q89 -115 99 -113H104H111Q120 -113 128 -116Q137 -120 137 -131Q137 -145 123 -152L111 -158Q99 -153 99 -149L104 -144L107 -142L113 -140Q122 -136 126 -128Q126 -125 123 -122Q120 -119 115 -119Q110 -119 107 -119.5Q104 -120 99 -122Q97 -124 97 -124.5Q97 -125 92 -127H89Q84 -131 80 -133.5Q76 -136 73 -136L62 -132L56 -130Q52 -125 49.5 -122Q47 -119 45 -116L43 -110H48L60 -105V-52L62 -47Q63 -43 72 -43H79L90 -53L94 -56V-57L98 -59H99L101 -57L106 -51Q113 -44 117 -43H123Q137 -43 137 -51V-100H123V-64Q123 -57 116 -57Q112 -57 111 -60L107 -63Q104 -66 98 -66Q92 -66 90 -65L88 -63L83 -58Q82 -57 81 -57Q76 -57 76 -62Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

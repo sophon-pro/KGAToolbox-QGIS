@@ -20,6 +20,7 @@ from qgis.core import (QgsProcessingAlgorithm, QgsMimeDataUtils, QgsProject,
                        QgsVectorLayer, QgsVectorFileWriter, QgsWkbTypes,
                        QgsMapLayer)
 from ..branding import docs_url, help_button
+from ..core import output_defaults as od
 
 try:
     from qgis.utils import iface
@@ -763,6 +764,9 @@ class SpatialDataManagerDialog(QDialog):
         footer.addStretch()
         footer.addWidget(self.btn_close)
         self.layout.addLayout(footer)
+
+        # In a project the manager opens on the project's default database.
+        self.set_target(od.project_database())
 
     # ---------------- Dialog-level drop ----------------
     def dragEnterEvent(self, event):

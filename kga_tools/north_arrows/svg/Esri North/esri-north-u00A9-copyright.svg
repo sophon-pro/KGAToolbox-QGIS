@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – copyright
+     Glyph "copyright" at U+00A9 (type '©' – COPYRIGHT SIGN) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="832" height="831" viewBox="-16 -815 832 831">
+  <path d="M484 -369 513 -209 448 -313 414 -76 383 -313 318 -209 346 -369 90 -399 358 -434 414 -724 473 -434 738 -399ZM411 -683 326 -228 411 -372ZM417 -683V-372L505 -228ZM125 -399H352L357 -429ZM477 -399 483 -373 710 -399ZM388 -319 414 -108V-362ZM56 -372H48L35 -420H34L22 -372H14L0 -427H7Q9 -420 11 -409.5Q13 -399 18 -383L30 -427H40Q45 -406 52 -383L62 -427H71ZM429 -743 401 -785V-743H393V-799H401L428 -757V-799H437V-743ZM757 -371V-426H798V-419H766V-403H795V-396H766V-377H800V-371ZM400 -19Q400 -7 415 -7Q429 -7 429 -15Q429 -18 427.5 -19.5Q426 -21 423 -23Q421 -24 413 -25.5Q405 -27 403 -29Q395 -32 395 -41Q395 -47 400.5 -51.5Q406 -56 414 -56Q423 -56 428 -51Q433 -46 435 -40H428Q426 -49 415 -49Q402 -49 402 -41Q402 -38 404 -36Q406 -34 415 -32.5Q424 -31 426 -29Q436 -25 436 -16Q436 -8 430 -4Q424 0 415 0Q393 0 393 -19Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

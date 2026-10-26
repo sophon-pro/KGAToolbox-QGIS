@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – Adieresis
+     Glyph "Adieresis" at U+00C4 (type 'Ä' – LATIN CAPITAL LETTER A WITH DIAERESIS) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="416" height="416" viewBox="-7 -409 416 416">
+  <path d="M1 -201Q1 -242 17 -278.5Q33 -315 60 -342Q87 -369 123.5 -385Q160 -401 201 -401Q242 -401 278.5 -385Q315 -369 342 -342Q369 -315 385 -278.5Q401 -242 401 -201Q401 -160 385 -123.5Q369 -87 342 -60Q315 -33 278.5 -17Q242 -1 201 -1Q160 -1 123.5 -17Q87 -33 60 -60Q33 -87 17 -123.5Q1 -160 1 -201Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

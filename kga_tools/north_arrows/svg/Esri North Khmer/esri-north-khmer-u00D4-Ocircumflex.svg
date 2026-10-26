@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North (Khmer) – Ocircumflex
+     Glyph "Ocircumflex" at U+00D4 (type 'Ô' – LATIN CAPITAL LETTER O WITH CIRCUMFLEX) of the "ESRI North (Khmer)" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="194.2" height="838.2" viewBox="105.9 -822.1 194.2 838.2">
+  <path d="M204 -554V-534L168 -563V0H158V-563L122 -534V-554L158 -798V-806H168V-798ZM161 -578V-751L132 -554ZM216 -88Q207 -90 201 -96L198 -98L200 -101L203 -103L204 -106Q205 -107 210 -107L223 -102L226 -100Q230 -98 233.5 -97Q237 -96 242 -94H247H254Q265 -94 273 -98Q284 -103 284 -117Q284 -135 269 -144L254 -152Q242 -145 242 -140L247 -134L251 -132L257 -129Q264 -126 272 -114Q272 -110 268 -106Q264 -102 258 -102Q254 -102 251 -102.5Q248 -103 242 -106Q239 -109 238.5 -109.5Q238 -110 233 -111L231 -112Q218 -123 213 -123L200 -119L194 -115Q184 -105 180 -98L179 -91L185 -89L198 -84V-17L200 -10Q201 -5 211 -5H219L232 -18L235 -22L236 -23L241 -25H242L244 -23L250 -15Q256 -6 261 -5H267Q284 -5 284 -15V-78H267V-32Q267 -23 260 -23Q257 -23 254 -27L251 -31Q244 -36 241 -36Q237 -34 235 -34Q233 -34 232 -33L229 -31Q224 -23 220 -23Q216 -23 216 -29Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

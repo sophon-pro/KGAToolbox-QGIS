@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North (Khmer) – Idieresis
+     Glyph "Idieresis" at U+00CF (type 'Ï' – LATIN CAPITAL LETTER I WITH DIAERESIS) of the "ESRI North (Khmer)" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="192" height="833" viewBox="6 -817 192 833">
+  <path d="M182 -439H173L171 -453Q167 -466 159 -475Q151 -484 139 -486V0H130V-801H139ZM168 -481 139 -734V-498Q157 -493 168 -481ZM53 -76Q45 -78 41 -82L38 -84L39 -87L42 -89L43 -91Q44 -92 48 -92L59 -88L62 -85Q66 -83 76 -81H79H86Q96 -81 102 -84Q111 -90 111 -101Q111 -116 98 -123L86 -130Q76 -126 76 -120L79 -115L83 -113L88 -110Q95 -107 101 -97Q101 -94 97.5 -91Q94 -88 89 -88Q85 -88 83 -88.5Q81 -89 76 -91Q73 -93 72.5 -93.5Q72 -94 68 -95L66 -96Q55 -105 51 -105L39 -102L34 -98Q27 -91 23 -84L22 -78L27 -77L38 -72V-15L39 -9Q42 -5 49 -5H56L67 -16L69 -19L71 -20L74 -22H76L77 -20L82 -14Q87 -6 92 -5H97Q111 -5 111 -14V-67H97V-28Q97 -20 91 -20Q87 -20 86 -23L83 -27Q78 -31 74 -31Q72 -30 70 -30Q68 -30 67 -29L64 -27Q60 -20 57 -20Q53 -20 53 -26Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

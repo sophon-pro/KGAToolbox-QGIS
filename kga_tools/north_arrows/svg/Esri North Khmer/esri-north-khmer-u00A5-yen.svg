@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North (Khmer) – yen
+     Glyph "yen" at U+00A5 (type '¥' – YEN SIGN) of the "ESRI North (Khmer)" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="258.6" height="796.6" viewBox="-15.3 -781.3 258.6 796.6">
+  <path d="M153 -383 75 -459 0 -383 73 -766ZM113 0 73 -40 40 0 75 -459ZM107 -13 76 -406V-44ZM73 -465V-747L9 -401ZM160 -174Q156 -176 152.5 -177.5Q149 -179 145 -182L142 -185L144 -187L146 -190L148 -193Q150 -194 154 -194L167 -189L170 -186Q174 -184 177.5 -183Q181 -182 186 -181H191H199Q211 -181 218 -185Q228 -191 228 -205Q228 -224 213 -234L199 -242Q186 -235 186 -230L191 -223L195 -220L201 -217Q210 -214 216 -201Q216 -197 212 -193Q208 -189 203 -189Q198 -189 195 -189.5Q192 -190 186 -193Q183 -196 183 -196.5Q183 -197 178 -199H175Q161 -211 157 -211L144 -206L138 -203Q133 -198 130 -193.5Q127 -189 125 -185L123 -176H129L142 -170V-97L144 -90Q146 -85 155 -85H163L176 -99L180 -103V-104L185 -107H186L188 -104L194 -96Q200 -87 206 -85H212Q228 -85 228 -96V-163H212V-114Q212 -104 205 -104Q200 -104 199 -108L195 -112Q192 -116 189.5 -116.5Q187 -117 185 -117Q178 -117 176 -115L173 -112Q167 -104 165 -104Q160 -104 160 -111Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

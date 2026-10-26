@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North (Khmer) – q
+     Glyph "q" at U+0071 (type 'q' – LATIN SMALL LETTER Q) of the "ESRI North (Khmer)" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="166.1" height="887.1" viewBox="-17.1 -870.1 166.1 887.1">
+  <path d="M132 -376H112Q110 -358 98 -346Q84 -335 69 -333V-227L92 -194V0L62 -35V-333Q45 -333 32 -346Q19 -359 19 -376H0V-382H19Q19 -391 22.5 -398Q26 -405 32 -413Q42 -423 62 -426V-519L25 -488L69 -717V-426Q85 -423 98 -413Q104 -405 107.5 -398Q111 -391 112 -382H132ZM105 -382Q105 -396 93 -408Q83 -418 68 -418V-382ZM62 -340V-376H25Q25 -368 28.5 -362.5Q32 -357 37 -351Q43 -346 48.5 -343Q54 -340 62 -340ZM87 -853Q95 -853 100.5 -848.5Q106 -844 106 -838Q106 -823 93 -813Q82 -804 73 -804Q73 -804 58 -809Q50 -812 45 -812Q36 -812 33 -808Q31 -806 31 -802Q34 -804 36.5 -805.5Q39 -807 44 -807Q53 -807 59.5 -801.5Q66 -796 66 -789Q66 -782 61 -777L54 -770Q57 -765 60 -764Q68 -759 77 -759Q85 -760 93.5 -768Q102 -776 106 -786Q106 -765 95 -751Q84 -737 67 -737Q52 -737 39 -749Q30 -758 27 -770Q33 -771 40.5 -773Q48 -775 54 -779Q54 -786 41 -786Q31 -785 27 -782V-817L40 -827L54 -836L69 -827Q78 -823 86 -823H90H93L97 -826Q97 -829 93.5 -830.5Q90 -832 86.5 -833Q83 -834 79.5 -835Q76 -836 76 -839Q76 -848 87 -853Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

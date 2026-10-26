@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North (Khmer) – exclamdown
+     Glyph "exclamdown" at U+00A1 (type '¡' – INVERTED EXCLAMATION MARK) of the "ESRI North (Khmer)" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="498.2" height="865.3" viewBox="-201.6 -835.6 498.2 865.3">
+  <path d="M52 13 -184 -186Q-188 -239 -175 -287.5Q-162 -336 -139.5 -383Q-117 -430 -89 -478.5Q-61 -527 -35 -579.5Q-9 -632 10.5 -691Q30 -750 35 -819Q36 -756 54.5 -702.5Q73 -649 99.5 -600.5Q126 -552 157.5 -506Q189 -460 215.5 -411.5Q242 -363 260.5 -309Q279 -255 280 -192L55 13ZM8 -286Q-7 -289 -20 -297L-25 -301L-22 -303L-18 -307L-14 -312Q-11 -313 -8 -313Q-5 -313 -3 -313L21 -306L27 -302Q34 -299 41.5 -298Q49 -297 57 -295H66H81Q103 -295 117 -301Q136 -308 136 -328Q136 -354 108 -367L81 -378Q57 -370 57 -362L66 -352L74 -348L85 -344Q93 -342 100.5 -337Q108 -332 113 -322Q113 -317 106 -311.5Q99 -306 89 -306Q81 -306 74.5 -306.5Q68 -307 57 -312Q52 -316 51 -317Q50 -318 42 -320H36Q25 -327 16.5 -331.5Q8 -336 3 -336L-22 -329L-33 -325Q-41 -318 -48 -312Q-55 -306 -57 -301L-61 -288H-50L-25 -280V-181L-22 -172Q-20 -169 -14 -167Q-8 -165 -1 -165H14L38 -184L46 -189V-191L55 -195H57L61 -191L72 -180Q79 -172 83 -169.5Q87 -167 95 -165H106Q136 -165 136 -180V-271H106V-204Q106 -191 93 -191Q90 -191 86.5 -192Q83 -193 81 -196L74 -202Q68 -207 64 -207.5Q60 -208 55 -208Q42 -208 38 -206L33 -202Q20 -191 18 -191Q8 -191 8 -200Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

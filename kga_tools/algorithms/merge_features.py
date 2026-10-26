@@ -240,7 +240,8 @@ class MergeDialog(ModifyFeaturesDialog):
                       if f.id() != feature.id()]
         if not geometries:
             return []
-        merged = merge_geometries(geometries + [feature.geometry()])
+        layer = self.current_layer()
+        merged = merge_geometries(geometries + [feature.geometry()], layer.crs() if layer else None)
         return [] if merged is None else [merged]
 
     # ---------------------------------------------------------------- run --
@@ -254,7 +255,7 @@ class MergeDialog(ModifyFeaturesDialog):
             self._rebuild()
 
         primary = self.primary_feature()
-        merged = merge_geometries([f.geometry() for f in features])
+        merged = merge_geometries([f.geometry() for f in features], layer.crs())
         if merged is None:
             return 'Those features could not be combined.'
 
@@ -275,7 +276,7 @@ class MergeDialog(ModifyFeaturesDialog):
         # report "1 features merged" whatever it had just done.
         merged_count = len(features)
 
-        layer.beginEditCommand('KGA Merge')
+        layer.beginEditCommand('Merge')
         try:
             layer.changeGeometry(primary.id(), parts[0])
             for index, value in values.items():

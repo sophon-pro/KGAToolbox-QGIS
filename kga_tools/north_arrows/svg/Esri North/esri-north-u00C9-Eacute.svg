@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – Eacute
+     Glyph "Eacute" at U+00C9 (type 'É' – LATIN CAPITAL LETTER E WITH ACUTE) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="480.5" height="1001.5" viewBox="-18.3 -982.3 480.5 1001.5">
+  <path d="M256 -613V-590L262 -589ZM203 -947 249 -902 354 -542Q369 -534 379.5 -526Q390 -518 394 -509L434 -470Q443 -461 443 -451Q443 -437 421 -424Q399 -411 366 -401L246 0L198 -48L196 -39L87 -418Q70 -426 62 -435L25 -472Q1 -486 1 -501Q1 -517 23 -531Q45 -545 79 -556L199 -963ZM260 -459 134 -522V-459H94V-542H134L265 -480V-542H303V-459ZM199 -590V-881L277 -577ZM196 -124V-415L277 -425ZM386 -501Q386 -513 368.5 -524.5Q351 -536 323.5 -544.5Q296 -553 263 -558.5Q230 -564 199 -564Q167 -564 134 -558.5Q101 -553 73.5 -544.5Q46 -536 28.5 -524.5Q11 -513 11 -501Q11 -490 28.5 -479Q46 -468 73.5 -459.5Q101 -451 134 -445.5Q167 -440 199 -440Q230 -440 263 -445.5Q296 -451 323.5 -459.5Q351 -468 368.5 -479Q386 -490 386 -501ZM210 -428H187L91 -442L196 -76L306 -442ZM199 -926 91 -560 187 -575H210L306 -560Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

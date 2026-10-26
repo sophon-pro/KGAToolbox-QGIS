@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – numbersign
+     Glyph "numbersign" at U+0023 (type '#' – NUMBER SIGN) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="188" height="831" viewBox="-16 -815 188 831">
+  <path d="M100 -600 39 -655V0H0V-799ZM156 -106H139L80 -196V-106H65V-222H81L141 -131V-222H156Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

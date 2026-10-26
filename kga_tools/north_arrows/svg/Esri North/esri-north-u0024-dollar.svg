@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – dollar
+     Glyph "dollar" at U+0024 (type '$' – DOLLAR SIGN) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="155.8" height="826.8" viewBox="-120.9 -814.9 155.8 826.8">
+  <path d="M0 -4V-469H-48L19 -799V-4ZM-47 -61 -91 -100V-61H-105V-114H-91L-46 -74V-114H-33V-61Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

@@ -157,7 +157,7 @@ class AddGridDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle(tr('KGA Add Grid to Layout'))
+        self.setWindowTitle(tr('Add Grid to Layout'))
         self.setObjectName('KgaAddGridDialog')
         self.resize(620, 640)
 
@@ -1233,7 +1233,7 @@ class AddGridDialog(QDialog):
         spec = self.read_form()
         if spec.unit != 'fit' and (spec.interval_x <= 0 or spec.interval_y <= 0):
             QMessageBox.warning(
-                self, tr('KGA Add Grid'),
+                self, tr('Add Grid'),
                 tr('The interval has to be greater than zero, or the grid '
                    'draws nothing. Press Suggest for a round one that suits '
                    'the map.'))
@@ -1245,7 +1245,7 @@ class AddGridDialog(QDialog):
             # every render, so the labels would stop matching the lines the
             # second time the layout was drawn.
             QMessageBox.warning(
-                self, tr('KGA Add Grid'),
+                self, tr('Add Grid'),
                 tr('MGRS principal digits need a fixed interval. "Fit the '
                    'page automatically" changes the interval at every render, '
                    'so the digits would stop matching the lines. Pick map '
@@ -1265,7 +1265,7 @@ class AddGridDialog(QDialog):
                 'Could not apply the grid: {}'.format(exc), LOG_TAG,
                 Qgis.MessageLevel.Critical)
             QMessageBox.critical(
-                self, tr('KGA Add Grid'),
+                self, tr('Add Grid'),
                 tr('Could not apply the grid:\n{}').format(exc))
             return
 
@@ -1302,7 +1302,7 @@ class AddGridDialog(QDialog):
                 'Could not apply the grid set: {}'.format(exc), LOG_TAG,
                 Qgis.MessageLevel.Critical)
             QMessageBox.critical(
-                self, tr('KGA Add Grid'),
+                self, tr('Add Grid'),
                 tr('Could not apply the grid set:\n{}').format(exc))
             return
 
@@ -1328,7 +1328,7 @@ class AddGridDialog(QDialog):
             return
         name = grid.name()
         answer = QMessageBox.question(
-            self, tr('KGA Add Grid'),
+            self, tr('Add Grid'),
             tr('Remove the grid "{}" from {}?').format(
                 name, map_item.displayName()))
         if answer != QMessageBox.StandardButton.Yes:
@@ -1340,7 +1340,7 @@ class AddGridDialog(QDialog):
                 'Could not remove the grid: {}'.format(exc), LOG_TAG,
                 Qgis.MessageLevel.Critical)
             QMessageBox.critical(
-                self, tr('KGA Add Grid'),
+                self, tr('Add Grid'),
                 tr('Could not remove the grid:\n{}').format(exc))
             return
         self._on_map_changed()

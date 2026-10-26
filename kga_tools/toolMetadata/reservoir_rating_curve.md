@@ -17,7 +17,7 @@ PNG per DEM.
 The DEM only sets the elevation range, and the boundary clips it. Discharge
 itself comes entirely from the outlet definitions — no storage routing is
 involved, so the curve is static. Pair it with
-**[Storage Capacity Curve](storage_capacity_curve.md)** for the volume side.
+**[Reservoir Storage Analyzer](reservoir_storage_analyzer.md)** for the volume side.
 
 ### Formulas
 
@@ -65,10 +65,11 @@ slots 2 and 3 are off, pre-filled as an orifice and a pipe.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| **Plot · Elevation Axis Minimum / Maximum (m)** | Number | `0.0` (auto) | |
-| **Plot · Discharge Axis Maximum (m³/s)** | Number | `0.0` (auto) | |
-| **Plot · Elevation Tick Interval (m)** | Number | `0.0` (auto) | |
-| **Plot · Discharge Tick Interval (m³/s)** | Number | `0.0` (auto) | |
+| **Plot · Elevation Axis Minimum (m)  [0 = auto]** | Number | `0.0` (auto) | Pins the bottom of the elevation axis so several reservoirs can be compared side by side. |
+| **Plot · Elevation Axis Maximum (m)  [0 = auto]** | Number | `0.0` (auto) | Pins the top of the elevation axis. |
+| **Plot · Discharge Axis Maximum (m³/s)  [0 = auto]** | Number | `0.0` (auto) | Pins the right-hand end of the discharge axis; auto fits it to the computed peak. |
+| **Plot · Elevation Tick Interval (m)  [0 = auto]** | Number | `0.0` (auto) | Spacing of the horizontal grid lines. Q_total is marked with a cross at each, so this also sets where the read-off points sit. |
+| **Plot · Discharge Tick Interval (m³/s)  [0 = auto]** | Number | `0.0` (auto) | Spacing of the vertical grid lines. |
 | **Plot · Resolution (DPI)** | Integer (72–600) | `150` | |
 
 ### CSV table format

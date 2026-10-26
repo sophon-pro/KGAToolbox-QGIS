@@ -3,25 +3,24 @@ name=KGA Toolbox
 qgisMinimumVersion=3.28
 qgisMaximumVersion=4.99.0
 description=Spatial data management, schema, editing, conversion and topology utilities, plus open boundaries, basemaps, elevation, land cover and web imagery on demand.
-about=KGA Toolbox brings a set of practical processing algorithms together under one provider with a dedicated toolbar, adding workflows that QGIS lacks or that otherwise take several steps. Key capabilities:
-    - File Geodatabase <-> GeoPackage conversion that carries field domains and layer aliases in both directions
-    - GeoPackage Domain Editor for creating and managing field domains inside QGIS
-    - Append with Field Mapping for controlled transfer between layers
-    - Excel Attribute Round-Trip to edit attributes in Excel and bring the values back safely
-    - KGA Layer Package, a self-contained format that keeps layers, styles and settings together for sharing
-    - Raster Format Converter for large orthophotos, with resumable conversion
-    - Topology checks with an Error Inspector for reviewing data quality issues
-    - Interactive editing tools modelled on the ArcGIS Pro Modify Features pane
-    - Layout grids and graticules, including MGRS
-    - Administrative boundaries, basemaps, elevation models (DEM) and land cover from open data sources
-    - Imagery Downloader that stitches web-map tiles into one georeferenced image
-    Network use and privacy:
-    - Only Add Open Data & Basemaps and Imagery Downloader use the network, and only when the user asks for data. No other tool does, and nothing runs in the background.
-    - Add Open Data connects to geoBoundaries, HDX, Natural Earth (via GitHub), OpenStreetMap, Google and Esri tile services, the Copernicus DEM and ESA WorldCover buckets on Amazon S3, Esri's Living Atlas land-cover service, OpenTopography, and any address the user enters. Imagery Downloader connects only to the chosen tile service.
-    - OpenTopography is the only source that needs an account: the user's own free API key is kept in the QGIS authentication database and sent only to OpenTopography.
-    - Only what a request needs is sent: a country code, the bounding box of the area, or tile numbers. No project data or layers are uploaded.
-    - Downloads are cached in the QGIS profile directory; rasters and imagery are written only to the folder the user chooses.
-version=0.2.0
+about=KGA Toolbox is a set of practical QGIS tools for spatial data management, editing and open data. Key features:
+    - File Geodatabase <-> GeoPackage conversion with field domains and aliases
+    - KGA Editor toolbar (QGIS 3.44+): Edit Session, Create Features, Modify Features (30 tools), Open Feature Attribute
+    - Catalog panel, workspaces and shareable project packages (QGIS 3.36+)
+    - Browser Copy and Paste, Domain Editor, Append with Field Mapping, Excel attribute round-trip
+    - Layer packages, topology checks and an Error Inspector
+    - Open data: boundaries (including a Cambodia database), basemaps, DEM, land cover, web imagery
+    - Irrigation tools: contours, rivers and streams, reservoir storage, DEM correction
+    - Layout grids, MGRS, guides and Khmer north arrows; callout labels and a symbol gallery
+    - Pro-style start page, selection and Layers panel, optional map tabs (Settings)
+    - Data Explorer: browse, search, preview and ingest geodata (QGIS 3.44+)
+    Not affiliated with or endorsed by Esri. ArcGIS is a trademark of Esri.
+    Network use (only when you ask; nothing runs in the background):
+    - Add Open Data: geoBoundaries, HDX, Natural Earth (GitHub), OpenStreetMap, Google and Esri tiles, Copernicus DEM and ESA WorldCover on Amazon S3, Esri Living Atlas, OpenTopography (needs your own free API key), and any address you enter. The KGA Database (Cambodia) source reads api.github.com with an access key you enter once, kept in the QGIS password store and sent only there.
+    - Imagery Downloader: the chosen tile service. Generate Contour and River tools: the Copernicus DEM bucket, plus Overpass (overpass-api.de, overpass.kumi.systems) only if you tick the OpenStreetMap check.
+    - Check for Update: api.github.com, no project data sent.
+    - Only a country code, bounding box or tile numbers are sent; no project data or layers are uploaded. Downloads are cached in the QGIS profile.
+version=1.0.0
 author=Khmer GRS Academy (KGA)
 email=khmergisacademy@gmail.com
 
@@ -35,9 +34,19 @@ icon=icons/kga.png
 experimental=False
 deprecated=False
 category=Vector
-tags=processing,admin boundaries,administrative,basemap,xyz,satellite,google,esri,opendata,geoboundaries,hdx,download,topology,geopackage,filegdb,geodatabase,arcgis,conversion,domains,schema,excel,packaging,duplicates,geometry,validation,copy,paste,editing,cogo,survey,parcel,buffer,merge,divide,clip,parallel,polygon,raster,orthophoto,ecw,geotiff,jpeg2000,gdal,layout,print,grid,graticule,coordinates,map,mgrs,utm,military,reference,zone
+tags=processing,admin boundaries,administrative,basemap,xyz,satellite,google,esri,opendata,geoboundaries,hdx,download,topology,geopackage,filegdb,geodatabase,arcgis,conversion,domains,schema,excel,packaging,duplicates,geometry,validation,copy,paste,editing,cogo,survey,parcel,buffer,merge,divide,clip,parallel,polygon,raster,orthophoto,ecw,geotiff,jpeg2000,gdal,layout,print,grid,graticule,coordinates,map,mgrs,utm,military,reference,zone,contour,dem,elevation,stream,river,hydrology,watershed
 
 changelog=
+    1.0.0
+    - First stable release
+    - New: KGA Editor toolbar with Modify Features, Catalog panel, workspaces, project packages (Share Workspace / Import Project Package), Convert Project to Workspace
+    - New: Data Explorer, Callout Label Studio, KGA Layer Symbol, Clip Basemap, Layout Guides and Khmer North Arrows
+    - New: Settings window (new projects start in WGS 84 / UTM 48N, zoomed to Cambodia, with a basemap), start page, Pro-style selection and Layers panel, map tabs, Layer Auto-Sort, output defaults to the project database and folder
+    - New: KGA Database (Cambodia) source in Add Open Data
+    - New: Browser Copy and Paste, Duplicate to New Layer, Quick Template, Check for Update
+    - New: Generate Contour for ROI, Generate River or Stream for ROI, Reservoir Storage Analyzer
+    - Improved: CSV to DEM/Contour (choose X, Y, Z fields), DEM Legend Bar, DEM Elevation Correction, help pages
+    - Removed: Storage Capacity Curve (use Reservoir Storage Analyzer) and DEM and Contour Tool (use CSV to DEM and Contour, or QGIS's Contour tool). Models or scripts calling kga:storage_capacity_curve or kga:demcontourtool need updating
     0.2.0
     - Add Raster Format Converter (ECW, GeoTIFF, JPEG 2000, IMG, PNG, JPEG) with resumable block-by-block conversion for large orthophotos
     - Check for an ECW licence key before conversion starts

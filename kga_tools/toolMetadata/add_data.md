@@ -26,7 +26,72 @@ else with a public address:
 | **HDX / OCHA COD-AB** | The p-coded boundaries the humanitarian community agrees on, ADM0 to ADM3 or 4. | Usually CC BY-IGO |
 | **Natural Earth** | Country and state outlines worldwide, at three generalisations, filtered to the country you pick. | Public domain |
 | **Custom URL** | Any GeoJSON file, ArcGIS REST layer or WFS endpoint. | Set by whoever publishes it |
-| **KGA Database (PostgreSQL)** | Listed but not connected yet. | — |
+| **KGA Database (Cambodia)** | Province, district, commune and village for Cambodia, as boundary or centre point, for any selection of units. See below. | KGA data |
+
+### KGA Database (Cambodia)
+
+KGA's own administrative data for Cambodia, read from a private GitHub release.
+It is available **only when the country is Cambodia** — for any other country
+the entry stays in the Data source list, greyed out, and its tooltip says why.
+Choosing another country while it is selected moves you back to a source that
+can serve that country.
+
+Pick what you want in four steps:
+
+1. **Admin level** — Province, District, Commune or Village.
+2. **Feature type** — **Boundary (polygon)** or **Centre (point)**. Villages exist
+   only as centre points, so choosing Village fixes this to Centre and greys the
+   boundary choice. A few communes exist only as centres so far; they are greyed
+   in the list when you ask for boundaries, with a tooltip saying so.
+3. **Narrow it** with the Province, District and Commune drop-downs (each
+   starts at *All*, and the next one fills in when you choose the one before).
+4. **Tick the units** in the list, with the filter box above it to find one by
+   name or code. **Tick nothing to take everything inside the drop-downs above**
+   — a whole province's communes is one drop-down and *Add to Map*; one named
+   district is a province, a tick and *Add to Map*.
+
+Names are shown in English with the Khmer name beside them. The village list
+needs a province chosen first (14,000 villages are too many to list at once);
+leaving everything unticked still adds every village inside the drop-downs.
+
+**What is downloaded.** The release carries one small pack per province (about
+0.5 MB). The lists and counts come from a manifest, so choosing and narrowing
+download no geometry at all; **Add to Map** then fetches only the province
+packs your selection touches, checks each against its checksum, and keeps them
+for next time — a second add of the same area, or any other area in the same
+province, costs nothing and works offline. The details panel shows what is
+still to download before you click.
+
+**The access key.** The release is private, so the tool needs the KGA access
+key. Paste it in the **Access key** box once and click **Save key**; it is kept
+encrypted in the QGIS password store (QGIS may ask for its master password) and
+is sent to GitHub only. On a QGIS where the authentication system is disabled
+(Settings > Options > Authentication says so) there is no password store, so
+the key is kept in your QGIS profile settings instead, as plain text on your
+disk, and the box tells you so. Use a read-only, single-repository,
+expiring key and it is a small risk; enable QGIS authentication if you want it
+encrypted. If it expires or is revoked the box comes back with the
+reason, so paste the new one. **Change key** replaces a saved one.
+
+**New data.** When KGA publishes a new release the tool picks it up on its own
+within a day, or straight away with **Refresh**; the old packs are removed.
+Plugin updates are not needed for new data.
+
+The layers carry these fields, the same on every level and for both boundaries
+and centres, so layers from different levels join and compare without
+renaming:
+
+| Field | Meaning |
+|---|---|
+| `pro_code`, `dist_code`, `com_code`, `vil_code` | 2-, 4-, 6- and 8-digit codes as text, with the leading zero kept. A unit carries the codes of every level above it. |
+| `name_en`, `name_kh` | The unit's name in English and Khmer. |
+| `type_kh`, `type_en` | What kind of unit: Province or Capital; District, Municipality or Khan; Commune or Sangkat; Village. |
+| `pcode` | `KH` + the unit's deepest code, for joining to humanitarian (OCHA) data. |
+| `pro_name_en`, `dist_name_en`, `com_name_en` | The English names of the levels above. |
+| `area_km2` | Polygons only: area, measured in UTM 48N. |
+| `qa_note` | Empty when the unit is clean; otherwise a sentence about a known issue, such as a code that was renumbered. |
+
+Data is in EPSG:4326.
 
 **Digital elevation models** come from two more sources, chosen under the
 **Open digital elevation (DEM)** data type:
@@ -64,7 +129,11 @@ the current choice needs are on screen.
 | **Data type** | Combo box | Administrative boundaries | `Administrative boundaries`, `Other vector data`, `Basemap tile layer`, `Open digital elevation (DEM)`, `Open land cover (LULC)`. Decides which sources are offered and which rows appear. |
 | **Data source** | Combo box | geoBoundaries | The portal to read. A source that is listed but greyed out is one the tool knows about and cannot reach yet; its tooltip says why. |
 | **Country** | Editable combo box | Cambodia (KHM) | Type to filter. Hidden for the custom sources, and for Natural Earth when its **Extent** is set to the whole world. |
-| **Admin level** | Combo box | ADM1 | `ADM0` country, `ADM1` province/state, `ADM2` district, `ADM3` commune/sub-district, `ADM4` village, `ADM5`. Levels the country does not publish are **shown but disabled**, so a missing ADM4 is visibly missing rather than silently absent. |
+| **Admin level** | Combo box | ADM1 | `ADM0` country, `ADM1` province/state, `ADM2` district, `ADM3` commune/sub-district, `ADM4` village, `ADM5`. Levels the country does not publish are **shown but disabled**, so a missing ADM4 is visibly missing rather than silently absent. For the KGA database the choices are named Province, District, Commune and Village. |
+| **Feature type** | Combo box | Boundary (polygon) | *KGA database only.* `Boundary (polygon)` or `Centre (point)`. Villages are centre points only. |
+| **Province / District / Commune** | Three combo boxes | All | *KGA database only.* Narrow the units listed below; each fills in after the one before it. |
+| **Units list, filter box, Tick shown, Clear ticks** | List | nothing ticked | *KGA database only.* Tick the units to add. Nothing ticked means everything inside the drop-downs above. |
+| **Access key** | Password + **Save key** / **Change key** | empty | *KGA database only.* The key to the private KGA data release, kept encrypted in the QGIS password store, or in the profile settings when that store is disabled. |
 | **Release** | Combo box | gbOpen | *geoBoundaries only.* `gbOpen` has the widest coverage; `gbHumanitarian` is UN OCHA sourced; `gbAuthoritative` is UN SALB official data. |
 | **Geometry** | Combo box | Simplified | *geoBoundaries only.* Simplified is right for mapping and context. Take **Full detail** only when the exact boundary line matters — it can be many times larger. |
 | **Extent** | Combo box | Selected country only | *Natural Earth only.* Its files are worldwide; this cuts the chosen country out as the layer loads. Set it to **Whole world** for every country at once. |

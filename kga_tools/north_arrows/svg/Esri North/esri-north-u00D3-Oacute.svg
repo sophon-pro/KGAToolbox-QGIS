@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – Oacute
+     Glyph "Oacute" at U+00D3 (type 'Ó' – LATIN CAPITAL LETTER O WITH ACUTE) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="332.9" height="829.9" viewBox="-16 -816 332.9 829.9">
+  <path d="M220 -615V-586L167 -629V-2H154V-629L101 -586V-615L152 -787V-800H165V-787ZM159 -650V-719L115 -615ZM17 -250H0V-378H26L56 -287Q58 -279 59.5 -274.5Q61 -270 62 -268Q63 -272 65 -276.5Q67 -281 69 -288L101 -378H124V-250H107V-357L69 -250H53L17 -359ZM217 -250H200V-378H218L284 -279V-378H301V-250H282L217 -348Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

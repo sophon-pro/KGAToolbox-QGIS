@@ -30,6 +30,7 @@ from qgis.core import (
     QgsProject,
 )
 from ..branding import docs_url
+from ..core.compat import mark_advanced
 
 gdal.UseExceptions()
 
@@ -166,6 +167,23 @@ def resolve_dems_cfg(layers, overrides_str, feedback):
                     f"no pixels will be masked as invalid for this layer.")
         dems_cfg.append({"path": path, "nodata": nodata})
     return dems_cfg
+
+
+def check_nodata_overrides(alg, parameters, context, min_layers=1):
+    """Form-level check of the NoData override list against the DEM selection."""
+    text = (alg.parameterAsString(parameters, alg.NODATA_OVERRIDES, context) or "").strip()
+    layers = alg.parameterAsLayerList(parameters, alg.INPUT_DEMS, context)
+    if len(layers) < min_layers:
+        return False, f"Select at least {min_layers} DEM layer(s)."
+    if text:
+        try:
+            values = [float(v.strip()) for v in text.split(",")]
+        except ValueError:
+            return False, "NoData overrides must be numbers separated by commas."
+        if len(values) != len(layers):
+            return False, (f"Got {len(values)} NoData override(s) for "
+                           f"{len(layers)} DEM layer(s); the counts must match.")
+    return True, ""
 
 
 # ===========================================================================
@@ -1017,74 +1035,263 @@ class DemCorrectionReportAlgorithm(QgsProcessingAlgorithm):
         return docs_url('demelevationcorrectionandpointsamplereport')
 
     def shortHelpString(self):
-        return self.tr(
-            "Corrects one or more DEMs against a Reference DEM you choose (e.g. your "
-            "LiDAR or other trusted survey), optionally merges them all into one "
-            "seamless raster, and builds a Statistics tab and a Visualization tab "
-            "(see the Processing Results panel after running) summarizing correction "
-            "quality and post-correction agreement between the DEMs.\n\n"
-            "The Reference DEM is never modified -- it's the elevation truth every "
-            "other DEM is corrected toward. The other DEMs are auto-sorted from "
-            "finest to coarsest resolution and chained: the finest of them is "
-            "corrected directly against the Reference DEM, the next-finest is "
-            "corrected against that (already-corrected) result, and so on.\n\n"
-            "NoData overrides (optional): comma-separated values, in the same order "
-            "as the DEMs you select. Leave blank to use each raster's own NoData.\n\n"
-            "Resumable via a checkpoint.json written to the output folder."
+        return (
+            "<p>Brings one or more DEMs into agreement with a <b>Reference "
+            "DEM</b> you trust (for example LiDAR or a ground survey), "
+            "optionally joins them into one seamless raster, and reports how "
+            "well they agree afterwards.</p>"
+
+            "<h3>How it works</h3>"
+            "<ol>"
+            "<li>The Reference DEM is never changed. It is the elevation "
+            "truth.</li>"
+            "<li>The DEMs to correct are sorted from <b>finest to coarsest "
+            "resolution</b> and corrected in a <b>chain</b>: the finest is "
+            "corrected against the Reference, the next against that "
+            "already-corrected result, and so on. Each DEM therefore inherits "
+            "the Reference's datum through its finer neighbour.</li>"
+            "<li>For each stage, the Reference (or previous result) is "
+            "averaged onto the target's grid and subtracted over the area "
+            "where both have data. Every Nth pixel of that difference becomes "
+            "a calibration point.</li>"
+            "<li>A model is fitted to the calibration points and predicts the "
+            "correction at every pixel. The corrected DEM is the original "
+            "plus that correction.</li>"
+            "<li>Optionally the Reference and all corrected DEMs are merged "
+            "into one raster.</li>"
+            "<li>A Statistics tab and a Visualization tab are built (open "
+            "them from the Processing Results panel).</li>"
+            "</ol>"
+
+            "<h3>Correction method</h3>"
+            "<table border='1' cellpadding='4' cellspacing='0'>"
+            "<tr><th>Method</th><th>What it does</th><th>Best when</th></tr>"
+            "<tr><td><b>Auto</b></td><td>Fits all four methods below, scores "
+            "each by cross-validation (below) and uses the lowest error. The "
+            "log lists every score.</td><td>You are not sure. The default "
+            "and the slowest.</td></tr>"
+            "<tr><td><b>Global Offset</b></td><td>One constant shift, the "
+            "average difference, applied everywhere.</td>"
+            "<td>The DEMs differ by a simple vertical datum or geoid shift.</td></tr>"
+            "<tr><td><b>Polynomial degree 1</b></td><td>A tilted plane: the "
+            "shift changes steadily east-west and north-south.</td>"
+            "<td>A uniform tilt, such as a slight scale or orientation "
+            "error.</td></tr>"
+            "<tr><td><b>Polynomial degree 2</b></td><td>A gently curved "
+            "surface (bowl or ridge shaped error).</td>"
+            "<td>Smooth, large-scale distortion. Can swing wildly if "
+            "extrapolated far outside the overlap.</td></tr>"
+            "<tr><td><b>IDW</b></td><td>The correction at each pixel is a "
+            "distance-weighted average of nearby calibration differences, "
+            "so it follows local variation. The correction fades to zero "
+            "beyond about twice the full-strength distance from any "
+            "calibration point.</td>"
+            "<td>The error varies locally (patchy). Leaves areas far from "
+            "the Reference essentially uncorrected.</td></tr>"
+            "</table>"
+            "<p><b>Cross-validation (CV-RMSE):</b> the calibration points "
+            "are split into folds; the model is fitted on all but one fold "
+            "and judged on the held-out fold. The root-mean-square error "
+            "(metres) estimates how badly the model would miss at a point it "
+            "has not seen. Lower is better. Folds are random, so the score "
+            "can be a little optimistic for IDW where points sit close "
+            "together.</p>"
+
+            "<h3>Parameters</h3>"
+            "<table border='1' cellpadding='4' cellspacing='0'>"
+            "<tr><th>Parameter</th><th>Meaning</th></tr>"
+            "<tr><td>NoData overrides</td><td>Use only when a raster's own "
+            "NoData is missing or wrong. Comma-separated numbers, <b>one per "
+            "DEM in the order selected</b> (the count must match). The "
+            "Reference has its own box. Blank = use each raster's NoData.</td></tr>"
+            "<tr><td>IDW power</td><td>How sharply influence drops with "
+            "distance. 1 = broad and smooth, 2 = standard, 3+ = very "
+            "local.</td></tr>"
+            "<tr><td>IDW neighbours (k)</td><td>How many nearest calibration "
+            "points are averaged. Larger = smoother correction.</td></tr>"
+            "<tr><td>IDW full-strength distance</td><td>In map units "
+            "(metres). Within this distance of a calibration point the "
+            "correction is applied in full; it fades linearly to zero at "
+            "twice the distance. Raise it to correct further away from the "
+            "Reference.</td></tr>"
+            "<tr><td>Cross-validation folds</td><td>More folds give a more "
+            "reliable score but take longer.</td></tr>"
+            "<tr><td>Calibration stride</td><td>Use every Nth pixel as a "
+            "calibration point. 4 means one pixel in four in each direction. "
+            "Lower is more thorough and slower; higher is faster and "
+            "usually still plenty.</td></tr>"
+            "<tr><td>Merge</td><td>Combines the Reference and all corrected "
+            "DEMs. Where several have data, the Reference wins, then the "
+            "corrected DEMs from finest to coarsest. Source cells are "
+            "averaged when finer than the merge resolution, otherwise "
+            "resampled bilinearly. Extent: Reference DEM extent, or the full "
+            "extent of the coarsest DEM. Resolution is in map units "
+            "(metres).</td></tr>"
+            "<tr><td>Report stride and max points</td><td>The report samples "
+            "the Reference grid every Nth pixel and compares all DEMs at "
+            "those points. The stride is raised automatically to stay under "
+            "the point limit.</td></tr>"
+            "<tr><td>Force re-run</td><td>Ignore the checkpoint and redo "
+            "every stage.</td></tr>"
+            "</table>"
+
+            "<h3>Outputs (in the output folder)</h3>"
+            "<ul>"
+            "<li><i>corrected_&lt;name&gt;.tif</i> for each DEM, added to the "
+            "map; the originals are untouched.</li>"
+            "<li><i>MERGED_FINAL_DEM.tif</i> (NoData -9999), if merging.</li>"
+            "<li><i>statistics_report.html</i> and "
+            "<i>visualization_report.html</i>: stage table with method "
+            "chosen, CV-RMSE and raw difference; then charts of error per "
+            "stage, difference histograms and post-correction box plots.</li>"
+            "<li><i>correction_report.json</i> and <i>checkpoint.json</i>.</li>"
+            "</ul>"
+
+            "<h3>Resuming</h3>"
+            "<p>Progress is saved to <i>checkpoint.json</i>. Run again with "
+            "the same output folder and unchanged inputs and settings: "
+            "finished stages are skipped and an interrupted one resumes where "
+            "it stopped. Any change to an input or setting redoes the affected "
+            "stages. Use <b>Force re-run</b> to start over.</p>"
+
+            "<h3>Watch out for</h3>"
+            "<ul>"
+            "<li>All DEMs should share one projected CRS, in metres, with "
+            "heights in the same unit. Only band 1 is used.</li>"
+            "<li>The correction is only measured where the DEM overlaps the "
+            "Reference (or previous result). Outside that, Global Offset "
+            "repeats the shift, polynomials extrapolate and IDW fades out. "
+            "The shift is also limited to the range seen in the overlap, "
+            "plus 25%.</li>"
+            "<li>Errors chain: a poor first stage carries into every later "
+            "stage. Check the stage table.</li>"
+            "<li>It corrects <i>differences from the Reference</i>, not real "
+            "terrain change (cut, fill, vegetation). Such areas pull the fit.</li>"
+            "<li>Large rasters at a small calibration stride and Auto mode "
+            "take a long time. Raise the stride first.</li>"
+            "</ul>"
         )
 
+    def _add(self, param, help_text, advanced=False):
+        """Add a parameter, with its help shown as the widget tooltip."""
+        param.setHelp(help_text)
+        if advanced:
+            mark_advanced(param)
+        self.addParameter(param)
+
+    def checkParameterValues(self, parameters, context):
+        ok, msg = super().checkParameterValues(parameters, context)
+        if not ok:
+            return ok, msg
+        ref = self.parameterAsString(parameters, self.REFERENCE_NODATA, context).strip()
+        if ref:
+            try:
+                float(ref)
+            except ValueError:
+                return False, "The Reference DEM NoData override must be a number."
+        return check_nodata_overrides(self, parameters, context)
+
     def initAlgorithm(self, config=None):
-        self.addParameter(QgsProcessingParameterRasterLayer(
-            self.REFERENCE_DEM,
-            self.tr("Reference DEM (the elevation truth -- never modified)")))
-        self.addParameter(QgsProcessingParameterString(
+        self._add(QgsProcessingParameterRasterLayer(
+            self.REFERENCE_DEM, self.tr("Input · Reference DEM")),
+            "The trusted DEM. It is never modified; every other DEM is "
+            "corrected toward it.")
+        self._add(QgsProcessingParameterMultipleLayers(
+            self.INPUT_DEMS, self.tr("Input · DEMs to correct (1 or more)"),
+            layerType=QgsProcessing.SourceType.TypeRaster),
+            "DEMs to bring into agreement with the Reference. They are "
+            "sorted finest to coarsest and corrected in a chain.")
+        self._add(QgsProcessingParameterString(
             self.REFERENCE_NODATA,
-            self.tr("Reference DEM NoData override (blank = use its own NoData)"),
-            defaultValue="", optional=True))
-        self.addParameter(QgsProcessingParameterMultipleLayers(
-            self.INPUT_DEMS, self.tr("DEMs to correct against the reference (1 or more)"),
-            layerType=QgsProcessing.SourceType.TypeRaster))
-        self.addParameter(QgsProcessingParameterString(
+            self.tr("Input · Reference NoData override"),
+            defaultValue="", optional=True),
+            "Number to treat as NoData in the Reference. Blank = use its own "
+            "NoData value.", advanced=True)
+        self._add(QgsProcessingParameterString(
             self.NODATA_OVERRIDES,
-            self.tr("NoData overrides (comma-separated, matching DEM order; blank = use each layer's own NoData)"),
-            defaultValue="", optional=True))
-        self.addParameter(QgsProcessingParameterEnum(
-            self.METHOD, self.tr("Correction method (all stages)"),
-            options=METHOD_OPTIONS, defaultValue=0))
-        self.addParameter(QgsProcessingParameterNumber(
-            self.IDW_POWER, self.tr("IDW power"),
-            type=QgsProcessingParameterNumber.Type.Double, defaultValue=2.0))
-        self.addParameter(QgsProcessingParameterNumber(
-            self.IDW_K, self.tr("IDW neighbors (k)"),
-            type=QgsProcessingParameterNumber.Type.Integer, defaultValue=12))
-        self.addParameter(QgsProcessingParameterNumber(
-            self.IDW_FADE, self.tr("IDW full-strength distance (m)"),
-            type=QgsProcessingParameterNumber.Type.Double, defaultValue=3000.0))
-        self.addParameter(QgsProcessingParameterNumber(
-            self.CV_FOLDS, self.tr("Cross-validation folds"),
-            type=QgsProcessingParameterNumber.Type.Integer, defaultValue=5))
-        self.addParameter(QgsProcessingParameterNumber(
-            self.STRIDE, self.tr("Calibration subsample stride"),
-            type=QgsProcessingParameterNumber.Type.Integer, defaultValue=4))
-        self.addParameter(QgsProcessingParameterBoolean(
-            self.DO_MERGE, self.tr("Merge finest DEM + all corrected DEMs"), defaultValue=True))
-        self.addParameter(QgsProcessingParameterEnum(
-            self.MERGE_EXTENT, self.tr("Merge extent"),
-            options=MERGE_EXTENT_OPTIONS, defaultValue=0))
-        self.addParameter(QgsProcessingParameterNumber(
-            self.MERGE_RESOLUTION, self.tr("Merge resolution (m)"),
-            type=QgsProcessingParameterNumber.Type.Double, defaultValue=2.5))
-        self.addParameter(QgsProcessingParameterNumber(
-            self.REPORT_STRIDE, self.tr("Report sample stride (for Statistics/Visualization tabs)"),
-            type=QgsProcessingParameterNumber.Type.Integer, defaultValue=20, minValue=1))
-        self.addParameter(QgsProcessingParameterNumber(
-            self.REPORT_MAX_POINTS, self.tr("Report max sample points"),
-            type=QgsProcessingParameterNumber.Type.Integer, defaultValue=200000, minValue=100))
-        self.addParameter(QgsProcessingParameterBoolean(
-            self.FORCE_RERUN, self.tr("Force re-run everything (ignore checkpoint.json)"),
-            defaultValue=False))
-        self.addParameter(QgsProcessingParameterFolderDestination(
-            self.OUTPUT_FOLDER, self.tr("Output folder")))
+            self.tr("Input · NoData overrides for the DEMs"),
+            defaultValue="", optional=True),
+            "Comma-separated numbers, one per DEM in the order selected, e.g. "
+            "-9999,-32768. Count must match. Blank = use each raster's own "
+            "NoData.", advanced=True)
+
+        self._add(QgsProcessingParameterEnum(
+            self.METHOD, self.tr("Correction · Method (all stages)"),
+            options=METHOD_OPTIONS, defaultValue=0),
+            "Auto tries every method and keeps the one with the lowest "
+            "cross-validation error. Global Offset = one shift; Polynomial = "
+            "tilt or curve; IDW = local variation. See the help panel.")
+        self._add(QgsProcessingParameterNumber(
+            self.STRIDE, self.tr("Correction · Calibration stride (pixels)"),
+            type=QgsProcessingParameterNumber.Type.Integer,
+            defaultValue=4, minValue=1),
+            "Use every Nth pixel of the difference raster as a calibration "
+            "point. Higher = faster, fewer points.")
+        self._add(QgsProcessingParameterNumber(
+            self.CV_FOLDS, self.tr("Correction · Cross-validation folds"),
+            type=QgsProcessingParameterNumber.Type.Integer,
+            defaultValue=5, minValue=2),
+            "Number of folds used to score each method. More = more reliable, "
+            "slower.", advanced=True)
+        self._add(QgsProcessingParameterNumber(
+            self.IDW_POWER, self.tr("IDW · Power"),
+            type=QgsProcessingParameterNumber.Type.Double,
+            defaultValue=2.0, minValue=0.1),
+            "Distance weighting exponent. 2 is standard; higher is more "
+            "local. Used by the IDW method (including inside Auto).",
+            advanced=True)
+        self._add(QgsProcessingParameterNumber(
+            self.IDW_K, self.tr("IDW · Neighbours (k)"),
+            type=QgsProcessingParameterNumber.Type.Integer,
+            defaultValue=12, minValue=1),
+            "Number of nearest calibration points averaged for each pixel.",
+            advanced=True)
+        self._add(QgsProcessingParameterNumber(
+            self.IDW_FADE, self.tr("IDW · Full-strength distance (m)"),
+            type=QgsProcessingParameterNumber.Type.Double,
+            defaultValue=3000.0, minValue=1.0),
+            "Map units. Correction is full strength within this distance of a "
+            "calibration point and fades to zero at twice the distance.",
+            advanced=True)
+
+        self._add(QgsProcessingParameterBoolean(
+            self.DO_MERGE, self.tr("Merge · Merge Reference + corrected DEMs"),
+            defaultValue=True),
+            "Write MERGED_FINAL_DEM.tif combining the Reference and every "
+            "corrected DEM. Reference wins, then finest to coarsest.")
+        self._add(QgsProcessingParameterEnum(
+            self.MERGE_EXTENT, self.tr("Merge · Extent"),
+            options=MERGE_EXTENT_OPTIONS, defaultValue=0),
+            "Reference DEM extent clips the result to the Reference's "
+            "footprint; Coarsest DEM extent covers the whole area.")
+        self._add(QgsProcessingParameterNumber(
+            self.MERGE_RESOLUTION, self.tr("Merge · Cell size (m)"),
+            type=QgsProcessingParameterNumber.Type.Double,
+            defaultValue=2.5, minValue=0.001),
+            "Cell size of the merged DEM, in map units.")
+
+        self._add(QgsProcessingParameterNumber(
+            self.REPORT_STRIDE, self.tr("Report · Sample stride (pixels)"),
+            type=QgsProcessingParameterNumber.Type.Integer,
+            defaultValue=20, minValue=1),
+            "The report compares all DEMs at every Nth pixel of the "
+            "Reference grid.", advanced=True)
+        self._add(QgsProcessingParameterNumber(
+            self.REPORT_MAX_POINTS, self.tr("Report · Max sample points"),
+            type=QgsProcessingParameterNumber.Type.Integer,
+            defaultValue=200000, minValue=100),
+            "Upper limit on sample points; the stride is raised to stay "
+            "below it.", advanced=True)
+
+        self._add(QgsProcessingParameterBoolean(
+            self.FORCE_RERUN, self.tr("Output · Force re-run (ignore checkpoint)"),
+            defaultValue=False),
+            "Redo every stage even if checkpoint.json says it is complete.",
+            advanced=True)
+        self._add(QgsProcessingParameterFolderDestination(
+            self.OUTPUT_FOLDER, self.tr("Output · Folder")),
+            "Corrected DEMs, merged DEM, reports and checkpoint.json are "
+            "written here. Reuse the same folder to resume.")
         self.addOutput(QgsProcessingOutputFile(
             self.OUTPUT_MERGED, self.tr("Merged DEM (if merge was enabled)")))
         self.addOutput(QgsProcessingOutputString(
@@ -1238,116 +1445,3 @@ class DemCorrectionReportAlgorithm(QgsProcessingAlgorithm):
         results[self.OUTPUT_STATS] = stats_path
         results[self.OUTPUT_VIZ] = viz_path
         return results
-
-
-# ===========================================================================
-# ALGORITHM 2: DEM Point Sample Export to Excel
-# ===========================================================================
-
-class DemPointSampleExportAlgorithm(QgsProcessingAlgorithm):
-    INPUT_DEMS = "INPUT_DEMS"
-    NODATA_OVERRIDES = "NODATA_OVERRIDES"
-    STRIDE = "STRIDE"
-    MAX_ROWS = "MAX_ROWS"
-    FILE_NAME = "FILE_NAME"
-    OUTPUT_FOLDER = "OUTPUT_FOLDER"
-    OUTPUT_FILE = "OUTPUT_FILE"
-    OUTPUT_SUMMARY = "OUTPUT_SUMMARY"
-
-    def tr(self, string):
-        return QCoreApplication.translate("Processing", string)
-
-    def createInstance(self):
-        return DemPointSampleExportAlgorithm()
-
-    def name(self):
-        return "dempointsampleexport"
-
-    def displayName(self):
-        return self.tr("DEM Point Sample Export to Excel")
-
-    def group(self):
-        return self.tr(CATEGORY_NAME)
-
-    def groupId(self):
-        return CATEGORY_ID
-
-    def helpUrl(self):
-        return docs_url('dempointsampleexport')
-
-    def shortHelpString(self):
-        return self.tr(
-            "Samples 2 or more DEMs (e.g. a reference DEM plus one or more corrected "
-            "DEMs) at a regular grid of points and exports one row per point to Excel: "
-            "X, Y, one elevation column per DEM, a Zone column (which DEMs have valid "
-            "data there), and difference columns vs. the finest reference DEM and vs. "
-            "each DEM's immediately-finer neighbour.\n\n"
-            "NoData overrides (optional): comma-separated values in the same order as "
-            "the DEMs you select. Leave blank to use each raster's own NoData metadata.\n\n"
-            "Excel caps out at ~1,048,576 rows per sheet, so pixels are sampled every "
-            "Nth pixel (stride); the stride is automatically increased if needed to "
-            "stay under the row limit you set."
-        )
-
-    def initAlgorithm(self, config=None):
-        self.addParameter(QgsProcessingParameterMultipleLayers(
-            self.INPUT_DEMS, self.tr("DEM layers to sample (2 or more)"),
-            layerType=QgsProcessing.SourceType.TypeRaster))
-        self.addParameter(QgsProcessingParameterString(
-            self.NODATA_OVERRIDES,
-            self.tr("NoData overrides (comma-separated, matching DEM order; blank = use each layer's own NoData)"),
-            defaultValue="", optional=True))
-        self.addParameter(QgsProcessingParameterNumber(
-            self.STRIDE, self.tr("Pixel stride (sample every Nth pixel)"),
-            type=QgsProcessingParameterNumber.Type.Integer, defaultValue=20, minValue=1))
-        self.addParameter(QgsProcessingParameterNumber(
-            self.MAX_ROWS, self.tr("Max rows (Excel limit is ~1,048,576)"),
-            type=QgsProcessingParameterNumber.Type.Integer, defaultValue=SAFETY_MARGIN_ROWS, minValue=1))
-        self.addParameter(QgsProcessingParameterString(
-            self.FILE_NAME, self.tr("Output file name"), defaultValue="dem_point_samples.xlsx"))
-        self.addParameter(QgsProcessingParameterFolderDestination(
-            self.OUTPUT_FOLDER, self.tr("Output folder")))
-        self.addOutput(QgsProcessingOutputFile(
-            self.OUTPUT_FILE, self.tr("Exported Excel (or CSV) file")))
-        self.addOutput(QgsProcessingOutputString(
-            self.OUTPUT_SUMMARY, self.tr("Run summary")))
-
-    def processAlgorithm(self, parameters, context, feedback):
-        layers = self.parameterAsLayerList(parameters, self.INPUT_DEMS, context)
-        if len(layers) < 2:
-            raise QgsProcessingException(self.tr("Select at least 2 DEM layers."))
-
-        overrides_str = self.parameterAsString(parameters, self.NODATA_OVERRIDES, context)
-        dems_cfg = resolve_dems_cfg(layers, overrides_str, feedback)
-        for d in dems_cfg:
-            d["label"] = os.path.basename(d["path"])
-
-        stride = self.parameterAsInt(parameters, self.STRIDE, context)
-        max_rows = min(self.parameterAsInt(parameters, self.MAX_ROWS, context), EXCEL_ROW_LIMIT - 10)
-        file_name = self.parameterAsString(parameters, self.FILE_NAME, context).strip() or "dem_point_samples.xlsx"
-        out_dir = self.parameterAsString(parameters, self.OUTPUT_FOLDER, context)
-        os.makedirs(out_dir, exist_ok=True)
-
-        log = feedback.pushInfo
-
-        sorted_dems = sorted(dems_cfg, key=lambda d: dem_resolution(d["path"]))
-        log(f"{len(sorted_dems)} DEM layers, sorted finest -> coarsest:")
-        for i, d in enumerate(sorted_dems):
-            log(f"  {i + 1}. {d['label']}  (res={dem_resolution(d['path']):.3g})")
-
-        table, columns, stride_used = build_sample_table(sorted_dems, stride, max_rows, log)
-        feedback.setProgress(70)
-
-        diff_cols = [c for c in columns if c.startswith("Diff_")]
-        out_path = os.path.join(out_dir, file_name)
-        final_path = write_excel(table, columns, diff_cols, out_path, log)
-
-        feedback.setProgress(100)
-        log(f"DONE -- {len(table['X']):,} rows exported (stride={stride_used}).")
-
-        summary = f"{len(table['X']):,} rows exported (stride={stride_used}) to {final_path}"
-        return {
-            self.OUTPUT_FOLDER: out_dir,
-            self.OUTPUT_FILE: final_path,
-            self.OUTPUT_SUMMARY: summary,
-        }

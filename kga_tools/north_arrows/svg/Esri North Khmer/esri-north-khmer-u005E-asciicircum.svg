@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North (Khmer) – asciicircum
+     Glyph "asciicircum" at U+005E (type '^' – CIRCUMFLEX ACCENT) of the "ESRI North (Khmer)" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="232" height="909" viewBox="-17.5 -794.5 232 909">
+  <path d="M176 -504 99 -747 21 -504H73L52 -88L100 -500L150 -88L123 -504ZM197 -488H133L171 0L100 -88L26 0L64 -488H0L99 -777ZM59 95 75 97 96 76 119 96 134 95V47Q132 42 129 41L122 44L121 48V82L96 61L71 84V34L54 21L60 17Q61 17 65 14Q69 11 70 11L85 20L98 25Q107 28 112 28Q118 28 121 22L129 12Q132 9 133 0.5Q134 -8 134 -14Q134 -26 121 -29H118Q111 -29 108 -24V-21L110 -18Q111 -16 118 -14L121 -11Q122 -11 122 -6Q122 -1 122 3.5Q122 8 121 8Q120 10 119 11Q118 12 117 16Q111 18 111 18Q110 17 108 17Q103 17 100 16L92 12Q91 11 90 11L71 2L55 11L40 21L59 35Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – Iacute
+     Glyph "Iacute" at U+00CD (type 'Í' – LATIN CAPITAL LETTER I WITH ACUTE) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="151.7" height="821.6" viewBox="-14.8 -805.8 151.7 821.6">
+  <path d="M121 -642 71 -577V-298L101 -269V-233L71 -263V-243L101 -210V-178L71 -211V-179L101 -148V-121L71 -149V-121L101 -92V-60L71 -92V0L64 -13H58L50 0V-92L21 -60V-92L50 -121V-149L21 -121V-149L50 -179V-211L21 -178V-210L50 -243V-263L21 -233V-269L50 -298V-577L1 -642Q3 -644 13 -655.5Q23 -667 33.5 -686.5Q44 -706 52.5 -732Q61 -758 61 -790Q62 -758 72 -731Q82 -704 93.5 -684.5Q105 -665 113.5 -653.5Q122 -642 121 -642ZM61 -745V-589L104 -642Q86 -662 76.5 -691.5Q67 -721 61 -745Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

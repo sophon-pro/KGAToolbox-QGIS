@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North (Khmer) – multiply
+     Glyph "multiply" at U+00D7 (type '×' – MULTIPLICATION SIGN) of the "ESRI North (Khmer)" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="146.9" height="880.9" viewBox="-47.9 -856.9 146.9 880.9">
+  <path d="M72 -631 41 -667V7H34V-667L6 -631H-2L38 -684L82 -631ZM7 -748Q7 -743 12 -743Q13 -743 22 -749L24 -750Q26 -752 28 -752Q30 -752 34 -753Q38 -753 45 -749L48 -746Q49 -743 53 -743Q61 -743 61 -750V-784H79V-737Q79 -730 61 -730H56Q49 -731 43 -737L37 -743L35 -745H34L29 -743L27 -742L24 -739L11 -730H3Q-8 -730 -9 -733L-11 -738V-789L-24 -793L-31 -794L-30 -800Q-28 -803 -24.5 -805.5Q-21 -808 -16 -812L-9 -815L4 -818Q10 -818 23 -810L26 -809Q31 -808 31 -808Q31 -808 35 -806Q41 -804 44 -803.5Q47 -803 52 -803Q66 -803 66 -812Q62 -816 58.5 -818.5Q55 -821 50 -823L45 -824L40 -826L35 -831Q35 -835 48 -840L63 -834Q79 -828 79 -814Q79 -805 68 -800Q60 -797 48 -797H40H35Q30 -798 26 -798.5Q22 -799 18 -800L15 -803L1 -806H-5L-7 -804L-9 -801L-11 -800L-8 -798Q-5 -796 -0.5 -794.5Q4 -793 7 -792Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

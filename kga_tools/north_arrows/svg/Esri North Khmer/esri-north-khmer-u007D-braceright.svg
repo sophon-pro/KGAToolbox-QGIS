@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North (Khmer) – braceright
+     Glyph "braceright" at U+007D (type '}' – RIGHT CURLY BRACKET) of the "ESRI North (Khmer)" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="140.5" height="896.5" viewBox="-41.2 -879.2 140.5 896.5">
+  <path d="M82 -134 46 -163V0H36V-163L0 -134V-154L36 -650V-658H46V-650L82 -154ZM39 -603 10 -154 39 -178ZM13 -731Q13 -724 18 -724Q20 -724 26 -732L29 -735Q31 -737 38 -737Q40 -737 42.5 -736.5Q45 -736 48 -732L52 -728Q53 -724 58 -724Q65 -724 65 -734V-783H81V-716Q81 -705 65 -705H59Q53 -707 47 -716L41 -724L39 -727H38L33 -724V-723L29 -719L16 -705H8Q-1 -705 -3 -710L-5 -717V-790L-18 -796H-24L-22 -805Q-20 -809 -17 -813.5Q-14 -818 -9 -823L-3 -826L10 -831Q14 -831 28 -819H31Q36 -817 36 -816.5Q36 -816 39 -813Q45 -810 48 -809.5Q51 -809 56 -809Q61 -809 65 -813Q69 -817 69 -821Q63 -834 54 -837L48 -840L44 -843L39 -850Q39 -855 52 -862L66 -854Q81 -844 81 -825Q81 -811 71 -805Q64 -801 52 -801H44H39Q34 -802 30.5 -803Q27 -804 23 -806L20 -809L7 -814Q3 -814 1 -813L-1 -810L-3 -807L-5 -805L-2 -802Q2 -799 5.5 -797.5Q9 -796 13 -794Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – P
+     Glyph "P" at U+0050 (type 'P' – LATIN CAPITAL LETTER P) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="528.2" height="786.2" viewBox="-15.1 -771.1 528.2 786.2">
+  <path d="M498 0H0L181 -485H105L253 -756L396 -484H323ZM343 -71 351 -207H291L287 -134L215 -207H157L148 -71H207L211 -147L282 -71Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

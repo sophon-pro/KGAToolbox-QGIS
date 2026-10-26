@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – cent
+     Glyph "cent" at U+00A2 (type '¢' – CENT SIGN) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="100.9" height="802.9" viewBox="-15.4 -787.4 100.9 802.9">
+  <path d="M70 -503 31 -544V-329L40 -316V-362H51V-300H41L31 -315V0H19V-333L10 -347V-300H0V-362H10L19 -348V-772Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

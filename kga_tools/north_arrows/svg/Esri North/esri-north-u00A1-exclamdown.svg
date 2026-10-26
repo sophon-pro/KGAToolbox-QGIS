@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – exclamdown
+     Glyph "exclamdown" at U+00A1 (type '¡' – INVERTED EXCLAMATION MARK) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="102.9" height="802.9" viewBox="-15.4 -787.4 102.9 802.9">
+  <path d="M72 -503 32 -543V-333L40 -321V-367H51V-305H41L32 -318V0H20V-337L10 -352V-305H0V-367H10L20 -351V-772ZM61 -523 26 -705 32 -556Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

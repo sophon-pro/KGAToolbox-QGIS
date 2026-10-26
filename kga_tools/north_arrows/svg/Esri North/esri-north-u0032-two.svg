@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – two
+     Glyph "two" at U+0032 (type '2' – DIGIT TWO) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="827" height="833" viewBox="-16 -817 827 833">
+  <path d="M795 -399 478 -319 397 0 317 -319 0 -399 316 -483 397 -801 477 -482ZM789 -399 477 -480 397 -400V-796L318 -483L396 -399L397 -400V-399ZM477 -319 397 -399V-5ZM396 -399H4L318 -320Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

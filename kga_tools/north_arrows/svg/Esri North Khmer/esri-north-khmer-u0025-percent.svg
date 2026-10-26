@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North (Khmer) – percent
+     Glyph "percent" at U+0025 (type '%' – PERCENT SIGN) of the "ESRI North (Khmer)" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="187.9" height="829.9" viewBox="-15 -815 187.9 829.9">
+  <path d="M32 -644V-1H1V-799L93 -544ZM156 -164 152 -167Q146 -169 140 -169Q132 -169 129 -166L127 -164V-146V-118L121 -124L116 -130L112 -127Q110 -126 108.5 -124Q107 -122 104 -119V-163Q96 -169 90 -170L82 -172H123Q138 -172 145.5 -176.5Q153 -181 155 -189Q157 -193 157 -197Q157 -208 144 -213H142H138Q132 -213 127.5 -211.5Q123 -210 122 -206L121 -202V-199Q121 -198 122 -197L124 -195Q132 -197 134 -197Q142 -197 143 -193Q143 -191 140 -191H136H133H76L67 -161H71L75 -159V-116Q75 -113 77 -109Q77 -108 80 -107Q86 -104 104 -104L109 -110Q113 -116 115 -116Q117 -115 119.5 -111.5Q122 -108 125 -105Q126 -105 127 -104Q142 -104 150 -106Q156 -109 156 -116Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

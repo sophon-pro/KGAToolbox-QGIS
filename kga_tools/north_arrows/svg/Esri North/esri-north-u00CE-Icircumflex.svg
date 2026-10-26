@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – Icircumflex
+     Glyph "Icircumflex" at U+00CE (type 'Î' – LATIN CAPITAL LETTER I WITH CIRCUMFLEX) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="209.4" height="833" viewBox="-16 -817 209.4 833">
+  <path d="M67 -613V-757Q73 -734 81.5 -707Q90 -680 107 -662ZM77 -602 123 -662Q124 -662 116 -672.5Q108 -683 97.5 -701Q87 -719 77.5 -744Q68 -769 67 -798Q67 -769 59 -745Q51 -721 41.5 -703Q32 -685 23 -674.5Q14 -664 12 -662L57 -602V-344L30 -318V-284L57 -312V-294L30 -263V-234L57 -264V-234L30 -207V-181L57 -207V-181L30 -154V-125L57 -154V-69L65 -81H70L77 -69V-154L104 -125V-154L77 -181V-207L104 -181V-206L77 -234V-264L104 -234V-263L77 -294V-312L104 -284V-318L77 -344ZM97 0 53 -44 48 -35V-84L26 -106L21 -102V-158L26 -162L21 -159V-321L48 -348V-599L0 -663Q2 -665 11.5 -676Q21 -687 31.5 -705Q42 -723 50 -747.5Q58 -772 58 -801H77V-796L120 -752Q121 -716 133 -690Q145 -664 157 -646.5Q169 -629 175 -619.5Q181 -610 172 -609L129 -553V-302L157 -274V-222L129 -250L157 -220V-171L129 -198V-191L157 -162V-120L129 -146V-138L157 -111V-62L129 -90V-20L119 -18L112 -25Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

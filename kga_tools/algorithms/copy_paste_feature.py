@@ -19,6 +19,7 @@ from qgis.PyQt.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
+    QWidget,
 )
 
 from qgis.core import (
@@ -538,7 +539,7 @@ def paste_features(clipboard, layer, mapping, reproject=True,
 
     context = layer.createExpressionContext()
 
-    layer.beginEditCommand('KGA Paste Feature')
+    layer.beginEditCommand('Paste Feature')
     try:
         for row, (geometry, attributes) in enumerate(clipboard.rows, start=1):
             values = map_attributes(attributes, mapping, target_fields, report)
@@ -566,17 +567,22 @@ def paste_features(clipboard, layer, mapping, reproject=True,
 #  Paste Special popup
 # --------------------------------------------------------------------------- #
 
-class PasteSpecialDialog(QDialog):
-    """Where the copied features go, and what happens to their attributes."""
+class PasteSpecialForm(QWidget):
+    """Where the copied features go, and what happens to their attributes.
+
+    The fields and the paste itself, without a window around them: the Paste
+    Special popup and the Copy Paste page of the Modify Features pane both put
+    this in their own frame. `paste_button` is created but not placed - the
+    frame decides where it goes - and `pasted(layer, report)` says a paste ran.
+    """
+
+    pasted = pyqtSignal(object, object)
 
     COL_TARGET, COL_TYPE, COL_SOURCE, COL_VALUE = range(4)
 
     def __init__(self, iface, parent=None):
         super().__init__(parent)
         self.iface = iface
-        self.setWindowTitle('Paste Special')
-        self.setMinimumWidth(620)
-        self.setMinimumHeight(520)
 
         self._loading = False               # guards the "edited by hand" flip
         self.last_report = None
@@ -666,18 +672,9 @@ class PasteSpecialDialog(QDialog):
         after_layout.addWidget(self.select_check)
         self.zoom_check = QCheckBox('Zoom the map to them')
         after_layout.addWidget(self.zoom_check)
-        self.keep_open_check = QCheckBox('Keep this window open after pasting')
-        after_layout.addWidget(self.keep_open_check)
         layout.addWidget(after)
 
-        buttons = QHBoxLayout()
-        buttons.addStretch(1)
         self.paste_button = QPushButton('Paste')
-        self.paste_button.setDefault(True)
-        buttons.addWidget(self.paste_button)
-        self.close_button = QPushButton('Close')
-        buttons.addWidget(self.close_button)
-        layout.addLayout(buttons)
 
         self.status_label = QLabel('')
         self.status_label.setWordWrap(True)
@@ -689,7 +686,6 @@ class PasteSpecialDialog(QDialog):
         self.mode_combo.currentIndexChanged.connect(self._mode_changed)
         self.strategy_combo.currentIndexChanged.connect(self._fill_from_mode)
         self.paste_button.clicked.connect(self._paste)
-        self.close_button.clicked.connect(self.reject)
 
     # -------------------------------------------------------------- state --
 
@@ -705,6 +701,8 @@ class PasteSpecialDialog(QDialog):
             self._fill_from_mode()
 
     def _target_changed(self):
+        if _is_deleted(self.table):                    # a layer signal arriving while the form is being torn down
+            return
         layer = self.target_combo.currentLayer()
         ok, note = self._compatibility(layer)
         self.target_label.setText(note)
@@ -720,8 +718,11 @@ class PasteSpecialDialog(QDialog):
             else:
                 self.reproject_check.setChecked(True)
 
-        self._build_table(layer)
-        self._fill_from_mode()
+        try:
+            self._build_table(layer)
+            self._fill_from_mode()
+        except RuntimeError:                           # the form was deleted under this slot (teardown)
+            return
 
     def _compatibility(self, layer):
         """(can we paste, what to tell the user) for this target layer."""
@@ -924,6 +925,14 @@ class PasteSpecialDialog(QDialog):
 
     # -------------------------------------------------------------- paste --
 
+    def refresh_clipboard(self):
+        """The clipboard changed (copied, cleared): bring the note and the table up to date."""
+        self.source_label.setText(CLIPBOARD.describe())
+        self._target_changed()
+
+    def paste(self):
+        self._paste()
+
     def _paste(self):
         layer = self.target_combo.currentLayer()
         ok, note = self._compatibility(layer)
@@ -992,10 +1001,49 @@ class PasteSpecialDialog(QDialog):
             box.setDetailedText(details)
             box.exec()
         elif self.iface is not None:
-            self.iface.messageBar().pushSuccess('KGA Copy-Paste', report.summary())
+            self.iface.messageBar().pushSuccess('Copy-Paste', report.summary())
 
+        self.pasted.emit(layer, report)
+
+
+class PasteSpecialDialog(QDialog):
+    """The Paste Special popup: a PasteSpecialForm in a window of its own."""
+
+    def __init__(self, iface, parent=None):
+        super().__init__(parent)
+        self.iface = iface
+        self.setWindowTitle('Paste Special')
+        self.setMinimumWidth(620)
+        self.setMinimumHeight(520)
+
+        layout = QVBoxLayout(self)
+        self.form = PasteSpecialForm(iface, self)
+        layout.addWidget(self.form, 1)
+
+        self.keep_open_check = QCheckBox('Keep this window open after pasting')
+        layout.addWidget(self.keep_open_check)
+
+        buttons = QHBoxLayout()
+        buttons.addStretch(1)
+        self.form.paste_button.setDefault(True)
+        buttons.addWidget(self.form.paste_button)
+        self.close_button = QPushButton('Close')
+        buttons.addWidget(self.close_button)
+        layout.addLayout(buttons)
+
+        self.close_button.clicked.connect(self.reject)
+        self.form.pasted.connect(self._pasted)
+
+    def _pasted(self, _layer, report):
         if report.added and not self.keep_open_check.isChecked():
             self.accept()
+
+    def __getattr__(self, name):
+        """Everything else (target_combo, current_mapping, last_report ...) is the form's."""
+        form = self.__dict__.get('form')
+        if form is None:
+            raise AttributeError(name)
+        return getattr(form, name)
 
 
 # --------------------------------------------------------------------------- #

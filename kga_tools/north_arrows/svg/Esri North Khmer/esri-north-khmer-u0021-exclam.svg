@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North (Khmer) – exclam
+     Glyph "exclam" at U+0021 (type '!' – EXCLAMATION MARK) of the "ESRI North (Khmer)" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="184.9" height="829.9" viewBox="-23 -815 184.9 829.9">
+  <path d="M81 -715V-1H70V-716L44 -672L75 -799L108 -672ZM110 -183Q101 -179 95 -173.5Q89 -168 89 -161Q88 -158 94 -156Q100 -154 107.5 -152.5Q115 -151 121.5 -148.5Q128 -146 128 -140L120 -136H114L107 -137Q94 -135 76 -143L47 -158L21 -144L-5 -130L-6 -75Q1 -79 20 -80Q31 -80 38 -76.5Q45 -73 45 -68Q33 -62 19 -59.5Q5 -57 -7 -56Q0 -34 15 -23Q38 -3 67 -2Q99 -1 120.5 -22Q142 -43 143 -75Q136 -61 119 -48.5Q102 -36 86 -36Q78 -36 70 -38Q62 -40 55 -45Q50 -46 45 -54L58 -64Q67 -73 68 -84Q69 -95 56.5 -103.5Q44 -112 27 -113Q17 -113 12.5 -111.5Q8 -110 3 -107Q4 -114 6 -115Q11 -121 29 -121Q40 -121 53 -116Q80 -107 81 -107Q101 -106 120 -119Q133 -127 139 -137.5Q145 -148 146 -158Q146 -168 135.5 -175Q125 -182 110 -183Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

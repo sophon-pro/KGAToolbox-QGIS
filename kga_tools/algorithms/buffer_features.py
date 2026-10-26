@@ -181,7 +181,7 @@ class BufferDialog(ModifyFeaturesDialog):
         added = 0
         dropped = 0
 
-        target.beginEditCommand('KGA Buffer')
+        target.beginEditCommand('Buffer')
         try:
             for feature, geometry in pairs:
                 values = (carry_attributes(feature, layer, target)

@@ -92,6 +92,8 @@ class ConstructPolygonDialog(ModifyFeaturesDialog):
             'values of the first line clicked across by field name.')
         form.addRow('', self.attributes_check)
 
+        self.add_guide(form)
+
         verdict = QLabel('')
         verdict.setWordWrap(True)
         bold = QFont(verdict.font())
@@ -281,7 +283,7 @@ class ConstructPolygonDialog(ModifyFeaturesDialog):
 
         added = 0
         dropped = 0
-        target.beginEditCommand('KGA Construct Polygon')
+        target.beginEditCommand('Construct Polygon')
         try:
             for polygon in polygons:
                 parts = fit_to_layer(polygon, target)

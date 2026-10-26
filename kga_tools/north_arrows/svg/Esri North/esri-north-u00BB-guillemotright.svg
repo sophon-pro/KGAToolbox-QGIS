@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – guillemotright
+     Glyph "guillemotright" at U+00BB (type '»' – RIGHT-POINTING DOUBLE ANGLE QUOTATION MARK) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="192.2" height="811.2" viewBox="-15.6 -795.6 192.2 811.2">
+  <path d="M81 -331 0 -387 81 -445 161 -387ZM81 -434 17 -387 81 -342 145 -387ZM85 -457H78L45 -443L81 -780L116 -443ZM81 0 45 -336 78 -322H85L116 -336ZM81 -312V-43L107 -321ZM81 -738V-471L107 -458ZM97 -371 65 -396V-371H56V-405H65L97 -381V-405H106V-371Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

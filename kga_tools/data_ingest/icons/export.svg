@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <!-- Export: features leave the dataset as a new file (not "save") -->
+  <!-- dataset: two stacked map sheets -->
+  <path d="M2 15.5 L9 12 L16 15.5 L9 19 Z" fill="#9ccc65" stroke="#33691e" stroke-width="1" stroke-linejoin="round"/>
+  <path d="M2 12 L9 8.5 L16 12 L9 15.5 Z" fill="#ffd54f" stroke="#8d6e00" stroke-width="1" stroke-linejoin="round"/>
+  <!-- new file outlined, top right -->
+  <path d="M15.5 2.5 H20 L22.5 5 V11.5 H15.5 Z" fill="#ffffff" stroke="#1565c0" stroke-width="1.1" stroke-linejoin="round"/>
+  <path d="M20 2.5 V5 H22.5" fill="none" stroke="#1565c0" stroke-width="1.1" stroke-linejoin="round"/>
+  <!-- arrow from dataset into the new file -->
+  <path d="M7.5 9.5 C8.5 6 11 4.6 14.2 4.6" fill="none" stroke="#1565c0" stroke-width="2" stroke-linecap="round"/>
+  <path d="M12.6 2.6 L15.3 4.6 L12.6 6.6 Z" fill="#1565c0"/>
+</svg>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – macron
+     Glyph "macron" at U+00AF (type '¯' – MACRON) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="357.6" height="716.6" viewBox="-13.8 -702.8 357.6 716.6">
+  <path d="M163 -107 0 0 163 -491H164L330 0ZM99 -689H129L206 -598V-669Q206 -679 202 -683Q200 -685 198.5 -686Q197 -687 192 -687H190V-689H230V-687H226Q217 -687 214 -681V-570H210L131 -663V-592Q131 -578 133 -576Q135 -574 143 -574H147V-572H107V-574H109Q117 -574 121 -578Q123 -580 123 -592V-673Q117 -678 114.5 -679.5Q112 -681 107 -683Q105 -685 99 -685Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

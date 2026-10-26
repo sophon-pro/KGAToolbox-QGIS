@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – M
+     Glyph "M" at U+004D (type 'M' – LATIN CAPITAL LETTER M) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="443.8" height="826.8" viewBox="-15.9 -809.9 443.8 826.8">
+  <path d="M412 -465 251 -592 196 -92 155 -592 0 -465 207 -794ZM163 -42Q163 -21 153.5 -10Q144 1 128 1Q92 1 92 -41Q92 -62 101 -74Q110 -86 127 -86Q144 -86 153.5 -74Q163 -62 163 -42ZM242 0H217L207 -24Q205 -28 204 -29.5Q203 -31 201.5 -32.5Q200 -34 197 -34H196V0H175V-84H210Q236 -84 236 -60Q236 -44 227 -40Q224 -37 219 -36Q223 -34 225 -33Q226 -32 227.5 -29Q229 -26 231 -24ZM81 0H60L35 -46V0H15V-84H34L60 -37V-84H81ZM384 0H363V-34H340V0H318V-84H340V-54H363V-84H384ZM308 -63H287V0H265V-63H244V-84H308ZM141 -43Q141 -66 127 -66Q113 -66 113 -41Q113 -18 127 -18Q134 -18 137.5 -23.5Q141 -29 141 -43ZM214 -58Q214 -67 205 -67H196V-49H204Q209 -49 210 -50Q214 -51 214 -58Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

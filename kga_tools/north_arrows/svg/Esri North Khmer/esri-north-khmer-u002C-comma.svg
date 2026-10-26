@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North (Khmer) – comma
+     Glyph "comma" at U+002C (type ',' – COMMA) of the "ESRI North (Khmer)" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="202.4" height="893.4" viewBox="-17.2 -877.2 202.4 893.4">
+  <path d="M164 -549H89V-249L167 -173L160 -169L89 -239V-172L168 -93L163 -86L89 -159V-86L165 -9L157 -3L85 -80L7 -1L0 -6L79 -86V-159L7 -86L0 -93L79 -172V-239L7 -166L0 -172L79 -249V-549H2L85 -701ZM31 -806 16 -815 38 -829Q46 -836 58 -839L63 -841Q67 -841 71 -840Q75 -839 80 -837Q106 -829 110 -829Q116 -829 123 -834Q124 -835 120.5 -838Q117 -841 115 -842Q107 -844 104.5 -846Q102 -848 102 -850V-853Q105 -860 114 -860H119Q136 -856 136 -842Q136 -831 129 -825Q118 -813 101 -813Q88 -813 60 -822Q57 -823 51 -823Q46 -823 43 -822L36 -820L58 -809V-738L84 -755L109 -739V-800L110 -803Q113 -807 121 -807Q133 -807 136 -798V-724H109L82 -741L58 -724H31Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

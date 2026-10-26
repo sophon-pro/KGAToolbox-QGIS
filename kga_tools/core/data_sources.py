@@ -110,6 +110,29 @@ class DataSource(object):
     needs_country = True
     attribution = ''
     homepage = ''
+    #: Countries this source serves, or None for any. A source restricted this
+    #: way stays in the list but is greyed out for every other country, with
+    #: `unavailable_note` as the tooltip.
+    countries = None
+    unavailable_note = ''
+    #: {level: label} for a source whose levels are not ADM0-ADM5. None means
+    #: the dialog's own labels.
+    level_labels = None
+    #: True when the dialog should show the unit picker (see `gui.kga_picker`).
+    uses_unit_picker = False
+
+    def available_for(self, iso3):
+        """Whether this source can serve `iso3` at all."""
+        return self.countries is None or iso3 in self.countries
+
+    def forget(self, item):
+        """Throw away what is cached for `item`, so the next add re-reads it."""
+        path = self.cached_file(item)
+        if path:
+            try:
+                os.remove(path)
+            except OSError:                 # pragma: no cover - locked file
+                pass
 
     def options(self):
         """Extra combo boxes this source wants. See :class:`Option`."""
@@ -674,39 +697,166 @@ class CustomUrlSource(DataSource):
 
 # ------------------------------------------------------------ KGA database
 
-class KgaDatabaseSource(DataSource):
-    """The KGA PostgreSQL store. The seat, not yet the connection.
+class KgaCambodiaSource(DataSource):
+    """The KGA Cambodia administrative database, served from a GitHub release.
 
-    Listed and disabled on purpose: the source list is where a user goes
-    looking for it, and an entry that says "not yet" is better than an absence
-    that reads as "never". When the server exists, this class implements the
-    same four hooks as the others and nothing in the dialog changes.
+    Province, district, commune and village, as boundary or centre point, for
+    any selection of units: the manifest answers "which units exist" without a
+    download, and only the province packs the selection touches are fetched.
+    The mechanics live in :mod:`kga_release`; this class is the seat the dialog
+    talks to, in the same four-hook shape as every other source.
 
-    The intended shape, so the next pass does not have to rediscover it::
-
-        md = QgsProviderRegistry.instance().providerMetadata('postgres')
-        conn = md.findConnection(<name from QgsSettings>)   # QgsAbstractDatabaseProviderConnection
-        conn.tables(schema, QgsAbstractDatabaseProviderConnection.TableFlag.Vector)
-        uri = QgsDataSourceUri(conn.uri()); uri.setDataSource(schema, table, 'geom')
-
-    Credentials stay in the QGIS authentication database - this plugin must
-    never hold a password of its own.
+    Cambodia only. The dialog greys it out for any other country.
     """
 
     id = 'kga_database'
-    label = 'KGA Database (PostgreSQL)'
+    label = 'KGA Database (Cambodia)'
     kind = KIND_ADMIN
-    enabled = False
-    disabled_note = ('Not connected yet. A future release will read the KGA '
-                     'PostgreSQL store through the QGIS connection you already '
-                     'have configured.')
     needs_country = True
+    countries = ('KHM',)
+    unavailable_note = ('The KGA database covers Cambodia only. Set the '
+                        'country to Cambodia to use it.')
+    level_labels = {1: 'Province', 2: 'District', 3: 'Commune', 4: 'Village'}
+    uses_unit_picker = True
+    publisher = 'KGA'
+
+    @property
+    def enabled(self):
+        from . import kga_release
+
+        return kga_release.configured()
+
+    @property
+    def disabled_note(self):
+        return ('The KGA database has not been connected in this copy of the '
+                'plugin yet.')
+
+    def options(self):
+        return [
+            Option('geometry', 'Feature type', [
+                ('boundary', 'Boundary (polygon)'),
+                ('center', 'Centre (point)'),
+            ], default='boundary',
+                tooltip='Boundary gives the outline of each unit; centre '
+                        'gives one point per unit. Villages exist only as '
+                        'centre points.'),
+        ]
 
     def levels(self, iso3, options=None):
-        return []
+        from . import kga_release
+
+        if not self.available_for(iso3):
+            return []
+        kga_release.load_manifest()         # raises NetError with a sentence
+        return [1, 2, 3, 4]
+
+    def manifest(self):
+        from . import kga_release
+
+        return kga_release.load_manifest()
+
+    def plan(self, level, options):
+        """The release plan for the dialog's current choices."""
+        from . import kga_release
+
+        pick = (options or {}).get('kga') or {}
+        geometry = (options or {}).get('geometry') or kga_release.BOUNDARY
+        try:
+            return kga_release.make_plan(
+                self.manifest(), level, geometry,
+                province=pick.get('province'), district=pick.get('district'),
+                commune=pick.get('commune'), units=pick.get('units') or ())
+        except ValueError as exc:
+            raise NetError(str(exc))
 
     def describe(self, iso3, level, options=None):
-        raise NotImplementedError(self.disabled_note)
+        from . import kga_release as KR
+
+        if not self.available_for(iso3) or level not in KR.LEVELS:
+            return None
+        manifest = self.manifest()
+        plan = self.plan(level, options)
+        what = 'boundary' if plan.geometry == KR.BOUNDARY else 'centre'
+        if plan.count == 0:
+            raise NetError(
+                'The KGA database has no %s %s for that selection yet.%s' % (
+                    plan.level_label.lower(), what,
+                    ' Those units exist as centre points only.'
+                    if plan.geometry == KR.BOUNDARY and level >= 3 else ''))
+
+        scope = self._scope_text(manifest, (options or {}).get('kga') or {})
+        item = SourceItem(
+            title='Cambodia - {0} {1}{2}'.format(
+                plan.level_label.lower(), what,
+                ' ({0})'.format(scope) if scope else ''),
+            cache_key='kga_{0}'.format(plan.layer),
+            extension='.gpkg',
+            attribution='KGA Cambodia administrative database, data version '
+                        '{0}'.format(manifest.data_version),
+            publisher=self.publisher,
+            unit_count=plan.count,
+            size_bytes=KR.download_size(manifest, plan) or None,
+            notes='KGA Cambodia database, data version {0}. Only the {1} '
+                  'province pack{2} this selection touches {3} downloaded.'
+                  .format(manifest.data_version, len(plan.pack_ids),
+                          '' if len(plan.pack_ids) == 1 else 's',
+                          'is' if len(plan.pack_ids) == 1 else 'are'),
+        )
+        item.plan = plan
+        item.manifest = manifest
+        return item
+
+    @staticmethod
+    def _scope_text(manifest, pick):
+        """A few words naming the selection, for the layer's default name."""
+        names = [n.split(' (')[0].split(' - ')[0]
+                 for n in pick.get('names') or []]
+        if names:
+            return ', '.join(names) if len(names) <= 3 \
+                else '{0} selected'.format(len(names))
+        for key in ('commune', 'district', 'province'):
+            if pick.get(key):
+                return manifest.name(pick[key])
+        return ''
+
+    def cached_file(self, item):
+        """The pack paths when nothing needs downloading, else None."""
+        from . import kga_release as KR
+
+        plan = getattr(item, 'plan', None)
+        if plan is None or KR.download_size(item.manifest, plan):
+            return None
+        packs = {p['id']: p for p in item.manifest.packs}
+        return [KR.pack_path(packs[i]) for i in plan.pack_ids]
+
+    def fetch(self, item, on_progress=None):
+        from . import kga_release as KR
+
+        return KR.fetch_plan(item.manifest, item.plan, on_progress)
+
+    def load_layer(self, item, paths, name):
+        """The scratch layer for `item`, built from the downloaded packs."""
+        from . import kga_release as KR
+        from .layer_loader import LoadError
+
+        try:
+            return KR.build_layer(item.plan, paths, name)
+        except KR.LoadError as exc:
+            raise LoadError(str(exc))
+
+    def forget(self, item):
+        """Refresh: ask GitHub again and drop the packs this selection used."""
+        from . import kga_release as KR
+
+        plan = getattr(item, 'plan', None)
+        if plan is not None:
+            packs = {p['id']: p for p in item.manifest.packs}
+            for pack_id in plan.pack_ids:
+                try:
+                    os.remove(KR.pack_path(packs[pack_id]))
+                except OSError:
+                    pass
+        KR.load_manifest(force=True)
 
 
 # ------------------------------------------------------------------- basemaps
@@ -804,7 +954,7 @@ SOURCES = (
     HdxCodSource(),
     NaturalEarthSource(),
     CustomUrlSource(),
-    KgaDatabaseSource(),
+    KgaCambodiaSource(),
 )
 
 

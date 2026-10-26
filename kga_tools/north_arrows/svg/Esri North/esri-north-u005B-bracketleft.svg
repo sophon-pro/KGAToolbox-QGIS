@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – bracketleft
+     Glyph "bracketleft" at U+005B (type '[' – LEFT SQUARE BRACKET) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="832" height="833" viewBox="-16 -817 832 833">
+  <path d="M800 -383Q800 -293 760 -214Q738 -169 713.5 -138.5Q689 -108 660 -85Q619 -52 583 -31Q547 -10 496 0V-387H581L398 -729L220 -387H305V0Q245 -13 206.5 -35.5Q168 -58 137 -87Q75 -144 39 -211Q0 -281 0 -386V-395Q4 -591 130 -697Q258 -801 398 -801Q538 -801 662 -701Q789 -601 800 -403Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

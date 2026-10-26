@@ -128,7 +128,7 @@ class CopyParallelDialog(ModifyFeaturesDialog):
         dropped = 0
         skipped = 0
 
-        target.beginEditCommand('KGA Copy Parallel')
+        target.beginEditCommand('Copy Parallel')
         try:
             for feature in features:
                 geometries = self.offsets_for(feature, layer)

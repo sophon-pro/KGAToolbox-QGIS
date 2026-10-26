@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North (Khmer) – parenleft
+     Glyph "parenleft" at U+0028 (type '(' – LEFT PARENTHESIS) of the "ESRI North (Khmer)" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="265" height="833" viewBox="-17 -816 265 833">
+  <path d="M98 -636 69 -666V-1H44V-666L15 -636Q0 -651 9.5 -662.5Q19 -674 29.5 -693.5Q40 -713 49 -740Q58 -767 58 -800Q58 -768 66.5 -741Q75 -714 85.5 -694Q96 -674 113 -651ZM176 -204Q143 -195 143 -179Q143 -174 153 -172.5Q163 -171 175 -169.5Q187 -168 197 -165Q207 -162 207 -156L194 -152H186H173Q165 -152 151.5 -153Q138 -154 122 -158L79 -174L37 -158L-1 -141V-79Q7 -81 16 -83Q25 -85 40 -85Q57 -85 68 -82Q79 -79 79 -74Q61 -66 38.5 -62.5Q16 -59 -1 -57Q6 -36 35 -20Q56 -9 76 -4Q96 1 117 1Q169 1 200.5 -23.5Q232 -48 232 -85Q227 -76 218 -68Q209 -60 197.5 -53.5Q186 -47 173 -43Q160 -39 148 -39Q134 -39 121 -40.5Q108 -42 96 -47Q92 -49 88 -50.5Q84 -52 79 -57L99 -70Q114 -77 114 -91Q114 -103 95.5 -112.5Q77 -122 50 -122Q35 -122 27.5 -119.5Q20 -117 12 -115Q12 -121 17 -124Q24 -131 53 -131Q61 -131 70.5 -130Q80 -129 91 -127Q130 -118 135 -118Q150 -118 164 -121.5Q178 -125 194 -133Q232 -152 232 -177Q232 -188 216.5 -196Q201 -204 176 -204Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North (Khmer) – bracketright
+     Glyph "bracketright" at U+005D (type ']' – RIGHT SQUARE BRACKET) of the "ESRI North (Khmer)" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="303.3" height="814.3" viewBox="-15.7 -798.7 303.3 814.3">
+  <path d="M200 -582V-289Q186 -263 166.5 -252.5Q147 -242 127.5 -243.5Q108 -245 91.5 -257Q75 -269 67 -289V-583H0L138 -783L272 -582ZM67 0V-253Q96 -217 132.5 -216Q169 -215 200 -253L199 0ZM96 -42 113 -40 134 -64 159 -41 174 -42V-100Q172 -103 169 -105L163 -102L161 -99V-57L134 -81L109 -55V-115L91 -128L97 -134Q99 -134 102.5 -137.5Q106 -141 108 -141L124 -131L137 -125Q146 -122 151 -122Q158 -122 161 -127L169 -140Q172 -143 173 -153.5Q174 -164 174 -171Q174 -185 161 -188H157Q148 -188 147 -182V-179L148 -174Q150 -173 152.5 -172.5Q155 -172 157 -171L161 -166Q163 -166 163 -160Q163 -146 161 -146Q160 -143 158.5 -141.5Q157 -140 156 -135Q152 -133 150 -133Q149 -134 147 -134Q143 -134 140 -135L131 -140Q129 -141 128 -141L109 -151L92 -141L77 -128L96 -113Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

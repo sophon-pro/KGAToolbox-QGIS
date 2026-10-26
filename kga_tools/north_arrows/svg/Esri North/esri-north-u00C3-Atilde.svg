@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – Atilde
+     Glyph "Atilde" at U+00C3 (type 'Ã' – LATIN CAPITAL LETTER A WITH TILDE) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="511.7" height="512.7" viewBox="-9.9 -502.9 511.7 512.7">
+  <path d="M0 -248 38 -257Q40 -297 56 -332Q72 -367 98.5 -393.5Q125 -420 160 -436Q195 -452 234 -455L244 -493H248L257 -456Q297 -454 333 -438Q369 -422 396.5 -395Q424 -368 440.5 -332.5Q457 -297 459 -256L492 -248V-245L459 -236Q457 -195 440.5 -159Q424 -123 397 -96Q370 -69 334 -52.5Q298 -36 257 -35L248 0H244L234 -35Q194 -38 159 -54.5Q124 -71 97.5 -98Q71 -125 55.5 -160Q40 -195 38 -235L0 -245ZM289 -163 264 -62Q298 -65 327.5 -79Q357 -93 379.5 -115Q402 -137 416 -166.5Q430 -196 433 -229L330 -202L370 -124L368 -121ZM415 -326 413 -330Q406 -343 398 -354.5Q390 -366 379 -377L377 -379Q354 -400 325.5 -413.5Q297 -427 264 -430L289 -330L368 -366L370 -364L330 -289L433 -263Q430 -296 415 -326ZM228 -430Q195 -427 167 -413Q139 -399 117 -377Q95 -355 81.5 -326Q68 -297 65 -264L161 -289L122 -369L124 -370L202 -330ZM161 -202 65 -227Q68 -194 82 -165.5Q96 -137 117.5 -115.5Q139 -94 167 -80Q195 -66 227 -63L201 -163L124 -121L122 -124Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

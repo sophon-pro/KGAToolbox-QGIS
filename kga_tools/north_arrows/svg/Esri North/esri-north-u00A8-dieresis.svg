@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – dieresis
+     Glyph "dieresis" at U+00A8 (type '¨' – DIAERESIS) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="256" height="832" viewBox="-16 -816 256 832">
+  <path d="M171 -312 111 -76 51 -312 0 -238 32 -380 0 -497 43 -434 111 -727 177 -434 224 -497 190 -382 224 -238ZM135 -363 111 -327 86 -363 56 -317 111 -96 166 -317ZM179 -429 187 -388 216 -481ZM122 -747 100 -787V-747H93V-800H100L122 -761V-800H130V-747ZM7 -481 34 -388 42 -429ZM98 -20Q98 -7 111 -7Q123 -7 123 -15Q123 -19 118 -23Q116 -24 109.5 -25.5Q103 -27 101 -29Q94 -32 94 -41Q94 -47 98.5 -51.5Q103 -56 110 -56Q118 -56 122.5 -51Q127 -46 128 -40H122Q122 -49 111 -49Q100 -49 100 -41Q100 -39 100.5 -38Q101 -37 101 -36Q103 -34 111 -32.5Q119 -31 121 -29Q129 -25 129 -16Q129 0 111 0Q93 0 93 -20ZM89 -368 111 -336 132 -368Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

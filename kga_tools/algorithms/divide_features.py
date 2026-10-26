@@ -543,7 +543,7 @@ class DivideDialog(ModifyFeaturesDialog):
         dropped = 0
         kept_ids = []
 
-        layer.beginEditCommand('KGA Divide')
+        layer.beginEditCommand('Divide')
         try:
             for feature, parts in groups:
                 fitted = []

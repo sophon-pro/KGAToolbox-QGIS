@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North (Khmer) – guillemotright
+     Glyph "guillemotright" at U+00BB (type '»' – RIGHT-POINTING DOUBLE ANGLE QUOTATION MARK) of the "ESRI North (Khmer)" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="250.6" height="872.6" viewBox="-51.8 -871.8 250.6 872.6">
+  <path d="M74 -372 -35 -432 74 -495 182 -432ZM74 -483 -12 -432 74 -384 160 -432ZM80 -508H70L26 -493L74 -855L121 -493ZM74 -16 26 -377 70 -362H80L121 -377ZM74 -352V-62L109 -361ZM74 -810V-523L109 -509ZM46 -405 59 -403 76 -413 93 -404 104 -405V-428Q102 -428 102 -429L101 -430L96 -428L94 -427V-411L76 -420L55 -410V-433L43 -440L47 -441Q49 -441 51.5 -442.5Q54 -444 55 -444L67 -440L77 -439Q81 -437 86 -437Q92 -437 94 -439L101 -444Q104 -448 104 -456Q104 -462 94 -463H92Q85 -463 85 -460V-458Q86 -457 88 -457Q89 -457 89.5 -456.5Q90 -456 92 -456L94 -454Q96 -453 96 -453Q96 -446 94 -446Q92 -444 92 -442Q89 -441 85 -441H84Q81 -441 78 -442L71 -444H70L55 -448L45 -444L32 -440L46 -432Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

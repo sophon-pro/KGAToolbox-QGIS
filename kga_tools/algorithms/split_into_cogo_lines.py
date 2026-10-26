@@ -27,6 +27,7 @@ from ..core.modify_features import (
     curves_of,
     direction_number,
     direction_text,
+    find_cogo_field,
     fit_to_layer,
     geometry_type,
     layer_filter,
@@ -44,20 +45,6 @@ try:
     from qgis.utils import iface
 except ImportError:  # pragma: no cover - head-less
     iface = None
-
-
-def find_cogo_field(fields, wanted):
-    """The index of a COGO field, matched the way ArcGIS matches it.
-
-    Case-insensitively, and ignoring an underscore, so `ARCLENGTH`, `ArcLength`
-    and `arc_length` all count as the arc length field. A geodatabase that has
-    been through three agencies rarely spells them the same way twice.
-    """
-    target = wanted.lower().replace('_', '')
-    for index, field in enumerate(fields):
-        if field.name().lower().replace('_', '') == target:
-            return index
-    return -1
 
 
 class SplitIntoCogoLinesDialog(ModifyFeaturesDialog):
@@ -290,7 +277,7 @@ class SplitIntoCogoLinesDialog(ModifyFeaturesDialog):
         dropped = 0
         source_ids = set()
 
-        target.beginEditCommand('KGA Split into COGO Lines')
+        target.beginEditCommand('Split into COGO Lines')
         try:
             for feature, geometry, values in courses:
                 attributes = (carry_attributes(feature, layer, target)
@@ -316,7 +303,7 @@ class SplitIntoCogoLinesDialog(ModifyFeaturesDialog):
         if drop_source and source_ids:
             # A second command, because the originals live in the source layer
             # and an undo has to be able to take back each layer's own change.
-            layer.beginEditCommand('KGA Split into COGO Lines (remove originals)')
+            layer.beginEditCommand('Split into COGO Lines (remove originals)')
             try:
                 for fid in source_ids:
                     if layer.deleteFeature(fid):

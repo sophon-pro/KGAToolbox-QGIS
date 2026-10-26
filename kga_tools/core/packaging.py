@@ -33,6 +33,7 @@ import hashlib
 import json
 import os
 import shutil
+import sys
 import zipfile
 from contextlib import suppress
 
@@ -40,10 +41,13 @@ from qgis.core import (
     Qgis,
     QgsMessageLog,
     QgsProject,
+    QgsRasterLayer,
     QgsVectorFileWriter,
     QgsVectorLayer,
 )
 
+from . import output_defaults as od
+from .layer_sort import paused
 from .guards import attempt
 
 LOG_TAG = 'KGA Toolbox'
@@ -86,6 +90,7 @@ class PackageWriter(object):
         self.layers = []                # manifest entries
         self.groups = []                # layer tree
         self.warnings = []
+        self.id_map = {}                # layer id -> id recorded in the manifest
         self._resources = {}            # original path -> archive name
         self._hashes = {}               # content hash -> archive name
         self._zip = None
@@ -178,15 +183,20 @@ class PackageWriter(object):
                        '.pgw', '.vrt'):
             for candidate in (source + suffix, stem + suffix):
                 if os.path.exists(candidate):
-                    self._zip.write(
-                        candidate,
-                        '{}/{}'.format(RASTER_DIR,
-                                       os.path.basename(candidate)))
+                    sidecar = '{}/{}'.format(RASTER_DIR,
+                                             os.path.basename(candidate))
+                    # Appending to a package can meet a sidecar of the same
+                    # name from an earlier raster; a duplicate member would
+                    # make the archive ambiguous, so the first one stays.
+                    if sidecar in self._zip.namelist():
+                        continue
+                    self._zip.write(candidate, sidecar)
         return name
 
     def add_style(self, layer, key):
         """Save the layer's style as a QML inside `styles/`."""
-        name = '{}/{}.qml'.format(STYLE_DIR, _safe_name(key))
+        name = self._unique_archive_name(
+            '{}/{}.qml'.format(STYLE_DIR, _safe_name(key)))
         temp = self.staging_path(_safe_name(key) + '.qml')
         message, ok = layer.saveNamedStyle(temp)
         if not ok:
@@ -293,6 +303,20 @@ class PackageWriter(object):
             counter += 1
         return candidate
 
+    def unique_layer_id(self, layer_id):
+        """`layer_id`, or a variant of it when the manifest already has it.
+
+        The tree and the opener key layers by id, so two entries sharing one
+        would collapse into a single layer on the far side.
+        """
+        taken = {entry.get('id') for entry in self.layers}
+        candidate = layer_id
+        counter = 2
+        while candidate in taken:
+            candidate = '{}_{}'.format(layer_id, counter)
+            counter += 1
+        return candidate
+
     def _unique_archive_name(self, name):
         existing = set(self._zip.namelist())
         if name not in existing:
@@ -302,6 +326,325 @@ class PackageWriter(object):
         while '{}_{}{}'.format(stem, counter, extension) in existing:
             counter += 1
         return '{}_{}{}'.format(stem, counter, extension)
+
+
+class PackageAppender(PackageWriter):
+    """Adds layers to a `.kgalp` that already exists.
+
+    A zip cannot have members added to it without leaving the old manifest and
+    GeoPackage behind as duplicates, so the package is rebuilt: everything but
+    the manifest and `data.gpkg` is copied across, the staged GeoPackage grows
+    by the new tables, and the new manifest is written last. The result goes to
+    a sibling file and replaces the original only once it is complete, so a
+    failure leaves the package exactly as it was.
+    """
+
+    def __init__(self, path, feedback=None):
+        self.manifest = read_manifest(path)
+        self.target = path
+        super().__init__(path + '.adding', feedback)
+        self.layers = list(self.manifest.get('layers') or [])
+        self.groups = list(self.manifest.get('tree') or [])
+        self.warnings = list(self.manifest.get('warnings') or [])
+        self._resources = dict(self.manifest.get('resources') or {})
+
+    def __enter__(self):
+        super().__enter__()
+        try:
+            self._carry_over()
+        except BaseException:
+            self.__exit__(*sys.exc_info())
+            raise
+        return self
+
+    def _carry_over(self):
+        kept = {name for name in self._resources.values() if name}
+        with zipfile.ZipFile(self.target) as source:
+            for member in source.infolist():
+                name = member.filename
+                if name.endswith('/') or name == MANIFEST:
+                    continue
+                if name == DATA_GPKG:
+                    with source.open(member) as src, \
+                            open(self.staging_path(DATA_GPKG), 'wb') as sink:
+                        shutil.copyfileobj(src, sink)
+                    continue
+                with source.open(member) as src, \
+                        self._zip.open(name, 'w', force_zip64=True) as sink:
+                    shutil.copyfileobj(src, sink)
+                if name in kept:
+                    # Remember what is already in, so a symbol the new layers
+                    # share with the old ones is stored once.
+                    with source.open(member) as src:
+                        self._hashes[hashlib.sha256(src.read()).hexdigest()] = name
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        super().__exit__(exc_type, exc_value, traceback)
+        if exc_type is None:
+            try:
+                os.replace(self.path, self.target)
+            except OSError as exc:
+                with suppress(OSError):
+                    os.remove(self.path)
+                raise PackageError(
+                    'Could not replace "{}" with the updated package: {}. Is '
+                    'it open in another program?'.format(self.target, exc))
+        return False
+
+    def write_manifest(self, extra=None):
+        import datetime
+        merged = {
+            'created': self.manifest.get('created'),
+            'modified': datetime.datetime.now().isoformat(timespec='seconds'),
+        }
+        if self.manifest.get('project') and not QgsProject.instance().fileName():
+            merged['project'] = self.manifest['project']
+        merged.update(extra or {})
+        return super().write_manifest(merged)
+
+
+def add_layer_entry(writer, layer, selected_only=False, include_resources=True,
+                    include_metadata=True):
+    """One manifest entry for `layer`, or None when it cannot be packaged."""
+    if not layer.isValid():
+        writer.warn('"{}" is not valid and was skipped.'.format(layer.name()))
+        return None
+
+    entry = {'name': layer.name(), 'id': writer.unique_layer_id(layer.id()),
+             'crs': layer.crs().authid()}
+
+    if isinstance(layer, QgsVectorLayer):
+        entry['kind'] = 'vector'
+        entry['table'] = writer.add_vector(layer, selected_only)
+        entry['geometry'] = {0: 'point', 1: 'line', 2: 'polygon'}.get(
+            int(layer.geometryType()))
+        if include_resources:
+            entry['resources'] = collect_resources(layer, writer)
+    elif isinstance(layer, QgsRasterLayer):
+        entry['kind'] = 'raster'
+        stored = writer.add_raster(layer)
+        if stored is None:
+            return None
+        entry['file'] = stored
+    else:
+        writer.warn('"{}" is neither a vector nor a raster layer and was '
+                    'skipped.'.format(layer.name()))
+        return None
+
+    key = entry.get('table') or os.path.splitext(
+        os.path.basename(entry.get('file', layer.name())))[0]
+    entry['style'] = writer.add_style(layer, key)
+
+    if include_metadata:
+        with suppress(Exception):           # pragma: no cover - defensive
+            metadata = layer.metadata()
+            entry['metadata'] = {
+                'title': metadata.title(),
+                'abstract': metadata.abstract(),
+                'identifier': metadata.identifier(),
+            }
+    writer.id_map[layer.id()] = entry['id']
+    return entry
+
+
+def append_layers(path, layers, selected_only=False, feedback=None,
+                  include_resources=True, include_metadata=True):
+    """Add `layers` to the existing package at `path`.
+
+    Returns `{'vectors', 'rasters', 'skipped', 'rows', 'warnings'}`; `rows` is
+    `[name, kind, stored as, styled]` per layer for a report. Raises
+    `PackageError` and leaves the package untouched when anything fails.
+    """
+    vectors = rasters = skipped = 0
+    rows = []
+    with PackageAppender(path, feedback) as writer:
+        before = len(writer.warnings)
+        total = max(1, len(layers))
+        for index, layer in enumerate(layers):
+            if feedback is not None:
+                if feedback.isCanceled():
+                    raise PackageError('Cancelled.')
+                feedback.setProgress(index * 90.0 / total)
+                feedback.pushInfo('Adding {}...'.format(layer.name()))
+            entry = add_layer_entry(writer, layer, selected_only,
+                                    include_resources, include_metadata)
+            if entry is None:
+                skipped += 1
+                rows.append([layer.name(), 'skipped', '', ''])
+                continue
+            writer.layers.append(entry)
+            if entry['kind'] == 'vector':
+                vectors += 1
+            else:
+                rasters += 1
+            rows.append([layer.name(), entry['kind'],
+                         entry.get('table') or entry.get('file') or '',
+                         'yes' if entry.get('style') else 'no'])
+
+        writer.flush_data()
+        fresh = _remap_tree(describe_tree(layers), writer.id_map)
+        writer.groups = merge_trees(writer.groups, fresh)
+        writer.write_manifest()
+        warnings = writer.warnings[before:]
+    return {'vectors': vectors, 'rasters': rasters, 'skipped': skipped,
+            'rows': rows, 'warnings': warnings}
+
+
+def create_package(path, layers, selected_only=False, include_resources=True,
+                   include_metadata=True, feedback=None):
+    """Write a new package at `path` from `layers`.
+
+    Returns the same summary as `append_layers`, plus `path` (with the
+    extension added when it was missing), `size_kb` and `resources`. Raises
+    `PackageError`, and leaves no half-written file behind, on failure.
+    """
+    if not path.lower().endswith(EXTENSION):
+        path += EXTENSION
+    vectors = rasters = skipped = 0
+    rows = []
+    with PackageWriter(path, feedback) as writer:
+        total = max(1, len(layers))
+        for index, layer in enumerate(layers):
+            if feedback is not None:
+                if feedback.isCanceled():
+                    raise PackageError('Cancelled.')
+                feedback.setProgress(index * 90.0 / total)
+                feedback.pushInfo('Packaging {}...'.format(layer.name()))
+            entry = add_layer_entry(writer, layer, selected_only,
+                                    include_resources, include_metadata)
+            if entry is None:
+                skipped += 1
+                rows.append([layer.name(), 'skipped', '', ''])
+                continue
+            writer.layers.append(entry)
+            if entry['kind'] == 'vector':
+                vectors += 1
+            else:
+                rasters += 1
+            rows.append([layer.name(), entry['kind'],
+                         entry.get('table') or entry.get('file') or '',
+                         'yes' if entry.get('style') else 'no'])
+
+        writer.flush_data()
+        writer.groups = _remap_tree(describe_tree(layers), writer.id_map)
+        manifest = writer.write_manifest()
+        warnings = list(writer.warnings)
+    return {'path': path, 'vectors': vectors, 'rasters': rasters,
+            'skipped': skipped, 'rows': rows, 'warnings': warnings,
+            'resources': len(manifest.get('resources') or {}),
+            'size_kb': int(os.path.getsize(path) / 1024)}
+
+
+def default_unpack_folder(package):
+    """`KGA Packages/<name>` in the project folder, else beside the project file."""
+    stem = os.path.splitext(os.path.basename(package))[0]
+    project_file = QgsProject.instance().fileName()
+    base = os.path.join(
+        od.project_folder() or (os.path.dirname(project_file) if project_file
+                                else os.path.expanduser('~')), 'KGA Packages')
+    return os.path.join(base, stem)
+
+
+def open_package(path, destination='', add_to_project=True, group_name='',
+                 feedback=None):
+    """Unpack `path` and, optionally, add its layers to the project.
+
+    Returns `{'folder', 'added', 'warnings', 'notes'}`. The package is always
+    unpacked to a real folder - never a temporary one - because the layers point
+    at the unpacked files.
+    """
+    manifest = read_manifest(path)
+    stem = os.path.splitext(os.path.basename(path))[0]
+    notes = []
+    if not destination:
+        destination = default_unpack_folder(path)
+        notes.append('No folder was chosen, so the package was extracted to '
+                     '{}.'.format(destination))
+    root = extract(path, destination, feedback)
+    warnings = ['From the package: {}'.format(message)
+                for message in manifest.get('warnings') or []]
+    if not add_to_project:
+        return {'folder': root, 'added': 0, 'warnings': warnings,
+                'notes': notes}
+
+    with paused():      # keep the recorded layer order
+        return _add_package_layers(manifest, root, project_group=group_name or stem,
+                                   feedback=feedback, warnings=warnings,
+                                   notes=notes)
+
+
+def _add_package_layers(manifest, root, project_group, feedback, warnings,
+                        notes):
+    project = QgsProject.instance()
+    group = project.layerTreeRoot().addGroup(project_group)
+    by_id = {}
+    for entry in manifest.get('layers') or []:
+        if feedback is not None and feedback.isCanceled():
+            break
+        layer, problems, info = load_entry_layer(entry, root)
+        warnings.extend(problems)
+        notes.extend(info)
+        if layer is None:
+            continue
+        project.addMapLayer(layer, False)
+        by_id[entry.get('id')] = layer
+
+    # Rebuild the recorded tree, then hang anything it did not mention off the
+    # group directly, so no layer is silently dropped.
+    placed = _rebuild_tree(manifest.get('tree') or [], by_id, group)
+    for layer_id, layer in by_id.items():
+        if layer_id not in placed:
+            group.addLayer(layer)
+    notes.append('Added {} layer(s) to the group "{}".'.format(
+        len(by_id), group.name()))
+    return {'folder': root, 'added': len(by_id), 'warnings': warnings,
+            'notes': notes}
+
+
+def _rebuild_tree(entries, by_id, parent):
+    """Recreate the recorded groups. Returns the ids actually placed."""
+    placed = set()
+    for entry in entries:
+        if entry.get('type') == 'group':
+            child = parent.addGroup(entry.get('name') or 'Group')
+            placed |= _rebuild_tree(entry.get('children') or [], by_id, child)
+        else:
+            layer = by_id.get(entry.get('id'))
+            if layer is not None:
+                parent.addLayer(layer)
+                placed.add(entry.get('id'))
+    return placed
+
+
+def merge_trees(existing, new):
+    """`new` folded into `existing`: a group of the same name is shared."""
+    merged = [dict(entry, children=list(entry.get('children') or []))
+              if entry.get('type') == 'group' else dict(entry)
+              for entry in existing]
+    for entry in new:
+        match = None
+        if entry.get('type') == 'group':
+            match = next((m for m in merged if m.get('type') == 'group'
+                          and m.get('name') == entry.get('name')), None)
+        if match is not None:
+            match['children'] = merge_trees(match['children'],
+                                            entry.get('children') or [])
+        else:
+            merged.append(entry)
+    return merged
+
+
+def _remap_tree(entries, id_map):
+    """Rename ids to the manifest's, dropping layers that were not packaged."""
+    out = []
+    for entry in entries:
+        if entry.get('type') == 'group':
+            children = _remap_tree(entry.get('children') or [], id_map)
+            if children:
+                out.append(dict(entry, children=children))
+        elif entry.get('id') in id_map:
+            out.append({'type': 'layer', 'id': id_map[entry['id']]})
+    return out
 
 
 # ------------------------------------------------------------------- reading
@@ -369,6 +712,85 @@ def _is_within(root, target):
         return os.path.commonpath([root, target]) == root
     except ValueError:                      # different drives on Windows
         return False
+
+
+def load_entry_layer(entry, root):
+    """Build the styled layer one manifest entry describes.
+
+    `root` is the folder the package was extracted to. Returns
+    `(layer or None, warnings, notes)`: the layer is None when it cannot be
+    loaded, and the two lists are messages for whoever called to show.
+    """
+    warnings, notes = [], []
+    name = entry.get('name') or 'layer'
+    gpkg = os.path.join(root, DATA_GPKG)
+
+    if entry.get('kind') == 'vector':
+        table = entry.get('table')
+        if not table or not os.path.exists(gpkg):
+            warnings.append('The package has no data for "{}".'.format(name))
+            return None, warnings, notes
+        layer = QgsVectorLayer('{}|layername={}'.format(gpkg, table), name,
+                               'ogr')
+    else:
+        relative = (entry.get('file') or '').replace('/', os.sep)
+        source = os.path.join(root, relative)
+        if not relative or not os.path.exists(source):
+            warnings.append('The package has no file for "{}".'.format(name))
+            return None, warnings, notes
+        layer = QgsRasterLayer(source, name)
+
+    if not layer.isValid():
+        warnings.append('Could not load "{}" from the package.'.format(name))
+        return None, warnings, notes
+
+    style = entry.get('style')
+    if style:
+        style_path = os.path.join(root, style.replace('/', os.sep))
+        if os.path.exists(style_path):
+            message, ok = layer.loadNamedStyle(style_path)
+            if not ok:
+                warnings.append('Could not apply the style for "{}": {}'.format(
+                    name, message))
+            else:
+                # Only after the style has loaded do the symbol layers exist
+                # to be rewritten.
+                rewritten = rewrite_resources(
+                    layer, entry.get('resources') or {}, root)
+                if rewritten:
+                    notes.append(
+                        'Repointed {} symbol(s) of "{}" at the packaged '
+                        'resources.'.format(rewritten, name))
+    return layer, warnings, notes
+
+
+def cache_root():
+    """Where packages are unpacked for browsing, in the QGIS profile."""
+    from qgis.core import QgsApplication
+    return os.path.join(QgsApplication.qgisSettingsDirPath(),
+                        'kga_package_cache')
+
+
+def extract_cached(path, feedback=None):
+    """Unpack `path` once into the browse cache and return the folder.
+
+    The folder name carries the package's size and modification time, so a
+    package that has been added to unpacks afresh, while browsing the same
+    one twice costs nothing. Older unpackings are left alone: a project may
+    still hold layers pointing into them.
+    """
+    stat = os.stat(path)
+    key = hashlib.sha1(os.path.abspath(path).lower().encode('utf-8'),
+                        usedforsecurity=False).hexdigest()
+    folder = os.path.join(cache_root(), '{}_{}_{}'.format(
+        key[:12], stat.st_mtime_ns, stat.st_size))
+    done = os.path.join(folder, '.complete')
+    if os.path.exists(done):
+        return folder
+    extract(path, folder, feedback)
+    with open(done, 'w') as handle:
+        handle.write(os.path.basename(path))
+    return folder
 
 
 # ------------------------------------------------------- symbol resource walk

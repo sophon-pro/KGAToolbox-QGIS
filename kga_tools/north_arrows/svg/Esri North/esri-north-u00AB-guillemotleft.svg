@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – guillemotleft
+     Glyph "guillemotleft" at U+00AB (type '«' – LEFT-POINTING DOUBLE ANGLE QUOTATION MARK) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="828.1" height="834.1" viewBox="-16 -818 828.1 834.1">
+  <path d="M346 -442 401 -728 456 -442 728 -386 456 -333 401 -73Q385 -145 373 -207Q361 -269 346 -334Q322 -339 286.5 -346Q251 -353 214.5 -360Q178 -367 145.5 -373Q113 -379 94 -382.5Q75 -386 73 -386ZM350 -336 401 -96V-385ZM350 -439 96 -386H400ZM401 -705V-387L451 -439ZM402 -386 451 -336 705 -386ZM54 -358H47L34 -404H33L21 -358H13L0 -411H7Q9 -404 10.5 -394Q12 -384 17 -368L29 -411H38Q50 -370 50 -368L60 -411H69ZM414 -749 387 -789V-749H379V-802H387L413 -762V-802H422V-749ZM755 -358V-411H794V-405H763V-389H792V-383H763V-365H796V-358ZM387 -19Q387 -7 402 -7Q415 -7 415 -15Q415 -19 409 -22Q407 -23 399.5 -24.5Q392 -26 389 -28Q382 -31 382 -39Q382 -45 387 -49.5Q392 -54 400 -54Q418 -54 420 -38H414Q412 -47 401 -47Q389 -47 389 -39Q389 -36 390 -35Q392 -33 401 -31.5Q410 -30 412 -28Q421 -24 421 -16Q421 0 402 0Q380 0 380 -19Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

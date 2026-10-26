@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North (Khmer) – V
+     Glyph "V" at U+0056 (type 'V' – LATIN CAPITAL LETTER V) of the "ESRI North (Khmer)" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="513" height="833" viewBox="-16 -817 513 833">
+  <path d="M481 -653H383V-492H123V-653H0L250 -801ZM383 0H123V-190H383ZM383 -224H123V-359H383ZM383 -392H123V-462H383ZM281 -173Q265 -167 265 -154Q265 -151 269.5 -149.5Q274 -148 280 -147Q286 -146 290.5 -144Q295 -142 295 -138L290 -134H285H279Q275 -134 269 -135Q263 -136 255 -138L234 -151L214 -138L196 -125V-80Q199 -82 203.5 -82.5Q208 -83 216 -85Q224 -85 229 -82.5Q234 -80 234 -76Q226 -71 215 -68Q204 -65 196 -64Q201 -48 213 -36Q223 -28 232.5 -24Q242 -20 253 -20Q277 -20 292.5 -38.5Q308 -57 308 -85Q303 -72 291 -61.5Q279 -51 267 -49Q254 -49 242 -56Q239 -58 234 -64L244 -73Q251 -80 251 -89Q251 -97 242 -104.5Q233 -112 220 -112Q212 -112 209 -110.5Q206 -109 201 -106Q201 -110 205 -114Q207 -119 221 -119Q231 -119 240 -115Q259 -109 261 -109Q275 -109 290 -121Q308 -133 308 -153Q308 -161 300.5 -167Q293 -173 281 -173Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

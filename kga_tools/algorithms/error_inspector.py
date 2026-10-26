@@ -188,7 +188,11 @@ class ErrorInspectorDialog(QDialog):
             for layer in layers:
                 # An older error layer may not carry the field at all, and
                 # feat.attribute() raises KeyError rather than returning None.
+                # Paddy Irrigation Tools's Topology_issues layer calls it
+                # "issue" instead.
                 error_idx = layer.fields().lookupField('error')
+                if error_idx < 0:
+                    error_idx = layer.fields().lookupField('issue')
                 for feat in layer.getFeatures():
                     row = self.table.rowCount()
                     self.table.insertRow(row)
@@ -245,7 +249,8 @@ class ErrorInspectorDialog(QDialog):
             'point not on vertex': 'Point not on boundary',
             'point not on boundary': 'Point not on boundary',
         }
-        return names.get(normalized, str(value or 'Unknown error'))
+        text = str(value or 'Unknown error')
+        return names.get(normalized, text[:1].upper() + text[1:])
 
     def zoom_to_error(self):
         target = self._selected_target()

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North (Khmer) – backslash
+     Glyph "backslash" at U+005C (type '\' – REVERSE SOLIDUS) of the "ESRI North (Khmer)" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="727.2" height="810.2" viewBox="-15.6 -794.6 727.2 810.2">
+  <path d="M390 0V-345H504L338 -713L192 -345H304V0H0L338 -779L696 0ZM441 -76 458 -73 480 -98 505 -74 521 -76V-135Q519 -140 516 -141L509 -137L508 -134V-91L480 -116L454 -89V-150L435 -164L442 -170Q443 -170 447 -173.5Q451 -177 453 -177L470 -167L483 -161Q491 -157 497 -157Q502 -157 508 -163L516 -176Q518 -180 519.5 -190.5Q521 -201 521 -208Q521 -223 508 -226H504Q496 -226 493 -220V-217L495 -212Q497 -210 504 -208L508 -203Q509 -203 509 -198Q509 -182 508 -182Q507 -180 505.5 -178Q504 -176 503 -172Q498 -169 496 -169Q495 -169 493 -170Q491 -170 485 -172L476 -176Q475 -177 474 -177L454 -188L437 -177L421 -164L441 -149Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

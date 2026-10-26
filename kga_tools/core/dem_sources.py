@@ -41,10 +41,11 @@ from contextlib import suppress
 from html import unescape
 from urllib.parse import quote
 
-from qgis.core import (QgsApplication, QgsCoordinateReferenceSystem,
+from qgis.core import (Qgis, QgsApplication, QgsCoordinateReferenceSystem,
                        QgsCoordinateTransform, QgsDistanceArea, QgsGeometry,
                        QgsProject, QgsRectangle, QgsSettings)
 
+from .compat import enum_value
 from .data_sources import KIND_DEM, DataSource, Option, SourceItem
 from .net import (METADATA_TTL, NetError, cached_path, download_to, fetch_body,
                   is_fresh, user_agent)
@@ -657,9 +658,47 @@ def save_api_key(key):
 
 # -------------------------------------------------------------- writing it out
 
+def gdal_srs(crs):
+    """`crs` as text GDAL accepts for ``dstSRS``.
+
+    QGIS's default WKT is not always readable by GDAL (custom and some
+    compound systems), which gdalwarp reports as "Invalid SRS for -t_srs".
+    The authority code is tried first, then the WKT flavours, each checked
+    with OSR before it is handed on.
+    """
+    from osgeo import osr
+
+    candidates = []
+    authid = crs.authid()
+    if authid and ':' in authid and not authid.upper().startswith('USER'):
+        candidates.append(authid)
+    crs_class = QgsCoordinateReferenceSystem
+    for flavour in (
+            enum_value((Qgis, 'CrsWktVariant.Preferred'), (crs_class, 'WktVariant.WKT_PREFERRED'),
+                       (crs_class, 'WKT_PREFERRED')),
+            enum_value((Qgis, 'CrsWktVariant.Wkt2_2019'), (crs_class, 'WktVariant.WKT2_2019'),
+                       (crs_class, 'WKT2_2019')),
+            enum_value((Qgis, 'CrsWktVariant.Wkt1Gdal'), (crs_class, 'WktVariant.WKT1_GDAL'),
+                       (crs_class, 'WKT1_GDAL'))):
+        with suppress(Exception):
+            candidates.append(crs.toWkt(flavour))
+    candidates.append(crs.toProj())
+    for text in candidates:
+        if not text:
+            continue
+        reference = osr.SpatialReference()
+        with suppress(Exception):
+            if reference.SetFromUserInput(text) == 0:
+                return text
+    raise DemError('The coordinate system {0} cannot be used for the output. '
+                   'Choose another one (for example the DEM\'s own, or a '
+                   'standard EPSG code).'.format(
+                       authid or crs.description() or 'chosen'))
+
+
 def warp_to_file(sources, roi, out_path, dst_crs=None, progress=None,
                  nodata=NODATA, resample='bilinear', output_type=None,
-                 snap=False):
+                 snap=False, source_is_wgs84=True):
     """Mosaic, clip and (optionally) reproject `sources` into one GeoTIFF.
 
     `sources` are paths or ``/vsicurl/`` addresses, all in one CRS. The ROI
@@ -673,6 +712,9 @@ def warp_to_file(sources, roi, out_path, dst_crs=None, progress=None,
     means something else, a ``nodata`` that fits their Byte type, and
     ``snap=True``, which keeps the output on the source's own pixel grid when
     it is not reprojected instead of shifting it to the ROI's corner.
+
+    `source_is_wgs84` is True for every published open dataset. A local file
+    in some other CRS says False, so that asking for WGS 84 back still warps.
 
     Returns True when the file was written, False when cancelled. Raises
     :class:`DemError` otherwise.
@@ -691,7 +733,7 @@ def warp_to_file(sources, roi, out_path, dst_crs=None, progress=None,
         return 1
 
     reproject = dst_crs is not None and dst_crs.isValid() \
-        and dst_crs.authid() != WGS84
+        and (dst_crs.authid() != WGS84 or not source_is_wgs84)
     west, south, east, north = roi.bounds()
 
     options = dict(
@@ -707,7 +749,7 @@ def warp_to_file(sources, roi, out_path, dst_crs=None, progress=None,
     if output_type is not None:
         options['outputType'] = output_type
     if reproject:
-        options['dstSRS'] = dst_crs.toWkt()
+        options['dstSRS'] = gdal_srs(dst_crs)
         options['resampleAlg'] = resample
     elif resample != 'bilinear':
         options['resampleAlg'] = resample

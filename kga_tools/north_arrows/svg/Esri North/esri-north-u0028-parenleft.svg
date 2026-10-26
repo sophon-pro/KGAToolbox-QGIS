@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – parenleft
+     Glyph "parenleft" at U+0028 (type '(' – LEFT PARENTHESIS) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="139.1" height="831" viewBox="-10.2 -816 139.1 831">
+  <path d="M98 -636 69 -666V-1H44V-666L15 -636Q0 -651 9.5 -662.5Q19 -674 29.5 -693.5Q40 -713 49 -740Q58 -767 58 -800Q58 -768 66.5 -741Q75 -714 85.5 -694Q96 -674 113 -651Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

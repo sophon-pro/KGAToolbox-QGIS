@@ -1,6 +1,6 @@
 # KGA Toolbox — Tool Metadata
 
-Reference documentation for all **45 tools** the KGA Toolbox registers, one file
+Reference documentation for all **50 tools** the KGA Toolbox registers, one file
 per tool.
 
 Each file is named after the algorithm's `name()` — the same key used by
@@ -21,7 +21,7 @@ cannot run headless or inside a model.
 
 ---
 
-## KGA Data Management — 9
+## KGA Data Management — 10
 
 | Tool | What it does |
 |---|---|
@@ -29,6 +29,8 @@ cannot run headless or inside a model.
 | [Imagery Downloader](imagery_downloader.md) | Download web-map imagery tiles for an area, stitch them into one georeferenced image and add it to the map. *(Interactive)* |
 | [Create Layer Package](create_layer_package.md) | Package layers, styles and resources into one `.kgalp` that opens anywhere. |
 | [Open Layer Package](open_layer_package.md) | Unpack a `.kgalp` and rebuild its layers, styles and group structure. |
+| [Add Layers to Layer Package](add_to_layer_package.md) | Add project layers or layers browsed from disk to an existing `.kgalp`. *(Interactive)* |
+| [Duplicate to New Layer](duplicate_to_new_layer.md) | Copy a layer and its data so the copy is independent of the original; also on the layer right-click menu. *(Interactive)* |
 | [Create Points From Table](create_points_from_table.md) | Build a point layer from the XY columns of a CSV, Excel or ODS table. |
 | [GeoPackage to Shapefiles](gpkgtoshapefiles.md) | Export every spatial layer of a GeoPackage as its own shapefile. |
 | [Layer Export / Import](layerexportimport.md) | Bulk-export project layers to file, and pull layers back in. *(Interactive)* |
@@ -45,9 +47,9 @@ cannot run headless or inside a model.
 | [Generate Field Mapping](generate_field_mapping.md) | Match two schemas and save the mapping as reusable JSON. |
 | [Validate Against Domains](validate_against_domains.md) | List every attribute value its field's domain rejects. |
 
-## KGA Editing Tools — 9
+## KGA Editing Tools — 10
 
-All nine are interactive: they open a modeless pane that owns its own map tool.
+The first nine are interactive: they open a modeless pane that owns its own map tool. Planarize Lines runs as a normal Processing tool.
 
 | Tool | What it does |
 |---|---|
@@ -60,14 +62,14 @@ All nine are interactive: they open a modeless pane that owns its own map tool.
 | [Merge](merge_features.md) | Combine features into one, choosing whose attributes survive. |
 | [Clip](clip_features.md) | Clip chosen layers with the features you pick. |
 | [Sequential Numbering](sequential_numbering.md) | Number features by clicking or dragging across them. |
+| [Planarize Lines](planarizelines.md) | Split lines at their intersections. |
 
-## KGA Geometry Utilities — 5
+## KGA Geometry Utilities — 4
 
 | Tool | What it does |
 |---|---|
 | [Duplicate Checker](duplicate_checker.md) | Find features repeating a field value or a geometry. *(Interactive)* |
 | [Geometry Conversion](geometry_conversion_dynamic.md) | Explode polygons and lines into segments, points or vertices. *(Interactive)* |
-| [Planarize Lines](planarizelines.md) | Split lines at their intersections. |
 | [Update Geometry Fields](updategeometryfields.md) | Fill `Shape_Length` and `Shape_Area` on the active layer. |
 | [Update X/Y or Lat/Lon Fields](updatexyfields.md) | Write coordinate columns onto a layer. |
 
@@ -90,25 +92,61 @@ All nine are interactive: they open a modeless pane that owns its own map tool.
 | [Export Layers to KML](export_layers_to_kml.md) | Write layers to KML/KMZ for Google Earth, labels included. |
 | [Raster Format Converter](raster_format_converter.md) | Convert a raster between ECW, GeoTIFF, JPEG 2000, IMG, PNG and JPEG — resumably. |
 
-## KGA Irrigation Tools — 6
+## KGA Irrigation Tools — 8
 
 | Tool | What it does |
 |---|---|
 | [CSV to DEM and Contour](csvtodemcontour.md) | Turn a surveyed point CSV into a DEM and contour lines. |
 | [DEM Elevation Correction and Point Sample Report](demelevationcorrectionandpointsamplereport.md) | Correct DEMs against a reference, merge them, and report the result. |
-| [DEM Point Sample Export to Excel](dempointsampleexport.md) | Sample several DEMs on a grid and export the comparison to Excel. |
-| [DEM and Contour Tool](demcontourtool.md) | The resumable, tiled version of the CSV/DEM-to-contour workflow. |
 | [Reservoir Rating Curve](reservoir_rating_curve.md) | Stage-discharge curve from weir, orifice and pipe outlets. |
-| [Storage Capacity Curve](storage_capacity_curve.md) | Volume and area against elevation for a reservoir. |
+| [Reservoir Storage Analyzer](reservoir_storage_analyzer.md) | Elevation-area-volume curves, inundation maps, volume-to-level lookup and depth rasters for a reservoir, with an excavated-pond option. *(Interactive)* |
+| [Paddy Irrigation Tools](highest_point_per_block.md) | Two steps: the high (and low) ground of every paddy block from a DEM (trees and dikes filtered out, with slope and flow direction), then a gravity command check Field - TC - SC - MC - Reservoir with canal water levels. *(Interactive)* |
+| [Generate Contour for ROI](generate_contour_roi.md) | Download the free Copernicus DEM for an area and contour it, styled and labelled. *(Interactive)* |
+| [Generate River or Stream for ROI](generate_stream_roi.md) | Download the free Copernicus DEM for an area and extract its river and stream network, graded and checked. *(Interactive)* |
 
-## KGA Mapping — 2
+## KGA Mapping — 4
 
 | Tool | What it does |
 |---|---|
+| [Callout Label Studio](callout_label_studio.md) | Callout labels — leader lines, elbows, curved arrows, balloons — with organized layouts and a number key, from one window. *(Interactive)* |
+| [KGA Layer Symbol](kga_layer_symbol.md) | Gallery of ready-made symbols, icons, textures and colour ramps; also a tab in Layer Properties under Symbology. *(Interactive)* |
 | [Add Grid to Layout](add_grid.md) | Put a coordinate grid — including a full MGRS grid — on a layout map, from one window. *(Interactive)* |
 | [DEM Legend Bar](dem_legend_bar.md) | Render a hypsometric legend bar as a PNG for print. |
 
 ---
+
+## KGA Editor toolbar (not a Processing tool)
+
+The second KGA toolbar holds **Edit Session**, **Create Features**, **Modify Features** and **Open Feature Attribute**.
+They are map tools, panes and switches, not Processing algorithms, so they do not appear in the
+Geoprocessing panel or a model and are not counted above. Their reference is
+`kga_tools/editor/README.md`, with a page each for [Create Features](create_features.md),
+[Modify Features](modify_features.md) (with a page for each of its 30 tools in [modify feature](modify%20feature/README.md)) and [Open Feature Attribute](open_feature_attribute.md).
+QGIS 3.44 or newer; Edit Session starts **Off**.
+
+## Layer Auto-Sort (not a Processing tool)
+
+[Layer Auto-Sort](layer_auto_sort.md) orders the Layers panel by data type (points, lines, polygons,
+rasters, web basemaps last) in the background. It is a menu and a settings window with no toolbar button,
+not a Processing algorithm, so it does not appear in the Geoprocessing panel or a model and is not counted
+above. QGIS 3.30 or newer; Auto-sort New Layers is **On** by default and can be switched off in the KGA
+Toolbox menu.
+
+## Other features (not Processing tools)
+
+Windows, panels and menu commands. They are not counted above and do not appear in the Geoprocessing panel
+or a model.
+
+| Feature | What it does |
+|---|---|
+| [Catalog and Workspaces](catalog_and_workspaces.md) | ArcGIS Pro's Catalog pane, workspace folders, scratch Untitled project, tool output in the project, Save choice. QGIS 3.36+ |
+| [Project Packages](project_packages.md) | Share Workspace, Import Project Package and Convert Project to Workspace |
+| [Browser Copy and Paste](browser_copy_paste.md) | Copy and Paste on the Browser and Catalog right-click menu, plus Add to Map |
+| [Data Explorer](data_explorer.md) | Media-browser style dock to browse, search, preview and ingest geodata. QGIS 3.44+ |
+| [Map Tabs and Layout Tools](maps_and_layouts.md) | Maps and layouts as tabs, Contents panel, Layout Guides, Khmer North Arrows |
+| [Clip Basemap by Boundary](clip_basemap.md) | Show a basemap only inside a boundary; Add Quick Basemap |
+| [KGA Settings and Check for Update](kga_settings.md) | New-project defaults, Pro-style selection and Layers panel, start page, theme, Shape_Length and Shape_Area |
+| [Add Quick Template](add_quick_template.md) | Create an empty point, line or polygon layer with standard fields |
 
 ## Things worth knowing across the toolbox
 
@@ -116,11 +154,11 @@ All nine are interactive: they open a modeless pane that owns its own map tool.
   Attributes from Excel* and *Apply Domain Library* all start with **Dry run
   ticked**: the first run writes nothing and produces a report. That is the
   intended workflow, not an obstacle.
-- **Three tools are resumable.** *DEM and Contour Tool*, *DEM Elevation
+- **Two tools are resumable.** *DEM Elevation
   Correction* and *Raster Format Converter* write a `checkpoint.json` beside
   their output and continue from it when re-run with the same parameters.
   *Force re-run*, or *Resume* switched off, ignores it.
-- **Seventeen algorithms take no Processing parameters.** They open a window
+- **Twenty-one algorithms take no Processing parameters.** They open a window
   instead, and the plugin runs them directly rather than showing an empty
   Processing dialog. They need the QGIS canvas: they cannot run headless or
   inside a model.
@@ -130,8 +168,6 @@ All nine are interactive: they open a modeless pane that owns its own map tool.
 - **Close containers elsewhere first.** A `.gdb` open in ArcGIS has a `.lock`
   file, and a GeoPackage the project still has open cannot be replaced on
   Windows. The conversion tools check and say so.
-- **`demcontourtool` is the only algorithm without a `helpUrl()`**, so its Help
-  button in the Processing dialog has nothing to open.
 
 ## Maintaining these files
 

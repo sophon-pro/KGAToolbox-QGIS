@@ -186,6 +186,50 @@ def fetch_body(url):
     return status, bytes(content or b'')
 
 
+class Reply(object):
+    """What :func:`request` hands back: the status and the body."""
+
+    def __init__(self, status, body):
+        self.status = status
+        self.body = body
+
+
+def request(url, headers=None):
+    """GET `url` with extra `headers`; return a :class:`Reply` whatever the status.
+
+    This exists for APIs that need a credential in a header, which :func:`get`
+    has no way to send. GitHub answers an authenticated asset request with a
+    redirect to a signed address on another host, and that host rejects a
+    request carrying both the signature and the credential. QGIS's blocking
+    request follows the redirect itself and does not forward custom headers to
+    it, which is what makes this safe; the KGA release tests assert it, so a
+    QGIS release that changed that would fail them rather than leak a token.
+
+    Raises :class:`NetError` only when nothing came back at all.
+    """
+    from qgis.PyQt.QtNetwork import QNetworkRequest
+
+    req = _request(url)
+    for name, value in (headers or {}).items():
+        req.setRawHeader(name.encode('ascii'), value.encode('utf-8'))
+
+    fetcher = QgsBlockingNetworkRequest()
+    with suppress(AttributeError):          # pragma: no cover - older QGIS
+        fetcher.setTimeout(TIMEOUT * 1000)
+    fetcher.get(req, True)
+    reply = fetcher.reply()
+    content = reply.content()
+
+    status = None
+    with suppress(Exception):               # pragma: no cover - defensive
+        status = reply.attribute(
+            QNetworkRequest.Attribute.HttpStatusCodeAttribute)
+    if status is None and not content:
+        raise NetError(_describe_error(
+            reply, 'The request to the data source failed.'))
+    return Reply(int(status) if status is not None else 0, bytes(content or b''))
+
+
 def get_json(url):
     """GET one URL and parse it as JSON."""
     raw = get(url)

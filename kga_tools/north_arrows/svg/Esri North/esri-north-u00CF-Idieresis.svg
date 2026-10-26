@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – Idieresis
+     Glyph "Idieresis" at U+00CF (type 'Ï' – LATIN CAPITAL LETTER I WITH DIAERESIS) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="300" height="833" viewBox="-16 -817 300 833">
+  <path d="M182 -439H173L171 -453Q167 -466 159 -475Q151 -484 139 -486V0H130V-801H139ZM168 -481 139 -734V-498Q157 -493 168 -481ZM59 -199V-312H101V-327H0V-312H42V-199ZM268 -199V-327H253V-228L187 -327H169V-199H186V-297L251 -199Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

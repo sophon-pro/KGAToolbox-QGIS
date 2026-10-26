@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – grave
+     Glyph "grave" at U+0060 (type '`' – GRAVE ACCENT) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="573.9" height="802.9" viewBox="-15.4 -787.4 573.9 802.9">
+  <path d="M450 -500 317 -634V0H222V-634L101 -500H0L266 -772L543 -500ZM267 -755 26 -510H94L232 -659V-18H308V-659L456 -510H517Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

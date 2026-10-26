@@ -5,16 +5,20 @@ from contextlib import suppress
 
 from osgeo import ogr, gdal
 
-from qgis.PyQt.QtCore import QCoreApplication, Qt, pyqtSignal
+from qgis.PyQt.QtCore import QCoreApplication, Qt, QTimer, pyqtSignal
+from qgis.PyQt.QtXml import QDomDocument
 from qgis.PyQt.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
                                  QTabWidget, QWidget, QComboBox,
                                  QTableWidget, QTableWidgetItem, QFileDialog,
                                  QLineEdit, QLabel, QMessageBox, QHeaderView,
                                  QAbstractItemView, QCheckBox,
                                  QProgressDialog, QApplication)
-from qgis.core import (QgsProcessingAlgorithm, QgsMimeDataUtils, QgsProject,
+from qgis.core import (NULL, QgsFeatureRequest, QgsProcessingAlgorithm,
+                       QgsMimeDataUtils, QgsProject,
                        QgsVectorLayer, QgsVectorFileWriter, QgsWkbTypes)
 from ..branding import docs_url, help_button
+from ..core import output_defaults as od
+from ..gui.output_fields import FollowingField
 
 try:
     from qgis.utils import iface
@@ -280,6 +284,8 @@ class LayerExportImportDialog(QDialog):
         self.btn_browse_out.clicked.connect(self.browse_export_folder)
         out_layout.addWidget(QLabel("Output Folder:"))
         out_layout.addWidget(self.export_dir_le, 1)
+        self._dir_follow = FollowingField(self.export_dir_le)
+        self._dir_follow.suggest_folder()       # the project folder
         out_layout.addWidget(self.btn_browse_out)
         self.layout_export.addLayout(out_layout)
 
@@ -291,11 +297,9 @@ class LayerExportImportDialog(QDialog):
         self.layout_export.addWidget(self.chk_export_overwrite)
 
         self.btn_run_export = QPushButton("Export Checked Layers")
-        self.btn_run_export.setMinimumHeight(28)
         self.btn_run_export.clicked.connect(self.run_export)
-        self.layout_export.addWidget(self.btn_run_export)
 
-        self.tabs.addTab(self.tab_export, "1. Export Layers")
+        self.tabs.addTab(self.tab_export, "Export Layers")
 
         # ---------------- Tab 2: Import ----------------
         self.tab_import = QWidget()
@@ -357,17 +361,23 @@ class LayerExportImportDialog(QDialog):
         self.layout_import.addWidget(self.chk_reproject)
 
         self.btn_run_import = QPushButton("Import Checked Layers")
-        self.btn_run_import.setMinimumHeight(28)
         self.btn_run_import.clicked.connect(self.run_import)
-        self.layout_import.addWidget(self.btn_run_import)
 
-        self.tabs.addTab(self.tab_import, "2. Import Layers")
+        self.tabs.addTab(self.tab_import, "Import Layers")
+
+        self._build_temp_tab()
+        self.tabs.addTab(self.tab_temp, "Save Temporary Layers")
 
         self.layout.addWidget(self.tabs)
 
         close_layout = QHBoxLayout()
         close_layout.addWidget(help_button('layerexportimport', self))
         close_layout.addStretch()
+        for button in (self.btn_run_export, self.btn_run_import,
+                       self.btn_run_temp):
+            close_layout.addWidget(button)
+        self.tabs.currentChanged.connect(self._on_tab_changed)
+        self._on_tab_changed(self.tabs.currentIndex())
         self.btn_close = QPushButton("Close")
         self.btn_close.clicked.connect(self.close)
         close_layout.addWidget(self.btn_close)
@@ -376,6 +386,7 @@ class LayerExportImportDialog(QDialog):
         self.on_format_changed(self.export_format_cb.currentIndex())
         self.load_project_layers()
         self.update_import_count()
+        self._start_temp_watch()
 
     # ---------------- Drops anywhere on the window ----------------
     def dragEnterEvent(self, event):
@@ -509,6 +520,13 @@ class LayerExportImportDialog(QDialog):
         self.export_table.blockSignals(False)
         self.update_export_count()
 
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._dir_follow.retarget_folder()      # the project may have changed
+        self._temp_db_follow.suggest_path(od.project_database())
+        self._temp_dir_follow.retarget_folder()
+        self.load_temp_layers()
+
     def on_format_changed(self, index):
         """The GeoPackage file name only means anything for the GPKG format."""
         single_file = EXPORT_FORMATS[index][3]
@@ -516,7 +534,9 @@ class LayerExportImportDialog(QDialog):
         self.gpkg_name_le.setVisible(single_file)
 
     def browse_export_folder(self):
-        folder = QFileDialog.getExistingDirectory(self, "Select Output Folder")
+        folder = QFileDialog.getExistingDirectory(
+            self, "Select Output Folder",
+            self.export_dir_le.text().strip() or od.project_folder())
         if folder:
             self.export_dir_le.setText(folder)
 
@@ -651,9 +671,38 @@ class LayerExportImportDialog(QDialog):
             box.setDetailedText("\n".join(errors[:50]))
         box.exec()
 
+    @staticmethod
+    def _skip_bad_fid(layer, options):
+        """Don't write a copied 'fid' field whose values would collide.
+
+        A GeoPackage uses a field called fid as the row id. A layer copied
+        out of another GeoPackage (e.g. selected features pasted as a
+        temporary layer) can carry the same fid on every row, and then only
+        the first row is written. Dropping the field lets the target number
+        the rows itself; a fid column that is unique is kept as it is.
+        """
+        fields = layer.fields()
+        index = fields.lookupField('fid')
+        if index < 0:
+            return
+        seen = set()
+        request = QgsFeatureRequest().setSubsetOfAttributes([index])
+        if options.onlySelectedFeatures:
+            request.setFilterFids(layer.selectedFeatureIds())
+        for feature in layer.getFeatures(request):
+            value = feature.attribute(index)
+            if value is None or value == NULL or value in seen:
+                break
+            seen.add(value)
+        else:
+            return          # all unique: keep it
+        options.attributes = [i for i in range(fields.count()) if i != index]
+
     def _write_layer(self, layer, dest_path, options):
         """Run QgsVectorFileWriter across API versions. Returns (ok, message)."""
         ctx = QgsProject.instance().transformContext()
+        if options.driverName == 'GPKG':
+            self._skip_bad_fid(layer, options)
         try:
             res = QgsVectorFileWriter.writeAsVectorFormatV3(layer, dest_path, ctx, options)
         except AttributeError:
@@ -670,6 +719,375 @@ class LayerExportImportDialog(QDialog):
         else:
             err, msg = res, ""
         return err == QgsVectorFileWriter.WriterError.NoError, msg
+
+    # ---------------- Tab 3: save temporary (memory) layers ----------------
+    def _build_temp_tab(self):
+        self.tab_temp = QWidget()
+        lay = QVBoxLayout(self.tab_temp)
+        lay.addWidget(QLabel(
+            "Temporary (memory) layers in the Layers panel. The list updates "
+            "by itself as layers come and go:"))
+
+        self.temp_table = QTableWidget()
+        self.temp_table.setColumnCount(4)
+        self.temp_table.setHorizontalHeaderLabels(
+            ["Layer", "Geometry", "Features", "Save As"])
+        self.temp_table.setSelectionBehavior(
+            QAbstractItemView.SelectionBehavior.SelectRows)
+        self.temp_table.setAlternatingRowColors(True)
+        self.temp_table.verticalHeader().setDefaultSectionSize(22)
+        self.temp_table.itemChanged.connect(self.update_temp_count)
+        self.temp_table.cellDoubleClicked.connect(self.toggle_temp_row)
+        header = self.temp_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        header.setHighlightSections(False)
+        lay.addWidget(self.temp_table)
+
+        buttons = QHBoxLayout()
+        btn_all = QPushButton("Select All")
+        btn_all.clicked.connect(lambda: self._set_all_temp(True))
+        btn_none = QPushButton("Clear All")
+        btn_none.clicked.connect(lambda: self._set_all_temp(False))
+        buttons.addWidget(btn_all)
+        buttons.addWidget(btn_none)
+        buttons.addStretch()
+        self.temp_count_lbl = QLabel()
+        buttons.addWidget(self.temp_count_lbl)
+        lay.addLayout(buttons)
+
+        target = QHBoxLayout()
+        target.addWidget(QLabel("Save To:"))
+        self.temp_target_cb = QComboBox()
+        self.temp_target_cb.addItem("Project database (GeoPackage)", 'db')
+        self.temp_target_cb.addItem("Folder (one file per layer)", 'folder')
+        self.temp_target_cb.currentIndexChanged.connect(self.on_temp_target_changed)
+        target.addWidget(self.temp_target_cb, 1)
+        lay.addLayout(target)
+
+        db_row = QHBoxLayout()
+        self.temp_db_lbl = QLabel("GeoPackage:")
+        self.temp_db_le = QLineEdit()
+        self.temp_db_le.setPlaceholderText(
+            "A GeoPackage; it is created if it does not exist...")
+        self._temp_db_follow = FollowingField(self.temp_db_le)
+        self._temp_db_follow.suggest_path(od.project_database())
+        self.temp_db_btn = QPushButton("Browse")
+        self.temp_db_btn.clicked.connect(self.browse_temp_db)
+        db_row.addWidget(self.temp_db_lbl)
+        db_row.addWidget(self.temp_db_le, 1)
+        db_row.addWidget(self.temp_db_btn)
+        lay.addLayout(db_row)
+
+        dir_row = QHBoxLayout()
+        self.temp_fmt_lbl = QLabel("Format:")
+        self.temp_fmt_cb = QComboBox()
+        for label, driver, extension, single in EXPORT_FORMATS:
+            if not single and driver != 'CSV' and driver != 'KML':
+                self.temp_fmt_cb.addItem(label.split("  -")[0],
+                                         (driver, extension))
+        self.temp_fmt_cb.insertItem(0, "GeoPackage (.gpkg)", ('GPKG', '.gpkg'))
+        self.temp_fmt_cb.setCurrentIndex(0)
+        self.temp_dir_lbl = QLabel("Folder:")
+        self.temp_dir_le = QLineEdit()
+        self.temp_dir_le.setPlaceholderText("Select the output folder...")
+        self._temp_dir_follow = FollowingField(self.temp_dir_le)
+        self._temp_dir_follow.suggest_folder()
+        self.temp_dir_btn = QPushButton("Browse")
+        self.temp_dir_btn.clicked.connect(self.browse_temp_dir)
+        dir_row.addWidget(self.temp_fmt_lbl)
+        dir_row.addWidget(self.temp_fmt_cb)
+        dir_row.addWidget(self.temp_dir_lbl)
+        dir_row.addWidget(self.temp_dir_le, 1)
+        dir_row.addWidget(self.temp_dir_btn)
+        lay.addLayout(dir_row)
+
+        self.chk_temp_replace = QCheckBox(
+            "Replace the temporary layer in the project with the saved one "
+            "(keeps its style and position)")
+        self.chk_temp_replace.setChecked(True)
+        lay.addWidget(self.chk_temp_replace)
+
+        # Lives in the window's bottom row, next to Close (see __init__).
+        self.btn_run_temp = QPushButton("Save Checked Layers")
+        self.btn_run_temp.clicked.connect(self.run_save_temp)
+
+        self.on_temp_target_changed()
+
+    def _on_tab_changed(self, _index):
+        """Each tab's run button sits in the bottom row, shown for its tab only."""
+        current = self.tabs.currentWidget()
+        self.btn_run_export.setVisible(current is self.tab_export)
+        self.btn_run_import.setVisible(current is self.tab_import)
+        self.btn_run_temp.setVisible(current is self.tab_temp)
+
+    def on_temp_target_changed(self, *_args):
+        to_db = self.temp_target_cb.currentData() == 'db'
+        for w in (self.temp_db_lbl, self.temp_db_le, self.temp_db_btn):
+            w.setVisible(to_db)
+        for w in (self.temp_fmt_lbl, self.temp_fmt_cb, self.temp_dir_lbl,
+                  self.temp_dir_le, self.temp_dir_btn):
+            w.setVisible(not to_db)
+
+    def browse_temp_db(self):
+        path, _f = QFileDialog.getSaveFileName(
+            self, "GeoPackage to Save Into",
+            self.temp_db_le.text().strip() or od.project_folder(),
+            "GeoPackage (*.gpkg)", options=QFileDialog.Option.DontConfirmOverwrite)
+        if path:
+            if not path.lower().endswith('.gpkg'):
+                path += '.gpkg'
+            self.temp_db_le.setText(path)
+
+    def browse_temp_dir(self):
+        folder = QFileDialog.getExistingDirectory(
+            self, "Select Output Folder",
+            self.temp_dir_le.text().strip() or od.project_folder())
+        if folder:
+            self.temp_dir_le.setText(folder)
+
+    # -- detection and auto-refresh
+    @staticmethod
+    def is_temporary(layer):
+        """True for a memory-provider vector layer (a scratch layer)."""
+        try:
+            return (isinstance(layer, QgsVectorLayer) and layer.isValid()
+                    and layer.providerType() == 'memory')
+        except Exception:
+            return False
+
+    def _start_temp_watch(self):
+        self._temp_watched = set()
+        self._temp_timer = QTimer(self)
+        self._temp_timer.setSingleShot(True)
+        self._temp_timer.setInterval(250)
+        self._temp_timer.timeout.connect(self.load_temp_layers)
+        project = QgsProject.instance()
+        project.layersAdded.connect(self._temp_layers_added)
+        project.layersRemoved.connect(self._schedule_temp_refresh)
+        project.cleared.connect(self._schedule_temp_refresh)
+        self._temp_layers_added(list(project.mapLayers().values()))
+
+    def _schedule_temp_refresh(self, *_args):
+        self._temp_timer.start()
+
+    def _temp_layers_added(self, layers):
+        for lyr in layers:
+            if lyr.id() in self._temp_watched or not isinstance(lyr, QgsVectorLayer):
+                continue
+            self._temp_watched.add(lyr.id())
+            # The provider of a layer can still be loading; names and counts
+            # change as a tool fills the layer, so listen to those too.
+            for name in ('nameChanged', 'featureAdded', 'featureDeleted',
+                         'afterCommitChanges', 'dataSourceChanged'):
+                with suppress(Exception):
+                    getattr(lyr, name).connect(self._schedule_temp_refresh)
+        self._temp_timer.start()
+
+    def temp_layers(self):
+        layers = []
+        with suppress(Exception):
+            for node in QgsProject.instance().layerTreeRoot().findLayers():
+                lyr = node.layer()
+                if self.is_temporary(lyr):
+                    layers.append(lyr)
+        return layers
+
+    def load_temp_layers(self):
+        """Re-read the Layers panel; new scratch layers arrive ticked."""
+        previous = {}
+        for row in range(self.temp_table.rowCount()):
+            item = self.temp_table.item(row, 0)
+            if item:
+                previous[item.data(Qt.ItemDataRole.UserRole)] = (
+                    item.checkState() == Qt.CheckState.Checked,
+                    self.temp_table.item(row, 3).text(), item.text())
+
+        layers = self.temp_layers()
+        self.temp_table.blockSignals(True)
+        self.temp_table.setRowCount(len(layers))
+        for row, lyr in enumerate(layers):
+            was_checked, old_name, old_label = previous.get(
+                lyr.id(), (True, None, None))
+            # A rename in the Layers panel wins over an untouched "Save As".
+            if old_name is not None and old_label != lyr.name() \
+                    and old_name == safe_layer_name(old_label):
+                old_name = None
+
+            name_item = QTableWidgetItem(lyr.name())
+            name_item.setData(Qt.ItemDataRole.UserRole, lyr.id())
+            name_item.setFlags((name_item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                               & ~Qt.ItemFlag.ItemIsEditable)
+            name_item.setCheckState(Qt.CheckState.Checked if was_checked
+                                    else Qt.CheckState.Unchecked)
+            geom_item = QTableWidgetItem(geometry_name(lyr))
+            geom_item.setFlags(geom_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            try:
+                count = lyr.featureCount()
+            except Exception:
+                count = -1
+            count_item = QTableWidgetItem(format_count(count))
+            count_item.setTextAlignment(
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            count_item.setFlags(count_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            out_item = QTableWidgetItem(old_name or od.safe_stem(lyr.name(), 'layer'))
+            out_item.setToolTip("Double-click to change the saved name.")
+
+            self.temp_table.setItem(row, 0, name_item)
+            self.temp_table.setItem(row, 1, geom_item)
+            self.temp_table.setItem(row, 2, count_item)
+            self.temp_table.setItem(row, 3, out_item)
+        self.temp_table.blockSignals(False)
+        self.update_temp_count()
+
+    def toggle_temp_row(self, row, column):
+        if column == 3:
+            return
+        item = self.temp_table.item(row, 0)
+        item.setCheckState(Qt.CheckState.Unchecked
+                           if item.checkState() == Qt.CheckState.Checked
+                           else Qt.CheckState.Checked)
+
+    def _set_all_temp(self, checked):
+        state = Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked
+        self.temp_table.blockSignals(True)
+        for row in range(self.temp_table.rowCount()):
+            self.temp_table.item(row, 0).setCheckState(state)
+        self.temp_table.blockSignals(False)
+        self.update_temp_count()
+
+    def checked_temp_rows(self):
+        return [row for row in range(self.temp_table.rowCount())
+                if self.temp_table.item(row, 0).checkState() == Qt.CheckState.Checked]
+
+    def update_temp_count(self, *_args):
+        total = self.temp_table.rowCount()
+        picked = len(self.checked_temp_rows())
+        self.temp_count_lbl.setText(
+            "{0} of {1} temporary layers ticked".format(picked, total)
+            if total else "No temporary layers in the project")
+        self.btn_run_temp.setText(
+            "Save Checked Layers ({0})".format(picked) if picked
+            else "Save Checked Layers")
+        self.btn_run_temp.setEnabled(picked > 0)
+
+    # -- saving
+    def run_save_temp(self):
+        to_db = self.temp_target_cb.currentData() == 'db'
+        if to_db:
+            database = self.temp_db_le.text().strip()
+            if not database:
+                QMessageBox.warning(
+                    self, "Error", "Please choose the GeoPackage to save into "
+                    "(open a project to get a default).")
+                return
+            if not database.lower().endswith('.gpkg'):
+                database += '.gpkg'
+            folder = os.path.dirname(database)
+            driver, extension = 'GPKG', '.gpkg'
+            if not os.path.isdir(folder):
+                QMessageBox.warning(self, "Error",
+                                    "The folder does not exist:\n" + folder)
+                return
+        else:
+            folder = self.temp_dir_le.text().strip()
+            if not folder or not os.path.isdir(folder):
+                QMessageBox.warning(self, "Error",
+                                    "Please select a valid output folder first.")
+                return
+            driver, extension = self.temp_fmt_cb.currentData()
+            database = ''
+
+        rows = self.checked_temp_rows()
+        project = QgsProject.instance()
+        success, failed, errors, saved = 0, 0, [], []
+        taken = set()
+        for row in rows:
+            layer_id = self.temp_table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+            source_name = self.temp_table.item(row, 0).text()
+            layer = project.mapLayer(layer_id)
+            if layer is None or not self.is_temporary(layer):
+                failed += 1
+                errors.append("{0}: no longer a temporary layer in the project"
+                              .format(source_name))
+                continue
+            stem = od.safe_stem(self.temp_table.item(row, 3).text(), 'layer')
+
+            options = QgsVectorFileWriter.SaveVectorOptions()
+            options.driverName = driver
+            options.fileEncoding = 'UTF-8'
+            if to_db:
+                name = od.unique_table(database, stem, taken)
+                taken.add(name.lower())
+                dest = database
+                options.layerName = name
+                options.actionOnExistingFile = (
+                    QgsVectorFileWriter.ActionOnExistingFile.CreateOrOverwriteLayer
+                    if os.path.exists(database) else
+                    QgsVectorFileWriter.ActionOnExistingFile.CreateOrOverwriteFile)
+                uri = "{0}|layername={1}".format(database, name)
+            else:
+                dest = od.unique_file(folder, stem, extension, taken)
+                taken.add(os.path.normcase(os.path.abspath(dest)))
+                name = os.path.splitext(os.path.basename(dest))[0]
+                options.actionOnExistingFile = \
+                    QgsVectorFileWriter.ActionOnExistingFile.CreateOrOverwriteFile
+                uri = dest
+
+            ok, message = self._write_layer(layer, dest, options)
+            if not ok:
+                failed += 1
+                errors.append("{0}: {1}".format(source_name, message or "write failed"))
+                continue
+            success += 1
+            saved.append((layer, uri, name))
+
+        if self.chk_temp_replace.isChecked():
+            for layer, uri, name in saved:
+                err = self._replace_with_saved(layer, uri, name)
+                if err:
+                    errors.append(err)
+
+        summary = "Saved {0} layer(s).\nFailed: {1}".format(success, failed)
+        if success:
+            summary += "\n\n{0}".format(database if to_db else folder)
+        box = QMessageBox(self)
+        box.setWindowTitle("Save Complete")
+        box.setIcon(QMessageBox.Icon.Information if not errors
+                    else QMessageBox.Icon.Warning)
+        box.setText(summary)
+        if errors:
+            box.setDetailedText("\n".join(errors[:50]))
+        box.exec()
+        self.load_temp_layers()
+
+    def _replace_with_saved(self, temp, uri, name):
+        """Swap `temp` in the layer tree for the saved copy. Returns an error text."""
+        project = QgsProject.instance()
+        label = temp.name()
+        new = QgsVectorLayer(uri, label, 'ogr')
+        if not new.isValid():
+            return "{0}: saved, but could not be reloaded from {1}".format(label, uri)
+        with suppress(Exception):
+            doc = QDomDocument()
+            temp.exportNamedStyle(doc)
+            new.importNamedStyle(doc)
+        root = project.layerTreeRoot()
+        node = root.findLayer(temp.id())
+        project.addMapLayer(new, False)
+        if node is not None and node.parent() is not None:
+            parent = node.parent()
+            index = parent.children().index(node)
+            visible = node.itemVisibilityChecked()
+            added = parent.insertLayer(index, new)
+            if added is not None:
+                added.setItemVisibilityChecked(visible)
+        else:
+            root.addLayer(new)
+        project.removeMapLayer(temp.id())
+        return ""
 
     # ---------------- Tab 2: import into the project ----------------
     def browse_import_file(self):

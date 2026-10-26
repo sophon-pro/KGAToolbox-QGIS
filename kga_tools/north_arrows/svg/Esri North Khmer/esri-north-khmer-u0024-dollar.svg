@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North (Khmer) – dollar
+     Glyph "dollar" at U+0024 (type '$' – DOLLAR SIGN) of the "ESRI North (Khmer)" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="170.8" height="826.8" viewBox="-135.9 -814.9 170.8 826.8">
+  <path d="M0 -4V-469H-48L19 -799V-4ZM-45 -77Q-56 -66 -71 -66Q-85 -66 -92 -70Q-98 -75 -100 -78Q-84 -82 -84 -91Q-84 -92 -86 -98Q-86 -98 -89 -101Q-92 -105 -99 -107Q-106 -109 -111 -109Q-109 -114 -104 -115L-96 -117Q-89 -117 -84 -114L-73 -109Q-63 -107 -61 -107H-58Q-54 -107 -43 -110Q-33 -115 -29 -124Q-28 -125 -28 -130Q-28 -139 -34 -147Q-40 -155 -49 -155Q-61 -155 -63 -144Q-63 -142 -61 -138.5Q-59 -135 -53 -135Q-49 -135 -47 -136Q-45 -136 -41.5 -134.5Q-38 -133 -37 -128Q-37 -126 -40 -123Q-43 -120 -47 -119H-51Q-56 -119 -58 -120L-63 -121L-69 -125L-74 -128Q-84 -136 -84 -136Q-88 -136 -95 -132L-110 -123L-120 -117V-98Q-109 -98 -98 -94Q-92 -92 -92 -90L-94 -88L-96 -87Q-110 -84 -120 -84V-73Q-115 -63 -102.5 -55Q-90 -47 -71 -47Q-50 -47 -37 -69Q-36 -70 -36 -71L-33 -76Q-31 -80 -30 -83Q-29 -86 -28 -89Q-28 -95 -31 -95L-33 -94L-35 -93L-38 -87Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

@@ -57,7 +57,7 @@ import traceback
 from contextlib import suppress
 
 from qgis.PyQt.QtCore import QEvent, Qt, pyqtSignal
-from qgis.PyQt.QtGui import QColor
+from qgis.PyQt.QtGui import QColor, QFont
 from qgis.PyQt.QtWidgets import (
     QComboBox,
     QDialog,
@@ -650,6 +650,9 @@ class ModifyFeaturesDialog(QDialog):
     ACTION_LABEL = 'Apply'
     #: One line under the title saying what to do, the way a Pro pane does.
     HINT = ''
+    #: Put the hint under the settings, headed "How to use", instead of above
+    #: them. The subclass places it with `add_guide` in `build_parameters`.
+    GUIDE_BELOW = True
 
     #: The owning algorithm's `name()`, which is what its documentation page is
     #: keyed by. Set it and the dialog grows a Help button; leave it empty and
@@ -720,8 +723,11 @@ class ModifyFeaturesDialog(QDialog):
         hint = QLabel(self.HINT or self.default_hint())
         hint.setWordWrap(True)
         hint.setStyleSheet('color: #666;')
-        outer.addWidget(hint)
+        hint.setSizePolicy(QSizePolicy.Policy.Preferred,
+                           QSizePolicy.Policy.Minimum)
         self.hint_label = hint
+        if not self.GUIDE_BELOW:
+            outer.addWidget(hint)
 
         top = QFormLayout()
         top.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
@@ -734,7 +740,10 @@ class ModifyFeaturesDialog(QDialog):
         self.parameters = QFormLayout(body)
         self.parameters.setContentsMargins(0, 0, 0, 0)
         self.parameters.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+        self._guide_added = False
         self.build_parameters(self.parameters)
+        if self.GUIDE_BELOW and not self._guide_added:
+            self.add_guide(self.parameters)
         body.setSizePolicy(QSizePolicy.Policy.Preferred,
                            QSizePolicy.Policy.Expanding)
         outer.addWidget(body, 1)
@@ -769,6 +778,16 @@ class ModifyFeaturesDialog(QDialog):
         self.status_label.setWordWrap(True)
         self.status_label.setStyleSheet('color: #666;')
         outer.addWidget(self.status_label)
+
+    def add_guide(self, form):
+        """Add the "How to use" heading and the hint to `form`."""
+        self._guide_added = True
+        heading = QLabel('How to use')
+        title = QFont(heading.font())
+        title.setBold(True)
+        heading.setFont(title)
+        form.addRow(heading)
+        form.addRow(self.hint_label)
 
     def default_hint(self):
         if self.collects():
@@ -1301,11 +1320,26 @@ class ModifyFeaturesDialog(QDialog):
     # ------------------------------------------------------------ messages --
 
     def warn(self, text):
-        self.status_label.setText(text)
+        self.say(text)
         self.iface.messageBar().pushWarning(self.TITLE, text)
 
     def report(self, text):
+        self.say(text)
+
+    def say(self, text):
+        """Show `text` under the buttons, growing the window to fit it.
+
+        A wrapped message of two lines is taller than the empty label it
+        replaces; left to the layout the extra height is taken out of the
+        instructions above, which then draw over each other.
+        """
         self.status_label.setText(text)
+        if self.isVisible():
+            self.layout().activate()
+            width = self.width()
+            needed = self.layout().totalHeightForWidth(width)
+            if needed > self.height():
+                self.resize(width, needed)
 
     # -------------------------------------------------------------- hooks --
 

@@ -34,6 +34,7 @@ from ..core.imagery import tile_math as tm
 from ..core.imagery.job import JobSpec
 from ..core.imagery.sources import SOURCES, get_source
 from ..core.modify_features import layer_filter
+from .output_fields import FollowingField
 from .imagery_extent_tool import DrawBoxMapTool, make_box_band, show_box
 from .roi_tools import drop_band
 
@@ -82,7 +83,7 @@ class ImageryDownloaderDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle(tr('KGA Imagery Downloader'))
+        self.setWindowTitle(tr('Imagery Downloader'))
         self.setObjectName('KgaImageryDownloaderDialog')
         self.resize(540, 700)
         self.setStyleSheet(STYLE)
@@ -300,6 +301,7 @@ class ImageryDownloaderDialog(QDialog):
         self.folder_widget.setStorageMode(QgsFileWidget.StorageMode.GetDirectory)
         self.folder_widget.fileChanged.connect(self._schedule)
         form.addRow(tr('Output folder'), self.folder_widget)
+        FollowingField(self.folder_widget).suggest_folder()   # the project folder
         self.name_edit = QLineEdit(self)
         self.name_edit.textEdited.connect(self._name_edited)
         self.name_edit.textChanged.connect(self._schedule)
@@ -698,7 +700,7 @@ class ImageryDownloaderDialog(QDialog):
             self._refresh_details()
 
         self._sample_task = QgsTask.fromFunction(
-            'KGA imagery sample', work, on_finished=done)
+            'Imagery sample', work, on_finished=done)
         QgsApplication.taskManager().addTask(self._sample_task)
 
     # -------------------------------------------------------------- download

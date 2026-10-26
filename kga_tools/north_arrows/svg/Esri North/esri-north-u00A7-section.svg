@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – section
+     Glyph "section" at U+00A7 (type '§' – SECTION SIGN) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="240.5" height="818.5" viewBox="-15.7 -802.7 240.5 818.5">
+  <path d="M209 0 103 -698 0 0 103 -140ZM102 -166 17 -46 102 -643ZM126 -730H117L88 -773V-730H79V-787H88L116 -745V-787H126Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

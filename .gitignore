@@ -1,12 +1,15 @@
 # --- Build output -------------------------------------------------------
 # package.py regenerates this from kga_tools/ on demand.
 kga_tools.zip
+admin_token.txt
+package.bat
+install_local.bat
 *.zip
 
 # --- Local scratch ------------------------------------------------------
 # Dated snapshots, broken-state copies and *.bak files. Git is the history now.
 backup/
-NorthArrow/
+Symbol_and_Style/
 release_note/
 tests/
 

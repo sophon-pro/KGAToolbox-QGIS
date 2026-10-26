@@ -31,23 +31,23 @@ The run is **resumable** via a `checkpoint.json` in the output folder.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| **Reference DEM (the elevation truth -- never modified)** | Raster layer | — | |
-| **Reference DEM NoData override (blank = use its own NoData)** | String, optional | empty | |
-| **DEMs to correct against the reference (1 or more)** | Multiple raster layers | — | Auto-sorted finest to coarsest and corrected in a chain. |
-| **NoData overrides (comma-separated, matching DEM order)** | String, optional | empty | One value per DEM, in the order you selected them. Blank uses each raster's own NoData metadata. |
-| **Correction method (all stages)** | Enum | `Auto - Compare All (Best CV)` | `Auto - Compare All (Best CV)`, `Global Offset`, `Polynomial Trend (degree 1)`, `Polynomial Trend (degree 2)`, `IDW (distance-decay)`. Auto tries them all and keeps whichever cross-validates best. |
-| **IDW power** | Number | `2.0` | IDW method only. |
-| **IDW neighbors (k)** | Integer | `12` | IDW method only. |
-| **IDW full-strength distance (m)** | Number | `3000.0` | Beyond this the correction fades out. |
-| **Cross-validation folds** | Integer | `5` | How the method comparison is scored. |
-| **Calibration subsample stride** | Integer | `4` | Every Nth pixel is used to fit the correction. Raise it for a faster, coarser fit. |
-| **Merge finest DEM + all corrected DEMs** | Boolean | `True` | |
-| **Merge extent** | Enum | `Reference DEM extent` | Or `Coarsest DEM extent (full)`. |
-| **Merge resolution (m)** | Number | `2.5` | |
-| **Report sample stride (for Statistics/Visualization tabs)** | Integer (min 1) | `20` | |
-| **Report max sample points** | Integer (min 100) | `200000` | |
-| **Force re-run everything (ignore checkpoint.json)** | Boolean | `False` | |
-| **Output folder** | Folder destination | — | |
+| **Input · Reference DEM** | Raster layer | — | The trusted DEM. Never modified; every other DEM is corrected toward it. |
+| **Input · DEMs to correct (1 or more)** | Multiple raster layers | — | Auto-sorted finest to coarsest and corrected in a chain. |
+| **Input · Reference NoData override** | String, advanced | empty | A number to treat as NoData in the Reference. Blank = use its own NoData value. |
+| **Input · NoData overrides for the DEMs** | String, advanced | empty | Comma-separated, one value per DEM in the order you selected them, e.g. `-9999,-32768`. The count must match. Blank uses each raster's own NoData metadata. |
+| **Correction · Method (all stages)** | Enum | `Auto - Compare All (Best CV)` | `Auto - Compare All (Best CV)`, `Global Offset`, `Polynomial Trend (degree 1)`, `Polynomial Trend (degree 2)`, `IDW (distance-decay)`. Auto tries them all and keeps whichever cross-validates best. |
+| **Correction · Calibration stride (pixels)** | Integer | `4` | Every Nth pixel of the difference raster is used as a calibration point. Higher is faster, with fewer points. |
+| **Correction · Cross-validation folds** | Integer, advanced | `5` | How the method comparison is scored. |
+| **IDW · Power** | Number, advanced | `2.0` | IDW method only (including inside Auto). |
+| **IDW · Neighbours (k)** | Integer, advanced | `12` | Nearest calibration points averaged for each pixel. |
+| **IDW · Full-strength distance (m)** | Number, advanced | `3000.0` | Map units. Full strength within this distance of a calibration point, fading to zero at twice the distance. |
+| **Merge · Merge Reference + corrected DEMs** | Boolean | `True` | Writes `MERGED_FINAL_DEM.tif`. The Reference wins, then finest to coarsest. |
+| **Merge · Extent** | Enum | `Reference DEM extent` | Or `Coarsest DEM extent (full)`. |
+| **Merge · Cell size (m)** | Number | `2.5` | |
+| **Report · Sample stride (pixels)** | Integer (min 1), advanced | `20` | The report compares all DEMs at every Nth pixel of the Reference grid. |
+| **Report · Max sample points** | Integer (min 100), advanced | `200000` | Upper limit on sample points; the stride is raised to stay below it. |
+| **Output · Force re-run (ignore checkpoint)** | Boolean, advanced | `False` | Redo every stage even if `checkpoint.json` says it is complete. |
+| **Output · Folder** | Folder destination | — | Corrected DEMs, merged DEM, reports and `checkpoint.json` are written here. Reuse the same folder to resume. |
 
 ### Outputs declared
 
@@ -91,11 +91,8 @@ In the output folder:
   tab stage by stage, not just at the end.
 - **Correction does not create accuracy.** It removes systematic bias relative to
   the reference; it cannot fix a DEM that is simply wrong in detail.
-- **The reports are sampled, not exhaustive.** *Report sample stride* and *Report
-  max sample points* bound the cost; the statistics describe that sample.
-- **Resumable via `checkpoint.json`.** Tick *Force re-run* to ignore it.
+- **The reports are sampled, not exhaustive.** *Report · Sample stride* and *Report
+  · Max sample points* bound the cost; the statistics describe that sample.
+- **Resumable via `checkpoint.json`.** Tick *Output · Force re-run* to ignore it.
 - **NoData overrides must match the order you selected the DEMs in.** Getting the
   order wrong silently corrects against the wrong nodata mask.
-- For a per-point table across several DEMs, use
-  **[DEM Point Sample Export to Excel](dempointsampleexport.md)**, which is the
-  same sampling in spreadsheet form.

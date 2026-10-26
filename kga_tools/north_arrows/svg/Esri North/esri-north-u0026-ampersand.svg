@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – ampersand
+     Glyph "ampersand" at U+0026 (type '&' – AMPERSAND) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="231.9" height="829.9" viewBox="-16 -814 231.9 829.9">
+  <path d="M200 -500 70 -603V0H0V-798ZM158 -544 11 -766V-9H60V-628ZM196 0H174L108 -107V0H90V-141H109L176 -31V-141H196Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

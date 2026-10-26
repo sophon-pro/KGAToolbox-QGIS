@@ -582,6 +582,21 @@ COGO_ARCLENGTH = 'ArcLength'
 
 COGO_FIELDS = (COGO_DIRECTION, COGO_DISTANCE, COGO_RADIUS, COGO_ARCLENGTH)
 
+
+def find_cogo_field(fields, wanted):
+    """The index of a COGO field, matched the way ArcGIS matches it.
+
+    Case-insensitively, and ignoring an underscore, so `ARCLENGTH`, `ArcLength`
+    and `arc_length` all count as the arc length field. A geodatabase that has
+    been through three agencies rarely spells them the same way twice.
+    """
+    target = wanted.lower().replace('_', '')
+    for index, field in enumerate(fields):
+        if field.name().lower().replace('_', '') == target:
+            return index
+    return -1
+
+
 #: Where zero points and which way the angle runs.
 DIR_NORTH_AZIMUTH, DIR_SOUTH_AZIMUTH, DIR_POLAR, DIR_QUADRANT = range(4)
 
@@ -807,12 +822,53 @@ def direction_text(north_azimuth, direction_type, direction_unit):
 #  Merge
 # --------------------------------------------------------------------------- #
 
-def merge_geometries(geometries):
+def xy_tolerance(crs):
+    """ArcGIS's default XY tolerance in the CRS's own units: a millimetre in a projected CRS, 1e-8 degrees in a
+    geographic one. Edges closer than this are taken to be the same edge."""
+    if crs is None or not crs.isValid():
+        return 0.0
+    if crs.isGeographic():
+        return 1e-8
+    try:
+        factor = QgsUnitTypes.fromUnitToUnitFactor(distance_unit('Meters'), crs.mapUnits())
+    except Exception:                       # pragma: no cover - an odd unit
+        factor = 1.0
+    return 0.001 * factor
+
+
+def close_slivers(geometry, tolerance):
+    """
+    A polygon with the hairline gaps and spikes narrower than twice `tolerance` closed: grown by the tolerance and
+    shrunk back with mitred corners, so real corners stay where they are. Edges that were meant to coincide but miss
+    by a hair (a split or a digitised neighbour whose vertices are a fraction off) otherwise leave a sliver that looks
+    like an edge left inside the merged shape. The original comes back when the result would not be a clean polygon
+    of the same size.
+    """
+    if (tolerance <= 0 or geometry is None or geometry.isNull() or geometry.isEmpty()
+            or geometry.type() != geometry_type('Polygon')):
+        return geometry
+    miter, flat = join_style('Miter'), cap_style('Flat')
+    grown = geometry.buffer(tolerance, 1, flat, miter, 5.0)
+    if grown is None or grown.isNull() or grown.isEmpty():
+        return geometry
+    closed = grown.buffer(-tolerance, 1, flat, miter, 5.0)
+    if closed is None or closed.isNull() or closed.isEmpty() or closed.type() != geometry.type():
+        return geometry
+    area = geometry.area()
+    if not closed.isGeosValid() or abs(closed.area() - area) > 1e-3 * area:
+        return geometry
+    return closed
+
+
+def merge_geometries(geometries, crs=None):
     """One geometry from several, the way ArcGIS Merge combines features.
 
     Parts that touch dissolve into one; parts that do not stay as a multipart
     feature. That is `unaryUnion`, and the fallback keeps the parts rather than
-    losing the merge outright when GEOS refuses an invalid input.
+    losing the merge outright when GEOS refuses an invalid input. With the
+    CRS the polygons' hairline gaps (edges that miss each other by less than
+    the XY tolerance) are closed too, as ArcGIS does, so no sliver is left
+    standing inside the merged shape.
     """
     parts = [g for g in geometries if g is not None and not g.isNull()
              and not g.isEmpty()]
@@ -824,7 +880,7 @@ def merge_geometries(geometries):
     merged = QgsGeometry.unaryUnion(parts)
     if merged is None or merged.isNull() or merged.isEmpty():
         return combine(parts)
-    return merged
+    return close_slivers(merged, xy_tolerance(crs))
 
 
 # --------------------------------------------------------------------------- #

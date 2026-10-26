@@ -243,7 +243,7 @@ class ClipDialog(ModifyFeaturesDialog):
             if not edits and not deletes:
                 continue
 
-            target.beginEditCommand('KGA Clip')
+            target.beginEditCommand('Clip')
             try:
                 for feature, parts in edits:
                     if target.changeGeometry(feature.id(), parts[0]):

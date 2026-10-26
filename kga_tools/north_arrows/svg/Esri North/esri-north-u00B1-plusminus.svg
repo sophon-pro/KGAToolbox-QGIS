@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – plusminus
+     Glyph "plusminus" at U+00B1 (type '±' – PLUS-MINUS SIGN) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="331.2" height="732.2" viewBox="-14.1 -718.1 331.2 732.2">
+  <path d="M151 -181 0 0 151 -513 303 0ZM151 -464V-204L263 -72ZM93 -704H117L195 -587V-704H215V-552H195L112 -675V-552H93Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

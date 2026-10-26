@@ -15,6 +15,33 @@ import matplotlib as mpl
 import matplotlib.colors as mcolors
 import os
 from ..branding import docs_url
+from ..core.compat import mark_advanced
+
+
+def nice_ticks(vmin, vmax, target):
+    """Round-number ticks (whole metres) numbering close to `target`.
+
+    The step is the 1/2/5 x 10^n value whose tick count is nearest the
+    target. The true minimum and maximum are added as end ticks when no
+    round tick falls near them, so the bar is always labelled end to end.
+    """
+    span = vmax - vmin
+    if span <= 0:
+        return np.array([vmin])
+    raw = span / max(target - 1, 1)
+    mag = 10 ** np.floor(np.log10(raw))
+    best = None
+    for step in sorted({max(1.0, m * mag) for m in (1, 2, 5, 10)}):
+        ticks = np.arange(np.ceil(vmin / step) * step, vmax + 1e-9, step)
+        if best is None or abs(len(ticks) - target) < abs(len(best[1]) - target):
+            best = (step, ticks)
+    step, ticks = best
+    ticks = list(ticks)
+    if not ticks or abs(ticks[0] - vmin) > step * 0.3:
+        ticks = [vmin] + ticks
+    if abs(ticks[-1] - vmax) > step * 0.3:
+        ticks = ticks + [vmax]
+    return np.array(sorted(set(ticks)))
 
 
 class HypsometricMap(QgsProcessingAlgorithm):
@@ -36,36 +63,59 @@ class HypsometricMap(QgsProcessingAlgorithm):
     DPI_OPTIONS = ["150 (Fast)", "300 (Balanced)", "600 (High Quality)"]
     DPI_VALUES  = [150, 300, 600]
 
+    def _add(self, param, help_text, advanced=False):
+        """Add a parameter, with its help shown as the widget tooltip."""
+        param.setHelp(help_text)
+        if advanced:
+            mark_advanced(param)
+        self.addParameter(param)
+
     def initAlgorithm(self, config=None):
-        self.addParameter(QgsProcessingParameterMultipleLayers(
-            self.INPUT_LAYERS, "DEM Raster Layer(s)",
-            layerType=QgsProcessing.SourceType.TypeRaster))
-        self.addParameter(QgsProcessingParameterEnum(
-            self.COLOR_SCHEME, "Color Scheme",
-            options=self.COLOR_OPTIONS, defaultValue=0))
-        self.addParameter(QgsProcessingParameterEnum(
-            self.LEGEND_DPI, "Legend DPI  (150=Fast | 300=Balanced | 600=HQ)",
-            options=self.DPI_OPTIONS, defaultValue=0))
-        self.addParameter(QgsProcessingParameterFolderDestination(
-            self.OUTPUT_FOLDER, "Output Folder"))
-        self.addParameter(QgsProcessingParameterNumber(
-            self.TICK_COUNT, "Number of Ticks",
+        self._add(QgsProcessingParameterMultipleLayers(
+            self.INPUT_LAYERS, "Input · DEM raster layer(s)",
+            layerType=QgsProcessing.SourceType.TypeRaster),
+            "One legend is made per layer, from that layer's own minimum and "
+            "maximum elevation.")
+        self._add(QgsProcessingParameterEnum(
+            self.COLOR_SCHEME, "Style · Colour scheme",
+            options=self.COLOR_OPTIONS, defaultValue=0),
+            "from_qgis copies the colour ramp of each layer's current QGIS "
+            "style. The others are fixed ramps (matplotlib names).")
+        self._add(QgsProcessingParameterString(
+            self.LABEL_TITLE, "Style · Legend title",
+            defaultValue="Elevation (m)"),
+            "Text printed beside the bar.")
+        self._add(QgsProcessingParameterNumber(
+            self.TICK_COUNT, "Style · Number of ticks (approx.)",
             type=QgsProcessingParameterNumber.Type.Integer,
-            defaultValue=7, minValue=3, maxValue=20))
-        self.addParameter(QgsProcessingParameterString(
-            self.LABEL_TITLE, "Legend Title",
-            defaultValue="Elevation (m)"))
-        self.addParameter(QgsProcessingParameterString(
-            self.FONT_FAMILY, "Font Family",
-            defaultValue="Times New Roman"))
-        self.addParameter(QgsProcessingParameterNumber(
-            self.FONT_TICK, "Font Tick Size",
+            defaultValue=7, minValue=3, maxValue=20),
+            "Aim for about this many labels. Steps are round numbers (1, 2, 5, "
+            "10, 20, 50 ... m), so the count can differ slightly. The lowest "
+            "and highest elevations get their own label unless a round "
+            "tick falls right next to them.")
+        self._add(QgsProcessingParameterString(
+            self.FONT_FAMILY, "Font · Family",
+            defaultValue="Times New Roman"),
+            "Name of an installed font. If it is not found a default font is "
+            "used.", advanced=True)
+        self._add(QgsProcessingParameterNumber(
+            self.FONT_TICK, "Font · Tick label size (pt)",
             type=QgsProcessingParameterNumber.Type.Integer,
-            defaultValue=9, minValue=6, maxValue=24))
-        self.addParameter(QgsProcessingParameterNumber(
-            self.FONT_TITLE, "Font Title Size",
+            defaultValue=9, minValue=6, maxValue=24),
+            "Size of the elevation numbers.", advanced=True)
+        self._add(QgsProcessingParameterNumber(
+            self.FONT_TITLE, "Font · Title size (pt)",
             type=QgsProcessingParameterNumber.Type.Integer,
-            defaultValue=10, minValue=6, maxValue=24))
+            defaultValue=10, minValue=6, maxValue=24),
+            "Size of the legend title.", advanced=True)
+        self._add(QgsProcessingParameterEnum(
+            self.LEGEND_DPI, "Output · Resolution (DPI)",
+            options=self.DPI_OPTIONS, defaultValue=0),
+            "Sharpness of the PNG. 150 for a quick look, 300 for print, 600 "
+            "for large-format posters; the image is 4 times larger at 600.")
+        self._add(QgsProcessingParameterFolderDestination(
+            self.OUTPUT_FOLDER, "Output · Folder"),
+            "Where the PNG files are saved.")
 
     def processAlgorithm(self, parameters, context, feedback):
         dem_layers    = self.parameterAsLayerList(parameters, self.INPUT_LAYERS,  context)
@@ -158,48 +208,8 @@ class HypsometricMap(QgsProcessingAlgorithm):
                 norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
                 cb   = mpl.colorbar.ColorbarBase(cax, cmap=cmap, norm=norm, orientation="vertical")
 
-                # --------------------------------------- Smart adaptive ticks
-                range_val = vmax - vmin
-                if range_val <= 10:
-                    step = 1
-                elif range_val <= 30:
-                    step = 5
-                elif range_val <= 100:
-                    step = 10
-                elif range_val <= 300:
-                    step = 50
-                elif range_val <= 1000:
-                    step = 100
-                elif range_val <= 3000:
-                    step = 200
-                else:
-                    step = 500
-
-                start = int(np.floor(vmin / step) * step)
-                end   = int(np.ceil(vmax  / step) * step)
-                ticks = np.arange(start, end + step, step)
-                ticks = ticks[(ticks >= vmin) & (ticks <= vmax)]
-
-                while len(ticks) < 4 and step > 1:
-                    step  = step // 2
-                    start = int(np.floor(vmin / step) * step)
-                    end   = int(np.ceil(vmax  / step) * step)
-                    ticks = np.arange(start, end + step, step)
-                    ticks = ticks[(ticks >= vmin) & (ticks <= vmax)]
-
-                while len(ticks) > 10:
-                    step  = step * 2
-                    start = int(np.floor(vmin / step) * step)
-                    end   = int(np.ceil(vmax  / step) * step)
-                    ticks = np.arange(start, end + step, step)
-                    ticks = ticks[(ticks >= vmin) & (ticks <= vmax)]
-
-                ticks = list(ticks)
-                if ticks and abs(ticks[0]  - vmin) > step * 0.3:
-                    ticks = [vmin] + ticks
-                if ticks and abs(ticks[-1] - vmax) > step * 0.3:
-                    ticks = ticks + [vmax]
-                ticks = np.array(sorted(set(ticks)))
+                # ------------------------------------------------------- Ticks
+                ticks = nice_ticks(vmin, vmax, tick_count)
 
                 cb.set_ticks(ticks)
                 cb.set_ticklabels([f"{int(round(v))}" for v in ticks])
@@ -235,12 +245,71 @@ class HypsometricMap(QgsProcessingAlgorithm):
         return docs_url('dem_legend_bar')
     def createInstance(self):  return HypsometricMap()
     def shortHelpString(self):
-        return ("Generates legend bar PNG for DEM raster(s)\n\n"
-                "OUTPUT: PNG saved to selected folder\n\n"
-                "TICKS: Auto-adaptive\n"
-                "  Flat  (<=30m)  -> step=5\n"
-                "  Hills (<=300m) -> step=50\n"
-                "  Mountain       -> step=100/200/500\n"
-                "  Min=4, Max=10 ticks")
+        return (
+            "<p>Draws a vertical <b>colour bar legend</b> for each DEM as a "
+            "PNG image, ready to place beside a map in a layout, report or "
+            "slide.</p>"
+
+            "<h3>What it does</h3>"
+            "<ol>"
+            "<li>Reads the minimum and maximum elevation of each DEM.</li>"
+            "<li>Takes the colours from the layer's current QGIS style, or "
+            "from the scheme you choose.</li>"
+            "<li>Draws the bar from minimum (bottom) to maximum (top) with "
+            "round-number tick labels and your title.</li>"
+            "<li>Saves <i>&lt;layer name&gt;_&lt;scheme&gt;_legend_bar.png</i> "
+            "in the output folder, one file per layer. A layer that fails is "
+            "logged and the rest still run.</li>"
+            "</ol>"
+
+            "<h3>Colour scheme</h3>"
+            "<table border='1' cellpadding='4' cellspacing='0'>"
+            "<tr><th>Scheme</th><th>Look</th></tr>"
+            "<tr><td><b>from_qgis</b></td><td>Copies the colour ramp of the "
+            "layer's style so the legend matches the map. Needs the layer "
+            "styled as <i>Singlebanded pseudocolor</i>; otherwise it falls "
+            "back to YlGn_r and says so in the log.</td></tr>"
+            "<tr><td>YlGn_r</td><td>Dark green (low) to pale yellow (high); "
+            "gentle, good for terrain.</td></tr>"
+            "<tr><td>terrain / gist_earth</td><td>Blue-green lowlands to "
+            "brown and white peaks; natural looking.</td></tr>"
+            "<tr><td>viridis / plasma</td><td>Perceptually even and "
+            "colour-blind friendly; best for accurate reading of values.</td></tr>"
+            "<tr><td>turbo / jet</td><td>Full rainbow; strong contrast but "
+            "exaggerates small differences.</td></tr>"
+            "<tr><td>RdYlBu_r</td><td>Blue (low) through yellow to red "
+            "(high); suits a before/after or hot-cold feel.</td></tr>"
+            "</table>"
+
+            "<h3>Ticks</h3>"
+            "<p>Labels fall on round numbers (steps of 1, 2, 5, 10, 20, 50 m "
+            "and so on) chosen to give about the number of ticks you ask for. "
+            "The exact lowest and highest elevations are labelled too, unless a "
+            "round tick falls right beside them, so the bar reads end to end. "
+            "Labels are whole metres.</p>"
+
+            "<h3>Resolution</h3>"
+            "<p>The bar is 1.2 by 6 inches. 150 DPI gives about 180 x 900 "
+            "pixels, 300 DPI about 360 x 1800, 600 DPI about 720 x 3600. "
+            "Use 300 or more for print.</p>"
+
+            "<h3>Watch out for</h3>"
+            "<ul>"
+            "<li><b>Match the map.</b> The bar spreads the ramp over the "
+            "DEM's full minimum-to-maximum range. If the layer's QGIS style "
+            "uses a narrower range (for example clipped to 2 to 98 percent), "
+            "the colours on the map will not line up with this legend. Set "
+            "the layer's style to the full Min / Max first.</li>"
+            "<li>Classified styles (Discrete or Exact interpolation) are "
+            "drawn as a smooth gradient, not as steps.</li>"
+            "<li>Labels are rounded to whole metres. Very flat sites with a "
+            "range of only a few metres will show few distinct labels.</li>"
+            "<li>The default font, Times New Roman, must be installed; "
+            "otherwise a standard font is used instead.</li>"
+            "<li>Files with the same name in the output folder are "
+            "overwritten.</li>"
+            "</ul>"
+        )
+
     def tr(self, string):
         return QCoreApplication.translate("Processing", string)

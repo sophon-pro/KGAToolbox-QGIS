@@ -53,17 +53,24 @@ FEATURES = [
      'append with a real field mapping'),
     ('Editing Tools',
      'Copy Parallel, Buffer, Split into COGO Lines, Merge, Divide and Clip, '
-     'plus Copy-Paste Feature and Sequential Numbering - editing tools that '
+     'plus Planarize Lines, Copy-Paste Feature and Sequential Numbering - editing tools that '
      'will be familiar to ArcGIS Pro users'),
+    ('KGA Editor',
+     'A second toolbar: Edit Session for selecting and editing across every '
+     'layer with one Save button and no Start/Stop Editing, and Create '
+     'Features, a templates pane like ArcGIS Pro with construction tools '
+     'and parallel, perpendicular, direction and distance constraints '
+     '(QGIS 3.44 or newer)'),
     ('Topology',
      'Check overlaps and gaps, check points on boundary vertices, and step '
      'through what they found in the Error Inspector'),
     ('Geometry Utilities',
-     'Planarize lines, find duplicates, and update X/Y and geometry fields'),
+     'Find duplicates, and update X/Y and geometry fields'),
     ('Irrigation Tools',
-     'DEM and contour analysis and reservoir rating curves'),
+     'DEM and contour analysis, contours and streams from the free '
+     'Copernicus DEM, and reservoir rating curves'),
     ('Mapping',
-     'Coordinate grids and MGRS on print layouts, and the DEM legend bar'),
+     'Callout labels, coordinate grids and MGRS on print layouts, and the DEM legend bar'),
 ]
 
 LICENSE_TEXT = 'Licensed under the MIT License'

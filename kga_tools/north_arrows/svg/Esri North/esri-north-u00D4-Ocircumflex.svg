@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North – Ocircumflex
+     Glyph "Ocircumflex" at U+00D4 (type 'Ô' – LATIN CAPITAL LETTER O WITH CIRCUMFLEX) of the "ESRI North" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="333.2" height="838.2" viewBox="-16.1 -822.1 333.2 838.2">
+  <path d="M204 -554V-534L168 -563V0H158V-563L122 -534V-554L158 -798V-806H168V-798ZM161 -578V-751L132 -554ZM17 -200V-309L53 -200H69L107 -307V-200H124V-328H101L69 -238Q67 -231 65 -226.5Q63 -222 62 -218Q61 -222 56 -237L26 -328H0V-200ZM217 -200V-298L282 -200H301V-328H284V-229L218 -328H200V-200Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

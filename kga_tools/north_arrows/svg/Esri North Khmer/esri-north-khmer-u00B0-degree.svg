@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ESRI North (Khmer) – degree
+     Glyph "degree" at U+00B0 (type '°' – DEGREE SIGN) of the "ESRI North (Khmer)" TrueType font.
+     Recolourable QGIS SVG marker: fill/outline are driven by symbol parameters. -->
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+     width="352.2" height="812.2" viewBox="226.4 -858.6 352.2 812.2">
+  <path d="M405 -658 563 -62 405 -115 242 -62ZM376 -701Q376 -694 383 -694Q384 -694 392 -703L395 -706Q397 -708 405 -708Q408 -708 410.5 -707.5Q413 -707 417 -703L421 -698Q422 -694 429 -694Q437 -694 437 -705V-757H455V-685Q455 -673 437 -673H430Q423 -675 416 -685L409 -694L407 -697H405L400 -694V-693L395 -688L380 -673H371Q366 -673 362.5 -674.5Q359 -676 358 -679L355 -686V-766L341 -772H334L336 -781Q338 -786 342 -790.5Q346 -795 351 -801L358 -804L373 -810Q377 -810 381.5 -806Q386 -802 393 -797H397Q402 -795 402.5 -794Q403 -793 407 -790Q414 -787 417.5 -786.5Q421 -786 426 -786Q432 -786 436.5 -790Q441 -794 441 -799Q435 -813 424 -816L417 -819L412 -823L407 -830Q407 -835 421 -843L438 -835Q455 -822 455 -803Q455 -788 443 -781Q439 -779 433.5 -778.5Q428 -778 421 -778H412H407Q395 -778 388 -782L384 -786L370 -791Q365 -791 363 -790L360 -787L358 -784L355 -781L359 -778Q364 -775 368 -773Q372 -771 376 -769Z"
+        fill="param(fill) #000000" fill-opacity="param(fill-opacity) 1"
+        stroke="param(outline) #000000" stroke-opacity="param(outline-opacity) 1"
+        stroke-width="param(outline-width) 0"/>
+</svg>

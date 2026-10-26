@@ -32,10 +32,12 @@ from qgis.core import (
 )
 from qgis.gui import QgsMapLayerComboBox, QgsFileWidget
 from ..branding import docs_url, help_button
+from ..core import output_defaults as od
 from ..core.compat import T_DOUBLE, T_LONGLONG, make_field
 # `qgis.PyQt.sip` is the name that works both where sip is a
 # top-level module and where it is only PyQt5.sip; see modify_base.
 from ..gui.modify_base import is_deleted as _is_deleted
+from ..gui.output_fields import FollowingField
 
 try:
     from qgis.utils import iface
@@ -147,6 +149,7 @@ class DynamicGeometryDialog(QDialog):
 
         # Folder / database container
         self.output_location = QgsFileWidget()
+        self._location_follow = FollowingField(self.output_location)
         form.addRow("Folder / Database:", self.output_location)
 
         # Shapefile base name, or layer name inside the database
@@ -174,6 +177,9 @@ class DynamicGeometryDialog(QDialog):
         self.layer_combo.layerChanged.connect(self.update_default_name)
         self.run_btn.clicked.connect(self.run_conversion)
 
+        if od.project_database():
+            # Like Pro: the result goes into the project's default database.
+            self.dest_combo.setCurrentIndex(DEST_GPKG)
         self.update_ui()
 
     # ---------------- UI helpers ----------------
@@ -227,6 +233,15 @@ class DynamicGeometryDialog(QDialog):
             self.output_location.lineEdit().setPlaceholderText(
                 "Existing .gdb folder, or a new path to create one")
             self._set_row_label(self.output_location, "File Geodatabase:")
+
+        # In a project the location starts at the project's folder / database.
+        if self._location_follow.is_ours():
+            self.output_location.setFilePath('')
+            self._location_follow.last = ''
+            if dest == DEST_FOLDER:
+                self._location_follow.suggest_folder()
+            elif dest == DEST_GPKG:
+                self._location_follow.suggest_path(od.project_database())
 
         is_file_out = dest != DEST_TEMP
         self._set_row_visible(self.output_location, is_file_out)

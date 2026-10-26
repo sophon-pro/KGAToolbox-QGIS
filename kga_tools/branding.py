@@ -33,10 +33,15 @@ KGA_LINKS = [
 STANDALONE_ALGS = [
     ('spatialdatamanager', 'spatialDataManager.png'),
     ('layerexportimport', 'import_export.png'),
-    ('domain_manager', 'domain.png'),
     ('add_data', 'addData.png'),
     ('imagery_downloader', 'imagery_download.png'),
 ]
+
+# Groups kept in the KGA Toolbox menu (and the Processing/KGA panel) but given
+# no toolbar button, to leave room for the most-used tools.
+MENU_ONLY_GROUPS = {
+    'KGA Schema Tools',
+}
 
 # Order the group sections. Groups in neither tuple are sorted alphabetically
 # between the two.
@@ -78,7 +83,18 @@ ALG_ICONS = {
     'layerexportimport': 'import_export.png',
     'add_data': 'addData.png',
     'imagery_downloader': 'imagery_download.png',
+    'duplicate_to_new_layer': 'duplicateLayer.png',
+    'generate_contour_roi': 'generateContour.png',
+    'highest_point_per_block': 'highestPoint.png',
+    'generate_stream_roi': 'generateStream.png',
+    'csvtodemcontour': 'csvToDemContour.png',
+    'demelevationcorrectionandpointsamplereport': 'demCorrectionReport.png',
+    'reservoir_rating_curve': 'reservoirRatingCurve.png',
+    'reservoir_storage_analyzer': 'storageCapacityCurve.png',
     'add_grid': 'addGrid.png',
+    'callout_label_studio': 'calloutLabelStudio.png',
+    'kga_layer_symbol': 'kgaLayerSymbol.png',
+    'dem_legend_bar': 'demLegendBar.png',
     'checkoverlapsandgaps': 'alg_topology.png',
     'domain_manager': 'domain.png',
     'apply_domain_library': 'alg_domain_apply.png',
@@ -102,6 +118,7 @@ ALG_ICONS = {
     'geopackage_to_filegdb': 'alg_gpkg_to_gdb.png',
     'create_layer_package': 'alg_package_out.png',
     'open_layer_package': 'alg_package_in.png',
+    'add_to_layer_package': 'addToLayerPackage.png',
     'planarizelines': 'planarizeTool.png',
     'checkpointsonboundary': 'pointOnBoundary.png',
     'errorinspector': 'errorInspector.png',
@@ -193,6 +210,8 @@ ALG_ORDER = {
         'imagery_downloader',
         'create_layer_package',
         'open_layer_package',
+        'add_to_layer_package',
+        'duplicate_to_new_layer',
     ],
     'KGA Data Conversion': [
         # Two round trips, each of which makes no sense read apart. The
@@ -210,9 +229,26 @@ ALG_ORDER = {
         'checkpointsonboundary',
         'errorinspector',
     ],
+    'KGA Irrigation Tools': [
+        # The existing tools keep the alphabetical order they always had; the
+        # two generators go last, below Reservoir Storage Analyzer, because they
+        # are the ones that start from nothing but an area on the map.
+        'csvtodemcontour',
+        'demelevationcorrectionandpointsamplereport',
+        'reservoir_rating_curve',
+        'reservoir_storage_analyzer',
+        'highest_point_per_block',
+        'generate_contour_roi',
+        'generate_stream_roi',
+    ],
     'KGA Mapping': [
-        # Adding a grid to a sheet comes before making the legend that goes
-        # beside it, and alphabetical order would put the legend first.
+        # Callout Label Studio leads: labelling is the first thing a map
+        # needs. Adding a grid to a sheet then comes before making the legend
+        # that goes beside it, and alphabetical order would put the legend
+        # first.
+        'callout_label_studio',
+        # Styling the layers comes right after labelling them.
+        'kga_layer_symbol',
         'add_grid',
         'dem_legend_bar',
     ],
@@ -233,6 +269,10 @@ ALG_ORDER = {
         'divide_features',
         'merge_features',
         'clip_features',
+        # Sequential Numbering is not pinned, so it would sort after
+        # Planarize Lines; pin both to keep Planarize Lines last.
+        'sequential_numbering',
+        'planarizelines',
     ],
 }
 
