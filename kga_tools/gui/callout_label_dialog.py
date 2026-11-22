@@ -16,6 +16,7 @@ from qgis.PyQt.QtWidgets import (
 from qgis.core import Qgis, QgsMapLayerProxyModel, QgsSettings
 from qgis.gui import QgsColorButton, QgsFieldExpressionWidget, QgsMapLayerComboBox, QgsScaleWidget
 
+from .window_reveal import revealed_preview
 from ..core.callout_studio import engine as E
 from ..core.callout_studio import arrange as A
 from ..core.callout_studio import numberkey as K
@@ -131,12 +132,15 @@ def preset_icon(cfg, w=84, h=54):
 # Dialog
 # --------------------------------------------------------------------------
 
+@revealed_preview
 class CalloutStudioDialog(QDialog):
 
     def __init__(self, iface, parent=None):
         super().__init__(parent or iface.mainWindow())
         self.iface = iface
         self._loading = False
+        self._armed = False          # the user has changed something for the current layer: only then may the
+                                     # live preview write to the map (choosing a layer must never label it)
         self._backup = None          # (layer_id, labeling clone, labels enabled)
         self._last_sig = None        # signature of the last style pushed to the map
         self._preset_buttons = []
@@ -845,6 +849,7 @@ class CalloutStudioDialog(QDialog):
         """Spin boxes / colour dragging: wait until the user pauses."""
         if self._loading:
             return
+        self._armed = True
         self._update_visibility()
         self._timer.start()
 
@@ -852,23 +857,31 @@ class CalloutStudioDialog(QDialog):
         """Single deliberate actions (quick styles, drop-downs, ticks): apply at once."""
         if self._loading:
             return
+        self._armed = True
         self._update_visibility()
         self._timer.stop()
         self._live_apply()
 
     def _on_layer_changed(self, layer):
         # discard un-applied preview on the previously selected layer
+        self._timer.stop()
         self._restore_backup()
-        self.field_w.setLayer(layer)
-        self.filter_w.setLayer(layer)
-        self.filter_w.setField("")
+        self._armed = False          # a new layer is only labelled once the user asks for it
+        self._loading = True         # the suggested field below is not an edit
+        try:
+            self.field_w.setLayer(layer)
+            self.filter_w.setLayer(layer)
+            self.filter_w.setField("")
+            if layer is not None:
+                existing = E.read_existing_label_field(layer)
+                if existing:
+                    self.field_w.setField(existing[0])
+                else:
+                    disp = layer.displayField() if hasattr(layer, "displayField") else ""
+                    self.field_w.setField(disp or "")
+        finally:
+            self._loading = False
         if layer is not None:
-            existing = E.read_existing_label_field(layer)
-            if existing:
-                self.field_w.setField(existing[0])
-            else:
-                disp = layer.displayField() if hasattr(layer, "displayField") else ""
-                self.field_w.setField(disp or "")
             kind = E.geometry_kind(layer) or "?"
             hint = {
                 "point": "Point layer — labels are placed around each point.",
@@ -879,7 +892,6 @@ class CalloutStudioDialog(QDialog):
         else:
             self.geom_lbl.setText("Add a vector layer to the project to get started.")
         self._update_visibility()
-        self._changed()
 
     # ------------------------------------------------------- fit target
     def _mm_units(self, layer):
@@ -903,7 +915,11 @@ class CalloutStudioDialog(QDialog):
         i = self.fit_cb.findData(cur) if cur else 0
         self.fit_cb.setCurrentIndex(max(i, 0))
         self.fit_cb.blockSignals(False)
-        self._on_fit_changed()
+        was_loading, self._loading = self._loading, True     # refreshing the list (it runs when the window is
+        try:                                                 # shown) is not an edit: it must not label the layer
+            self._on_fit_changed()
+        finally:
+            self._loading = was_loading
 
     def _on_fit_changed(self, *_):
         if self._fit_item is not None:
@@ -998,6 +1014,7 @@ class CalloutStudioDialog(QDialog):
 
     def _on_live_toggled(self, on):
         if on:
+            self._armed = True       # the user asked for the preview
             self._live_apply()
         else:
             self._restore_backup()
@@ -1060,7 +1077,7 @@ class CalloutStudioDialog(QDialog):
         return True
 
     def _live_apply(self):
-        if self.live_cb.isChecked():
+        if self.live_cb.isChecked() and self._armed:
             self._apply_now(quiet=True)
 
     def _commit(self):
@@ -1238,6 +1255,16 @@ class CalloutStudioPanel(CalloutStudioDialog):
     def _remove_labels(self):
         super()._remove_labels()
         self.labels_removed = not self._layer.labelsEnabled()
+
+    def mark_labels_removed(self):
+        """Another tool is switching this layer's labels off on purpose: stop the live preview and do not
+        put them back (same state as this panel's own Remove labels, without asking)."""
+        self._timer.stop()
+        self.live_cb.blockSignals(True)
+        self.live_cb.setChecked(False)
+        self.live_cb.blockSignals(False)
+        self._backup = None
+        self.labels_removed = True
 
     def _live_apply(self):
         self.labels_removed = False

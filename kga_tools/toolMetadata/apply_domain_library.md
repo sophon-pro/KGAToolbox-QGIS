@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:apply_domain_library` |
 | **Group** | KGA Schema Tools |
 | **Source** | `kga_tools/algorithms/domain_apply.py` |
-| **Icon** | `icons/alg_domain_apply.png` |
+| **Icon** | `icons/schema/alg_domain_apply.png` |
 | **Type** | Batch algorithm (runs on the GUI thread — it touches layers that may be open) |
 
 ## Overview

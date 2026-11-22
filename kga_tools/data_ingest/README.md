@@ -56,12 +56,23 @@ A separate read-only map window opens:
 | Find / Select by attribute | Field + condition (equals, contains, starts with, >, <, is one of, is empty…) + a value picked from the data's own values; New / Add / Remove / Within selection; or a full expression |
 | Identify | `I`, then click. Shows the fields ticked in **Fields**, labelled by the field you choose, plus derived area/length/coordinates. Rasters show pixel values |
 | Selection table | Selected features (first 1,000) with the chosen fields; double-click a row to zoom |
-| Export | `Ctrl+E`: selected / all / in-view features → GeoPackage, Shapefile, GeoJSON, FlatGeobuf, CSV, Excel, KML or GeoParquet, with field choice and CRS. Rasters: export the visible area to a new GeoTIFF |
+| Export ▾ | Drop-down: **Current preview canvas** (`Ctrl+E`), **Draw rectangle**, **Draw polygon**, **Layer extent**, **Polygon boundary…** (the selected, else all, polygons of a project polygon layer). Vectors: selected / all / inside-the-area features → GeoPackage, Shapefile, GeoJSON, FlatGeobuf, CSV, Excel, KML or GeoParquet, with field choice and CRS. Rasters: the area (masked to a polygon) → a new GeoTIFF |
 
 **Non-destructive guarantee:** the layer is opened read-only (editing is impossible), it is never added to
 your project, and exports only create new files. Writing to the source file, inside its geodatabase, or over
 a Shapefile's companion files is refused. New files go to `<project folder>/exports/` by default and appear in
 an **Exports** group.
+
+## Rename tab
+The **Rename** button beside **Create** opens the **Rename** tab in the right-hand pane. It lists the datasets
+selected in the file list and follows the selection (names you have typed are kept; a selected folder adds its
+datasets; **Loaded Layers** adds the project's file-based layers). Choose **Rename in place** or **Create copies**
+(to an output folder), edit the new names, and click the button at the bottom; the path under the list shows
+the exact destination of the highlighted row. Shapefile components and SQLite / raster sidecars move together,
+**Double-click a GeoPackage or File Geodatabase row** to list the tables inside it; tick and rename them
+(GDAL layer rename, so project layers pointing at the table follow it). In **Create copies** mode a table is
+copied inside its own database. Table names are made ArcGIS-safe in a geodatabase. Name clashes are caught before anything is touched, a failed move is undone, and project layers are re-pointed
+at the new file. Source: `file_renamer.py`; test: `tests/data_ingest/test_file_renamer.py`.
 
 ## Performance (v1.2)
 All disk work (opening layers, listing a geodatabase's layers, reading attributes, computing extents, folder
@@ -77,3 +88,6 @@ If the project isn't saved yet, `~/GeoMediaIngest/` is used. Set your own in Ing
 - Point clouds are not previewed (opening one starts indexing); they are imported normally.
 - Smart CSV detection recognises lon/lat, x/y, easting/northing and WKT/geometry columns and `, ; tab |` delimiters.
 - Progress and errors appear in the task manager and in Log Messages ▸ "Data Explorer".
+
+## Copy, Cut, Paste and drag-and-drop move
+Right-click data in the file list: **Copy data**, **Cut data (move)**, then **Paste** / **Move here** on a folder, GeoPackage or File Geodatabase (right-click it in the list or the tree; `Ctrl+C` / `Ctrl+X` / `Ctrl+V` in the list). Shapefile, GeoPackage and geodatabase tables convert between each other; rasters go to folders as GeoTIFF. Dragging data onto a folder or database in the tree (or a folder/database row in the list) **moves** it; hold `Ctrl` to copy. A move deletes an original (to the Recycle Bin) only after it was written in full, and removes project layers that used it. Engine: `transfer.py` over `core/data_paste.py`.

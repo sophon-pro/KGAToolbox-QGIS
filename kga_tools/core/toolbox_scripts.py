@@ -64,15 +64,20 @@ def refresh():
 
 
 def unregister_previous():
-    """Take out the folder an earlier session (or workspace) added."""
+    """Take out the folder an earlier session (or workspace) added.
+
+    Folders that no longer exist (a deleted or moved workspace, a crashed session) go too:
+    Processing's options page rejects a missing script folder, which would make the whole
+    Options dialog refuse OK.
+    """
     settings = QgsSettings()
     previous = settings.value(SETTINGS_ADDED, '') or ''
     settings.remove(SETTINGS_ADDED)
-    if not previous:
-        return False
     try:
-        kept = [f for f in configured_folders() if _norm(f) != _norm(previous)]
-        if len(kept) == len(configured_folders()):
+        folders = configured_folders()
+        kept = [f for f in folders
+                if os.path.isdir(f) and not (previous and _norm(f) == _norm(previous))]
+        if len(kept) == len(folders):
             return False
         _write(kept)
     except Exception:

@@ -5,7 +5,7 @@
 | **Algorithm ID** | none: a background feature with a submenu of the KGA Toolbox (not a Processing algorithm) |
 | **Group** | KGA Toolbox menu > Layer Auto-Sort |
 | **Source** | `kga_tools/core/layer_sort.py` (ordering logic and settings), `kga_tools/gui/layer_sort_controller.py` (actions, new-layer hook, Layers panel menu), `kga_tools/gui/layer_sort_dialog.py` (settings window) |
-| **Icon** | `icons/sortLayer.png` |
+| **Icon** | `icons/data_management/sortLayer.png` |
 | **Type** | Background feature with a menu and a settings window; no toolbar button. Needs QGIS 3.30 or newer; left out on older versions. |
 
 ## Overview

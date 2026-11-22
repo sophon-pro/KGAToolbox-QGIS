@@ -23,6 +23,7 @@ from qgis.core import (
     QgsSettings,
 )
 from ..core.compat import enum_value
+from .panel_bubble import ToolbarReveal
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SVG_DIR = os.path.join(HERE, "north_arrows", "svg")
@@ -61,8 +62,11 @@ def preview_icon(path, size=QSize(72, 90)):
     draw (it shows blank), so those are rendered with the parameters stripped."""
     icon = _icons.get(path)
     if icon is None:
-        with open(path, encoding="utf-8") as f:
-            text = f.read()
+        try:
+            with open(path, encoding="utf-8") as f:
+                text = f.read()
+        except OSError:                 # e.g. a profile folder so deep that the path is too long for Windows
+            return QIcon()              # one arrow without a picture, not a layout without its docks
         if "param(" not in text:
             icon = QIcon(path)
         else:
@@ -100,7 +104,7 @@ def unregister_svg_path():
         QgsSettings().setValue(SVG_KEY, [p for p in paths if p != SVG_DIR])
 
 
-class NorthArrowDock(QDockWidget):
+class NorthArrowDock(ToolbarReveal, QDockWidget):
     def __init__(self, designer, catalog, parent=None):
         super().__init__("Khmer North Arrows", parent)
         self.setObjectName("KgaNorthArrowsDock")

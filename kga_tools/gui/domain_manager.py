@@ -54,6 +54,7 @@ from qgis.PyQt.QtWidgets import (
     QWidget,
 )
 
+from .window_reveal import revealed
 from ..branding import LOG_TAG, open_docs
 from .busy import BusyOverlay
 from ..core import domains as D
@@ -89,6 +90,7 @@ def tr(text):
     return QCoreApplication.translate('KgaDomainManager', text)
 
 
+@revealed
 class DomainManagerDialog(QDialog):
     """The whole tool. Owns one open container at a time."""
 

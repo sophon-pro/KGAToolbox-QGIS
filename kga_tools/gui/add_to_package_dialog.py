@@ -15,7 +15,7 @@ from qgis.PyQt.QtWidgets import QApplication, QCheckBox, QVBoxLayout
 
 from ..branding import LOG_TAG
 from ..core import packaging as P
-from .layer_checklist import LayerChecklist
+from .project_layer_checklist import ProjectLayerChecklist
 from .package_window import PackageWindow, tr
 
 try:
@@ -40,7 +40,7 @@ class AddToPackageDialog(PackageWindow):
         self.setMinimumSize(520, 460)
         outer = QVBoxLayout(self)
 
-        self.checklist = LayerChecklist(tr('Input layers'), self)
+        self.checklist = ProjectLayerChecklist(tr('Input layers'), self)
         self.checklist.changed.connect(self.refresh_state)
         self.checklist.message.connect(self.say)
         outer.addWidget(self.checklist, 1)

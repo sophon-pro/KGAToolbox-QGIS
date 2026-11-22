@@ -23,6 +23,8 @@ from qgis.core import Qgis, QgsDataProvider, QgsDataSourceUri, QgsProject, QgsPr
 from qgis.PyQt import sip
 from qgis.PyQt.QtCore import QObject, QTimer, pyqtSignal
 
+from ..core.kga_settings import shared as _shared_settings
+
 LAYER_PROPERTY = "edit_session/editable"
 SELECT_PROPERTY = "edit_session/selectable"
 # Layer properties keep the stand-alone plugin's names so projects saved with it still work.
@@ -37,11 +39,13 @@ OPTIONS = {
     "active_follows_selection": True,  # Selecting a feature makes its layer the active layer
     "enabled": False,                # Edit Session On/Off switch (Off = normal QGIS behaviour); opt-in in KGA
     "follow_mouse_edit": True,       # QGIS editing tools work on the layer under the mouse
+    "context_session_notice": True,  # Tell me when a right-click tool turns Edit Session on
 }
 
 
 def option(name):
-    return QgsSettings().value(SETTINGS_GROUP + name, OPTIONS[name], type=bool)
+    # the shared QgsSettings: this is asked once per layer whenever the layer list is planned
+    return _shared_settings().value(SETTINGS_GROUP + name, OPTIONS[name], type=bool)
 
 
 def set_option(name, value):
@@ -98,6 +102,16 @@ def _source_key(layer):
         if parts:
             return provider + "|" + repr(sorted((k, str(v)) for k, v in parts.items()))
     return layer.providerType() + "|" + layer.source().split("|subset=")[0]
+
+
+def edit_blocked(layer):
+    """True when the user switched editing off for this layer (List By Editing / Editable Layers panel).
+
+    Tools that would put a layer into edit mode on their own must leave it alone then."""
+    if layer.isEditable():
+        return False                # already being edited: its flag is on (or the session is off)
+    value = layer.customProperty(LAYER_PROPERTY, None)
+    return value is not None and not _as_bool(value)
 
 
 def can_edit(layer):
@@ -249,11 +263,11 @@ class EditSessionManager(QObject):
                 result.append((layer, False, f"same data as '{owner.name()}'"))
         return result
 
-    def status(self, layer):
-        """Short text for the Editable Layers panel."""
+    def status(self, layer, plan=None):
+        """Short text for the Editable Layers panel. A caller listing many layers passes one `plan()`."""
         if not self.managed():
             return "managed by QGIS transaction mode"
-        for lyr, want, reason in self.plan():
+        for lyr, want, reason in (self.plan() if plan is None else plan):
             if lyr.id() == layer.id():
                 if want:
                     return "editable - unsaved edits" if layer.isModified() else "editable"

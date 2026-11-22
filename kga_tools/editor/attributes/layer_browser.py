@@ -44,6 +44,36 @@ def feature_label(layer, feature):
     return str(feature.id())
 
 
+def feature_labeler(layer):
+    """A function feature -> name for many features of one layer.
+
+    `feature_label` builds the layer's expression and its whole context again for every feature
+    (about 0.4 ms each); listing a selection of a thousand features took over a second. Here the
+    display expression is prepared once and only the feature changes."""
+    try:
+        from qgis.core import QgsExpression, QgsExpressionContext, QgsExpressionContextUtils
+        text = layer.displayExpression()
+        if not text:
+            raise ValueError('no display expression')
+        expression = QgsExpression(text)
+        context = QgsExpressionContext(QgsExpressionContextUtils.globalProjectLayerScopes(layer))
+        if expression.hasParserError() or not expression.prepare(context):
+            raise ValueError('expression not usable')
+    except Exception:
+        return lambda feature: feature_label(layer, feature)
+
+    def label(feature):
+        with suppress(Exception):
+            context.setFeature(feature)
+            value = expression.evaluate(context)
+            if not expression.hasEvalError() and value is not None:
+                text = str(value)
+                if text and text != 'NULL':
+                    return text
+        return feature_label(layer, feature)
+    return label
+
+
 class FeatureListModel(QAbstractListModel):
     """Every feature id of a layer; names are looked up only for the rows that are drawn."""
 

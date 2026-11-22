@@ -19,6 +19,33 @@ from qgis.core import (
 )
 from ..branding import docs_url
 
+try:
+    from qgis.utils import iface
+except ImportError:                         # pragma: no cover - head-less
+    iface = None
+
+#: The window, kept alive between opens so it is not garbage collected.
+DIALOG_INSTANCE = None
+
+
+def _alive(dialog):
+    try:
+        return dialog is not None and not dialog._torn_down
+    except RuntimeError:                    # the Qt object is already gone
+        return False
+
+
+def close_gpkg_to_shp():
+    """Stop any running job and close the window on plugin unload."""
+    global DIALOG_INSTANCE
+    dialog, DIALOG_INSTANCE = DIALOG_INSTANCE, None
+    if dialog is None:
+        return
+    try:
+        dialog.shutdown()
+    except RuntimeError:                    # already destroyed by Qt
+        pass
+
 
 class GpkgToShapefiles(QgsProcessingAlgorithm):
 
@@ -115,6 +142,21 @@ class GpkgToShapefiles(QgsProcessingAlgorithm):
                 defaultValue=True
             )
         )
+
+    def createCustomParametersWidget(self, parent=None):
+        """Open the GpkgToShpDialog window instead of the plain form.
+
+        The parameters stay, so scripts (`processing.run`), the modeller and
+        batch still work; only the Toolbox dialog is replaced.
+        """
+        global DIALOG_INSTANCE
+        if iface is None:
+            return None
+        from ..gui.gpkg_to_shp_dialog import GpkgToShpDialog
+
+        if not _alive(DIALOG_INSTANCE):
+            DIALOG_INSTANCE = GpkgToShpDialog(iface.mainWindow())
+        return DIALOG_INSTANCE
 
     # ------------------------------------------------------------------ helper
     @staticmethod

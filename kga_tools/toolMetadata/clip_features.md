@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:clip_features` |
 | **Group** | KGA Editing Tools |
 | **Source** | `kga_tools/algorithms/clip_features.py` (base dialog in `kga_tools/gui/modify_dialog.py`) |
-| **Icon** | `icons/clipFeatures.png` |
+| **Icon** | `icons/editing/clipFeatures.png` |
 | **Type** | Interactive dialog — modeless, owns a map tool, needs the QGIS canvas |
 
 ## Overview

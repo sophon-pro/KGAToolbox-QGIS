@@ -1,6 +1,6 @@
 # KGA Toolbox — Tool Metadata
 
-Reference documentation for all **50 tools** the KGA Toolbox registers, one file
+Reference documentation for all **56 tools** the KGA Toolbox registers, one file
 per tool.
 
 Each file is named after the algorithm's `name()` — the same key used by
@@ -21,12 +21,13 @@ cannot run headless or inside a model.
 
 ---
 
-## KGA Data Management — 10
+## KGA Data Management — 12
 
 | Tool | What it does |
 |---|---|
 | [Add Open Data & Basemaps](add_data.md) | Pull admin boundaries, basemaps, DEMs and land cover in from open data sources. *(Interactive)* |
 | [Imagery Downloader](imagery_downloader.md) | Download web-map imagery tiles for an area, stitch them into one georeferenced image and add it to the map. *(Interactive)* |
+| [Satellite Imagery Archive](satellite_imagery_archive.md) | Search free Sentinel-2, Landsat, OpenAerialMap and STAC archives by date and cloud cover; download scenes clipped to an area. *(Interactive)* |
 | [Create Layer Package](create_layer_package.md) | Package layers, styles and resources into one `.kgalp` that opens anywhere. |
 | [Open Layer Package](open_layer_package.md) | Unpack a `.kgalp` and rebuild its layers, styles and group structure. |
 | [Add Layers to Layer Package](add_to_layer_package.md) | Add project layers or layers browsed from disk to an existing `.kgalp`. *(Interactive)* |
@@ -64,12 +65,15 @@ The first nine are interactive: they open a modeless pane that owns its own map 
 | [Sequential Numbering](sequential_numbering.md) | Number features by clicking or dragging across them. |
 | [Planarize Lines](planarizelines.md) | Split lines at their intersections. |
 
-## KGA Geometry Utilities — 4
+## KGA Geometry Utilities — 7
 
 | Tool | What it does |
 |---|---|
 | [Duplicate Checker](duplicate_checker.md) | Find features repeating a field value or a geometry. *(Interactive)* |
 | [Geometry Conversion](geometry_conversion_dynamic.md) | Explode polygons and lines into segments, points or vertices. *(Interactive)* |
+| [Point to Geometry Converter](point_to_geometry.md) | Build lines, segments or polygons from an ordered point layer. *(Interactive)* |
+| [Sliver and Spike Cleaner](sliver_spike_cleaner.md) | Remove spikes, wedges, narrow strips and tiny parts left after splitting polygons. *(Interactive)* |
+| [Strip Lines and Point Grid](strip_point_grid.md) | Lay equal or varying strip lines, a point grid or a grid of squares, hexagons and other regular shapes, over a map extent, drawn area, layer extent or polygon boundary. *(Interactive)* |
 | [Update Geometry Fields](updategeometryfields.md) | Fill `Shape_Length` and `Shape_Area` on the active layer. |
 | [Update X/Y or Lat/Lon Fields](updatexyfields.md) | Write coordinate columns onto a layer. |
 
@@ -92,7 +96,7 @@ The first nine are interactive: they open a modeless pane that owns its own map 
 | [Export Layers to KML](export_layers_to_kml.md) | Write layers to KML/KMZ for Google Earth, labels included. |
 | [Raster Format Converter](raster_format_converter.md) | Convert a raster between ECW, GeoTIFF, JPEG 2000, IMG, PNG and JPEG — resumably. |
 
-## KGA Irrigation Tools — 8
+## KGA Irrigation Tools — 9
 
 | Tool | What it does |
 |---|---|
@@ -103,6 +107,8 @@ The first nine are interactive: they open a modeless pane that owns its own map 
 | [Paddy Irrigation Tools](highest_point_per_block.md) | Two steps: the high (and low) ground of every paddy block from a DEM (trees and dikes filtered out, with slope and flow direction), then a gravity command check Field - TC - SC - MC - Reservoir with canal water levels. *(Interactive)* |
 | [Generate Contour for ROI](generate_contour_roi.md) | Download the free Copernicus DEM for an area and contour it, styled and labelled. *(Interactive)* |
 | [Generate River or Stream for ROI](generate_stream_roi.md) | Download the free Copernicus DEM for an area and extract its river and stream network, graded and checked. *(Interactive)* |
+| [Multipart Line Repair](multipart_line_repair.md) | Find multipart canal and drain lines, explain why they are multipart (gap, overlap, sliver) and repair them into single lines by snapping, dissolving and merging. *(Interactive)* |
+| [DEM / DSM Inspector](dem_dsm_inspector.md) | Tell whether an elevation raster is a bare-earth DEM or a surface model (DSM), with a confidence score, block map and report. *(Interactive)* |
 
 ## KGA Mapping — 4
 
@@ -117,11 +123,11 @@ The first nine are interactive: they open a modeless pane that owns its own map 
 
 ## KGA Editor toolbar (not a Processing tool)
 
-The second KGA toolbar holds **Edit Session**, **Create Features**, **Modify Features** and **Open Feature Attribute**.
+The second KGA toolbar holds **Edit Session**, **Create Features**, **Modify Features**, **Open Feature Attribute**, **Quick Labeling** and **Quick Symbology**.
 They are map tools, panes and switches, not Processing algorithms, so they do not appear in the
 Geoprocessing panel or a model and are not counted above. Their reference is
 `kga_tools/editor/README.md`, with a page each for [Create Features](create_features.md),
-[Modify Features](modify_features.md) (with a page for each of its 30 tools in [modify feature](modify%20feature/README.md)) and [Open Feature Attribute](open_feature_attribute.md).
+[Modify Features](modify_features.md) (with a page for each of its 32 tools in [modify feature](modify%20feature/README.md)) [Open Feature Attribute](open_feature_attribute.md), [Quick Labeling](quick_labeling.md) and [Quick Symbology](quick_symbology.md).
 QGIS 3.44 or newer; Edit Session starts **Off**.
 
 ## Layer Auto-Sort (not a Processing tool)
@@ -143,9 +149,19 @@ or a model.
 | [Project Packages](project_packages.md) | Share Workspace, Import Project Package and Convert Project to Workspace |
 | [Browser Copy and Paste](browser_copy_paste.md) | Copy and Paste on the Browser and Catalog right-click menu, plus Add to Map |
 | [Data Explorer](data_explorer.md) | Media-browser style dock to browse, search, preview and ingest geodata. QGIS 3.44+ |
+| [Panels and Toolbars Manager](ui_manager.md) | Visual, searchable switcher for every panel and toolbar, with saved layouts. |
 | [Map Tabs and Layout Tools](maps_and_layouts.md) | Maps and layouts as tabs, Contents panel, Layout Guides, Khmer North Arrows |
 | [Clip Basemap by Boundary](clip_basemap.md) | Show a basemap only inside a boundary; Add Quick Basemap |
-| [KGA Settings and Check for Update](kga_settings.md) | New-project defaults, Pro-style selection and Layers panel, start page, theme, Shape_Length and Shape_Area |
+| [Zoom to Location](zoom_to_location.md) | Zoom the map to a continent, country, province, district, commune, village or typed coordinate |
+| [Go To XY](go_to_xy.md) | Type a coordinate (meters, feet, degrees, UTM, MGRS), zoom to it and mark it with a temporary point |
+| [Map Cursor](cursor_style_manager.md) | Choose a custom cursor for the map tools (KGA Toolbox menu > Map Cursor) |
+| [Vertices and Nodes](vertices_and_nodes.md) | Show the vertices, nodes (where features connect or cross) and midpoints of lines and polygons on the map, like ArcGIS Pro; status-bar button, right-click menu, Settings > Editor |
+| [Grid](grid.md) | Map grid with spacing and rotation, like ArcGIS Pro; status-bar button with a drop-down, right-click menu, Settings > Editor |
+| [Label Bag](label_bag.md) | Floating bag for the labels of the selected layer (field, font, size, colour, buffer, placement); on the KGA Layer toolbar |
+| [Layer Bag](layer_bag.md) | Floating panel for the selected layer: attribute table, statistics, labels and the Layer Colors wheel; leads the KGA Layer toolbar |
+| [Tool Bag](tool_bag.md) | Floating bag of your favourite tools that shrinks into a bubble on the map; list or grid layout, up to three columns |
+| [Symbol Bag and Layer Colors](symbol_bag.md) | Floating symbol library and live layer recolouring; their bubbles sit with the Tool Bag's, with a Genie or Classic animation |
+| [KGA Settings and Check for Update](kga_settings.md) | New-project defaults, Pro-style selection and Layers panel, start page, theme, Bubbles, Smooth navigation, temporary pan (hold C), toolbar magnify, scratch layers on close, Shape_Length and Shape_Area |
 | [Add Quick Template](add_quick_template.md) | Create an empty point, line or polygon layer with standard fields |
 
 ## Things worth knowing across the toolbox

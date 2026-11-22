@@ -30,6 +30,7 @@ from qgis.PyQt.QtWidgets import (
     QWidget,
 )
 
+from .panel_bubble import ToolbarReveal
 from ..branding import (
     algorithm_icon,
     group_icon,
@@ -100,7 +101,7 @@ def clear_recent():
 
 # --------------------------------------------------------------------- panel
 
-class KgaGeoprocessingPanel(QgsDockWidget):
+class KgaGeoprocessingPanel(ToolbarReveal, QgsDockWidget):
 
     algorithmTriggered = pyqtSignal(str)
 
@@ -163,7 +164,7 @@ class KgaGeoprocessingPanel(QgsDockWidget):
         fav_ids = [a for a in favorites() if a in self._by_id]
         if fav_ids:
             section = self._add_section('Favorites', SECTION_FAVORITES,
-                                        icon('kga.png'))
+                                        icon('branding/kga.png'))
             for alg_id in fav_ids:
                 self._add_algorithm(section, self._by_id[alg_id])
             section.setExpanded(expanded.get(SECTION_FAVORITES, True))

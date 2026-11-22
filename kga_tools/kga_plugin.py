@@ -12,7 +12,7 @@ from contextlib import suppress
 from functools import partial
 
 import qgis.utils
-from qgis.core import Qgis, QgsApplication, QgsMessageLog
+from qgis.core import Qgis, QgsApplication, QgsMessageLog, QgsSettings
 from qgis.PyQt.QtCore import QSize, Qt, QTimer, QUrl
 from qgis.PyQt.QtGui import QDesktopServices, QPainter, QPen
 from qgis.PyQt.QtWidgets import (
@@ -24,12 +24,14 @@ from .branding import (
     LOG_TAG,
     MENU_ONLY_GROUPS,
     STANDALONE_ALGS,
+    STANDALONE_COMPANIONS,
     algorithm_icon,
     button_label,
     icon as _icon,
     ordered_algorithms,
     ordered_groups,
 )
+from .core import gc_relief
 from .core import geometry_fields
 from .core import kga_settings as ks
 from .core import ui_layout
@@ -41,21 +43,45 @@ from .gui.browser_package import BrowserPackageInstaller
 from .gui.browser_paste import BrowserPasteInstaller
 from .data_ingest.controller import DataIngestController
 from .gui.catalog_controller import CatalogController
+from .gui.ui_manager.controller import UiManagerController
+from .gui.layer_path_manager.controller import LayerPathManagerController
+from .gui import panel_bubble
+from .gui.bag_group import BubbleGroup
+from .gui.label_bag.controller import LabelBagController
+from .gui.layer_mini_panel.controller import LayerMiniPanelController
+from .gui.layer_toolbar import LayerToolbarController
+from .gui.geometry_info import GeometryInfoController
+from .gui.grid_view import GridController
+from .gui.node_view import NodeViewController
+from .gui.geoai_toolbar import GeoAIToolbarController
+from .gui.symbol_bag.plugin import SymbolBagPlugin
+from .gui.tool_bag.plugin import ToolBagPlugin
 from .gui.geoprocessing_panel import KgaGeoprocessingPanel
 from .gui.duplicate_layer_dialog import show_duplicate_layer
 from .gui.layout_guide_dock import LayoutGuideManager
 from .gui.layer_menu import LayerMenuInjector
 from .gui.layer_sort_controller import LayerSortController
 from .gui.clip_basemap_dialog import close_clip_basemap, show_clip_basemap
+from .gui.go_to_xy_bar import close_go_to_xy
+from .gui.go_to_xy_bar import current_bar as current_go_to_xy
+from .gui.go_to_xy_bar import get_bar as get_go_to_xy_bar
+from .gui.go_to_xy_bar import set_go_to_xy_visible
+from .gui.zoom_location_dialog import close_zoom_location, show_zoom_location
 from .gui.quick_template_dialog import (
     close_quick_template,
     show_quick_template,
 )
 from .gui.new_project_basemap import NewProjectBasemap
+from .gui import layer_scope
 from .gui.map_tabs import MapTabs
 from .gui.pro_layers import ProLayers
+from .gui.drag_chip import LayerDragChip
 from .gui.pro_selection import ProSelection
 from .gui.settings_dialog import SettingsDialog
+from .gui.smooth_navigation import SmoothNavigation
+from .gui import window_reveal
+from .gui.temporary_pan import TemporaryPan
+from .gui.cursor_style import CursorStyleManager
 from .gui.start_page import StartPageInstaller, settle_blank_project
 from .gui.update_dialog import UpdateDialog
 from .provider import KgaProvider
@@ -67,6 +93,9 @@ EDITOR_MIN_QGIS = 34400
 # Every Editing Tools tool (Planarize Lines included) lives on the KGA Editor toolbar
 # as buttons, right after its Vertex button.
 EDITOR_TOOLBAR_GROUP = 'KGA Editing Tools'
+# The GeoAI tools (AI models run on imagery) get a toolbar of their own, the
+# KGA GeoAI toolbar, rather than a drop-down on the KGA Toolbox toolbar.
+GEOAI_TOOLBAR_GROUP = 'KGA GeoAI'
 # The Catalog panel uses the scoped Browser enums (Qgis.BrowserItemState and
 # friends), which arrived in 3.36.
 CATALOG_MIN_QGIS = 33600
@@ -78,17 +107,25 @@ DATA_INGEST_MIN_QGIS = 34400
 # plugin it replaces would sort every added layer twice.
 LAYER_SORT_MIN_QGIS = 33000
 LAYER_SORT_CLASH_PLUGINS = ('layer_autosort',)
+# Tool Bag is built in. The stand-alone plugin (or its old name) would give two bags and two
+# toolbar hooks, so the built-in one stays out of the way.
+TOOL_BAG_CLASH_PLUGINS = ('tool_bag', 'custom_tool_workspace')
+SYMBOL_BAG_CLASH_PLUGINS = ('symbol_bag',)
+LAYER_MINI_PANEL_CLASH_PLUGINS = ('layer_mini_panel',)
 EDITOR_CLASH_PLUGINS = ('edit_session', 'construction_sketch',
                         'arcgis_construction_sketch')
 
-BASEMAP_ICONS = {'OpenStreetMap': 'osm.png', 'Google': 'GoogleMap.png',
-                 'ESRI': 'esri.png'}
+BASEMAP_ICONS = {'OpenStreetMap': 'imagery_basemaps/osm.png', 'Google': 'imagery_basemaps/GoogleMap.png',
+                 'ESRI': 'imagery_basemaps/esri.png'}
 
 
 # Data Explorer already owns Ctrl+Alt+I.
 SHORTCUT_GEOPROCESSING = 'Ctrl+Alt+G'
 SHORTCUT_CATALOG = 'Ctrl+Alt+C'
 SHORTCUT_EDITOR = 'Ctrl+Alt+E'
+SHORTCUT_UI_MANAGER = 'Ctrl+Alt+P'
+# The stand-alone plugin used Ctrl+Shift+M, which QGIS already gives a tool of its own.
+SHORTCUT_MINI_PANEL = 'Ctrl+Alt+L'
 
 
 class _DividerLine(QWidget):
@@ -121,7 +158,10 @@ class KgaToolsPlugin:
         self.panel = None
         self.panel_action = None
         self._owned_widgets = []
+        self._reveal = None
         self._layer_menu = None
+        self._filter_selected = None
+        self._copy_coordinates = None
         self._quick_layer_actions = []
         self._basemap_menus = []
         self._browser_paste = None
@@ -134,38 +174,92 @@ class KgaToolsPlugin:
         self._tools_anchor = None
         self._catalog = None
         self._data_ingest = None
+        self._ui_manager = None
+        self._path_manager = None
+        self._tool_bag = None
+        self._symbol_bag = None
+        self._bag_group = None
+        self._bag_actions = []
+        self._mini_panel = None
+        self._label_bag = None
+        self._layer_toolbar = None
+        self._geoai_toolbar = None
+        self._geoai_tools = []
+        self._attr_bubble = None
+        self._bags_menu = None
         self._layer_sort = None
         self._new_basemap = None
         self._pro_selection = None
         self._pro_layers = None
+        self._layer_modes = None
+        self._drag_chip = None
         self._map_tabs = None
+        self._smooth_nav = None
+        self._temp_pan = None
+        self._node_view = None
+        self._grid = None
+        self._geometry_info = None
+        self._cursor_style = None
         self._start_page = None
         self._layout_guides = None
         self._geometry_fields_action = None
 
     # ------------------------------------------------------------------ setup
 
+    def _default_docked_attribute_table(self):
+        """Options > Data Sources > "Open attribute table as docked window" starts ticked.
+
+        Applied once per profile, on first install, so a user who later unticks it keeps their choice.
+        """
+        with suppress(Exception):
+            s = QgsSettings()
+            flag = 'KGA/defaults/dock_attribute_table_done'
+            if not s.value(flag, False, type=bool):
+                s.setValue('qgis/dockAttributeTable', True)
+                s.setValue(flag, True)
+
     def initGui(self):
+        self._default_docked_attribute_table()
         self.init_system_theme()
         self.init_processing()
 
         self.toolbar = self.iface.addToolBar('KGA Toolbox')
         self.toolbar.setObjectName('KGAToolsToolbar')
         self.toolbar.setToolTip('KGA Toolbox')
+        self._toolbar_magnify = self._magnify(self.toolbar)
 
         self.menu = QMenu(MENU_TITLE, self.iface.mainWindow())
         self.iface.mainWindow().menuBar().insertMenu(
             self.iface.firstRightStandardMenu().menuAction(), self.menu)
 
+        panel_bubble.set_reveal_group(self.bag_group())
+        self.bag_group().open_settings = lambda: self.show_settings('Bubbles')
         self.init_panel()
         self.init_catalog()
         self.init_new_project_basemap()
         self.init_pro_selection()
         self.init_pro_layers()
+        with suppress(Exception):                    # Layers panel drags show a compact badge
+            self._drag_chip = LayerDragChip(self.iface)
+            self._drag_chip.install()
         self.init_map_tabs()
+        with suppress(Exception):
+            layer_scope.install()                    # every layer drop-down lists only the current map's layers
+        self.init_smooth_navigation()
+        self.init_temporary_pan()
+        self.init_cursor_style()
         self.init_start_page()
         self.init_data_ingest()
+        self.init_ui_manager()
+        self.init_path_manager()
+        self.init_layer_modes()                      # after the path manager: it places its buttons by theirs
+        self.init_tool_bag()
+        self.init_symbol_bag()
+        self.init_layer_mini_panel()
+        self.init_label_bag()
         self.init_layer_sort()
+        self.init_attribute_bubble()
+        self.init_layers_bubble()
         self.build_toolbar()
         self.init_layer_menu()
         self.init_quick_template_menu()
@@ -173,10 +267,20 @@ class KgaToolsPlugin:
         self.init_browser_paste()
         self.init_browser_package()
         self.init_editor()
+        self.init_node_view()
+        self.init_grid()
+        self.init_geometry_info()
+        self.init_layer_toolbar()
+        self.init_geoai_toolbar()
         self.init_layer_symbol_tab()
         self.init_callout_label_mode()
         self.init_layout_guides()
         self.init_basemaps()
+        # The bag lists the tools of every toolbar, including the ones built just above.
+        QTimer.singleShot(0, self.refresh_tool_bag)
+        # Once start-up is over: take the long-lived Python objects out of the garbage collector's
+        # way, so its full passes stop freezing the window for ~100 ms (see core/gc_relief.py).
+        gc_relief.settle_later()
 
     def init_layout_guides(self):
         """A Guides panel and toolbar button in every Layout Designer."""
@@ -213,7 +317,7 @@ class KgaToolsPlugin:
         """The Geoprocessing pane. Hidden by default; toggled from the toolbar."""
         self.panel = KgaGeoprocessingPanel(
             self.provider.algorithms, self.iface.mainWindow())
-        self.panel.algorithmTriggered.connect(self.run_algorithm)
+        self.panel.algorithmTriggered.connect(self._run_from_panel)
         self.iface.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.panel)
         self.panel.hide()
         # It lists the same algorithms the Processing Toolbox does, so it
@@ -227,13 +331,16 @@ class KgaToolsPlugin:
         # toggleViewAction gives a checkable action wired to the dock for free,
         # so the toolbar button reflects the panel's visibility.
         self.panel_action = self.panel.toggleViewAction()
-        self.panel_action.setIcon(_icon('kga.png'))
+        self.panel_action.setIcon(_icon('branding/kga.png'))
         self.panel_action.setText('KGA Geoprocessing')
         self.panel_action.setToolTip('Show the KGA Geoprocessing panel')
         # toggleViewAction only shows the dock. Tabbed onto the Processing
         # Toolbox that leaves it behind whichever tab is in front, so the
         # button reads as doing nothing; raise it to the front tab as well.
         self.panel_action.triggered.connect(self.raise_panel)
+        panel_bubble.attach_reveal(self.panel, self.panel_action, 'geoprocessing',
+                                   'KGA Geoprocessing – click to open',
+                                   panel_bubble.file_glyph('bubble/geoprocessing.png'))
 
     def init_catalog(self):
         """The Catalog panel (Project / Connections / Computer / Favorites)."""
@@ -244,7 +351,7 @@ class KgaToolsPlugin:
                 Qgis.MessageLevel.Info)
             return
         try:
-            self._catalog = CatalogController(self.iface)
+            self._catalog = CatalogController(self.iface, group=self.bag_group())
             self._catalog.initGui()
         except Exception:
             # Never let the Catalog stop the rest of the plugin loading.
@@ -270,7 +377,8 @@ class KgaToolsPlugin:
             return
         try:
             self._data_ingest = DataIngestController(
-                self.iface, catalog_getter=lambda: self._catalog)
+                self.iface, catalog_getter=lambda: self._catalog,
+                group=self.bag_group())
             self._data_ingest.initGui()
         except Exception:
             QgsMessageLog.logMessage(
@@ -284,6 +392,257 @@ class KgaToolsPlugin:
             with suppress(Exception):
                 self._data_ingest.unload()
             self._data_ingest = None
+
+    def init_ui_manager(self):
+        """Panels and Toolbars Manager: visual switcher with layouts."""
+        try:
+            self._ui_manager = UiManagerController(
+                self.iface, catalog_getter=lambda: self._catalog)
+            self._ui_manager.initGui()
+        except Exception:
+            QgsMessageLog.logMessage(
+                'Could not add Panels and Toolbars Manager:\n{}'.format(
+                    traceback.format_exc()), LOG_TAG,
+                Qgis.MessageLevel.Warning)
+            self.remove_ui_manager()
+
+    def remove_ui_manager(self):
+        if self._ui_manager is not None:
+            with suppress(Exception):
+                self._ui_manager.unload()
+            self._ui_manager = None
+
+    def init_path_manager(self):
+        """Layer Path Manager: audit and repair layer data sources."""
+        try:
+            self._path_manager = LayerPathManagerController(
+                self.iface, catalog_getter=lambda: self._catalog)
+            self._path_manager.initGui()
+        except Exception:
+            QgsMessageLog.logMessage(
+                'Could not add Layer Path Manager:\n{}'.format(
+                    traceback.format_exc()), LOG_TAG,
+                Qgis.MessageLevel.Warning)
+            self.remove_path_manager()
+
+    def remove_path_manager(self):
+        if self._path_manager is not None:
+            with suppress(Exception):
+                self._path_manager.unload()
+            self._path_manager = None
+
+    def init_tool_bag(self):
+        """Tool Bag: a floating bag of favourite tools that shrinks into a bubble on the map."""
+        clash = [name for name in TOOL_BAG_CLASH_PLUGINS if name in qgis.utils.plugins]
+        if clash:
+            self.iface.messageBar().pushInfo(
+                'KGA Toolbox',
+                'Tool Bag was not added because the stand-alone plugin "{}" is '
+                'installed and does the same job.'.format(clash[0]))
+            return
+        try:
+            self._tool_bag = ToolBagPlugin(
+                self.iface, embedded=True, toggle_icon=_icon('interface/toolBag.png'),
+                group=self.bag_group())
+            self._tool_bag.initGui()
+        except Exception:
+            QgsMessageLog.logMessage(
+                'Could not add Tool Bag:\n{}'.format(traceback.format_exc()),
+                LOG_TAG, Qgis.MessageLevel.Warning)
+            self.remove_tool_bag()
+
+    def open_attribute_bubble(self, layer, point):
+        """Layer menu > Attribute Table Bubble: the table opens as a bubble, flying out of the click."""
+        manager = getattr(self, '_attr_bubble', None)
+        if manager is None:
+            self.iface.showAttributeTable(layer)
+            return
+        manager.open_in_bubble(layer, point)
+
+    def init_layers_bubble(self):
+        """The Layers panel gets a Minimize button and folds into a bubble like the KGA panels."""
+        try:
+            dock = self.iface.mainWindow().findChild(QDockWidget, 'Layers')
+            if dock is not None:
+                panel_bubble.attach_reveal(
+                    dock, None, 'layers_panel', 'Layers – click to open',
+                    panel_bubble.file_glyph('bubble/layers_panel.png'))
+        except Exception:
+            QgsMessageLog.logMessage(
+                'Could not add the Layers panel bubble:' + chr(10) + traceback.format_exc(),
+                'KGA Tools', Qgis.MessageLevel.Warning)
+
+    def init_attribute_bubble(self):
+        """Attribute tables get a Minimize button and fold into a bubble on the map."""
+        try:
+            from .gui.panel_bubble import AttributeBubbleManager
+            self._attr_bubble = AttributeBubbleManager(self.iface, self.bag_group())
+        except Exception:
+            QgsMessageLog.logMessage(
+                'Could not add the attribute table bubble:' + chr(10) + '{}'.format(
+                    traceback.format_exc()), LOG_TAG, Qgis.MessageLevel.Warning)
+            self._attr_bubble = None
+
+    def remove_attribute_bubble(self):
+        if self._attr_bubble is not None:
+            with suppress(Exception):
+                self._attr_bubble.unload()
+            self._attr_bubble = None
+
+    def bag_group(self):
+        """The column the bubbles of the Tool Bag, Symbol Bag and Layer Colors share."""
+        if self._bag_group is None:
+            self._bag_group = BubbleGroup(self.iface)
+        return self._bag_group
+
+    def init_symbol_bag(self):
+        """Symbol Bag and Layer Colors: toolbar buttons right after the Tool Bag."""
+        clash = [name for name in SYMBOL_BAG_CLASH_PLUGINS
+                 if name in qgis.utils.plugins]
+        if clash:
+            self.iface.messageBar().pushInfo(
+                'KGA Toolbox',
+                'Symbol Bag was not added because the stand-alone plugin "{}" is '
+                'installed and does the same job.'.format(clash[0]))
+            return
+        try:
+            self._symbol_bag = SymbolBagPlugin(
+                self.iface, group=self.bag_group(),
+                toggle_icon=_icon('mapping/symbolBag.png'))
+            self._symbol_bag.initGui()
+        except Exception:
+            QgsMessageLog.logMessage(
+                'Could not add Symbol Bag:\n{}'.format(traceback.format_exc()),
+                LOG_TAG, Qgis.MessageLevel.Warning)
+            self.remove_symbol_bag()
+
+    def remove_symbol_bag(self):
+        if self._symbol_bag is not None:
+            with suppress(Exception):
+                self._symbol_bag.unload()
+            self._symbol_bag = None
+
+    def init_layer_mini_panel(self):
+        """Layer Bag: attributes, labels and colours of the selected layer (KGA Layer toolbar)."""
+        clash = [name for name in LAYER_MINI_PANEL_CLASH_PLUGINS
+                 if name in qgis.utils.plugins]
+        if clash:
+            self.iface.messageBar().pushInfo(
+                'KGA Toolbox',
+                'Layer Bag was not added because the stand-alone plugin "{}" is '
+                'installed and does the same job.'.format(clash[0]))
+            return
+        try:
+            self._mini_panel = LayerMiniPanelController(
+                self.iface, bag_provider=lambda: self._symbol_bag,
+                icon=_icon('interface/layerMiniPanel.png'), group=self.bag_group())
+            self._mini_panel.initGui()
+        except Exception:
+            QgsMessageLog.logMessage(
+                'Could not add Layer Bag:\n{}'.format(traceback.format_exc()),
+                LOG_TAG, Qgis.MessageLevel.Warning)
+            self.remove_layer_mini_panel()
+
+    def remove_layer_mini_panel(self):
+        if self._mini_panel is not None:
+            self._unregister_shortcut(self._mini_panel.action)
+            with suppress(Exception):
+                self._mini_panel.unload()
+            self._mini_panel = None
+
+    def init_label_bag(self):
+        """Label Bag: the labels of the selected layer in a floating bag (Bags drop-down)."""
+        try:
+            self._label_bag = LabelBagController(
+                self.iface, bag_provider=lambda: self._symbol_bag,
+                icon=_icon('interface/labelBag.png'), group=self.bag_group())
+            self._label_bag.initGui()
+        except Exception:
+            QgsMessageLog.logMessage(
+                'Could not add Label Bag:\n{}'.format(traceback.format_exc()),
+                LOG_TAG, Qgis.MessageLevel.Warning)
+            self.remove_label_bag()
+
+    def remove_label_bag(self):
+        if self._label_bag is not None:
+            with suppress(Exception):
+                self._label_bag.unload()
+            self._label_bag = None
+
+    @staticmethod
+    def _magnify(toolbar):
+        """The Dock-style magnify effect for a KGA toolbar (Settings > Appearance > Toolbar buttons)."""
+        try:
+            from .gui.toolbar_magnify import ToolbarMagnify
+            return ToolbarMagnify(toolbar)
+        except Exception:
+            QgsMessageLog.logMessage('Could not add Magnify to a toolbar:\n{}'.format(traceback.format_exc()),
+                                     LOG_TAG, Qgis.MessageLevel.Warning)
+            return None
+
+    def init_layer_toolbar(self):
+        """The KGA Layer toolbar: Layer Bag, Quick Labeling / Symbology, the Bags drop-down and
+        Layer Path Manager."""
+        if self._layer_toolbar is not None:
+            return
+        try:
+            self._layer_toolbar = LayerToolbarController(
+                self.iface, mini_panel=self._mini_panel, bag_actions=self._bag_actions,
+                bag_icon=_icon('interface/toolBag.png'),
+                set_default_action=self.set_default_action,
+                bag_provider=lambda: self._symbol_bag,
+                path_manager_action=(self._path_manager.action
+                                     if self._path_manager is not None else None),
+                parent_menu=self.menu,
+                menu_before=getattr(self, '_update_separator', None))
+            self._layer_toolbar.initGui()
+            if self._reveal is not None:
+                self._reveal.watch_toolbar(self._layer_toolbar.toolbar)
+        except Exception:
+            QgsMessageLog.logMessage(
+                'Could not add the KGA Layer toolbar:\n{}'.format(traceback.format_exc()),
+                LOG_TAG, Qgis.MessageLevel.Warning)
+            self.remove_layer_toolbar()
+
+    def remove_layer_toolbar(self):
+        if self._layer_toolbar is not None:
+            with suppress(Exception):
+                self._layer_toolbar.unload()
+            self._layer_toolbar = None
+
+    def init_geoai_toolbar(self):
+        """The KGA GeoAI toolbar: one button per tool of the KGA GeoAI group."""
+        if self._geoai_toolbar is not None or not self._geoai_tools:
+            return
+        try:
+            self._geoai_toolbar = GeoAIToolbarController(
+                self.iface, self._geoai_tools, parent_menu=self.menu,
+                menu_before=getattr(self, '_update_separator', None))
+            self._geoai_toolbar.initGui()
+            if self._reveal is not None and self._geoai_toolbar.toolbar is not None:
+                self._reveal.watch_toolbar(self._geoai_toolbar.toolbar)
+        except Exception:
+            QgsMessageLog.logMessage(
+                'Could not add the KGA GeoAI toolbar:\n{}'.format(traceback.format_exc()),
+                LOG_TAG, Qgis.MessageLevel.Warning)
+            self.remove_geoai_toolbar()
+
+    def remove_geoai_toolbar(self):
+        if self._geoai_toolbar is not None:
+            with suppress(Exception):
+                self._geoai_toolbar.unload()
+            self._geoai_toolbar = None
+
+    def refresh_tool_bag(self):
+        if self._tool_bag is not None:
+            with suppress(Exception):
+                self._tool_bag.refresh()
+
+    def remove_tool_bag(self):
+        if self._tool_bag is not None:
+            with suppress(Exception):
+                self._tool_bag.unload()
+            self._tool_bag = None
 
     def init_layer_sort(self):
         """Layer Auto-Sort: ArcGIS Pro style ordering of the Layers panel."""
@@ -337,22 +696,29 @@ class KgaToolsPlugin:
     def init_layer_menu(self):
         """Duplicate to New Layer, below Duplicate Layer on the layer menu."""
         self._layer_menu = LayerMenuInjector(
-            self.iface, self.show_duplicate_layer, self.iface.mainWindow())
+            self.iface, self.show_duplicate_layer, self.iface.mainWindow(),
+            bubble_callback=self.open_attribute_bubble)
         self._layer_menu.install()
+        from .gui.filter_selected import FilterSelectedController
+        self._filter_selected = FilterSelectedController(self.iface)
+        self._filter_selected.install()
+        from .gui.copy_coordinates import CopyCoordinatesController
+        self._copy_coordinates = CopyCoordinatesController(self.iface)
+        self._copy_coordinates.install()
 
     def init_quick_template_menu(self):
         """Add Quick Template Layer, first entry of the QGIS Layer menu."""
         try:
             menu = self.iface.layerMenu()
             first = menu.actions()[0] if menu.actions() else None
-            action = QAction(_icon('quickTemplate.png'),
+            action = QAction(_icon('editing/quickTemplate.png'),
                              'Add Quick Template Layer',
                              self.iface.mainWindow())
             action.setToolTip('Make an empty point, line or polygon layer')
             action.triggered.connect(self.show_quick_template)
             separator = QAction(self.iface.mainWindow())
             separator.setSeparator(True)
-            basemap = QAction(_icon('addToMap.png'), 'Add Quick Basemap',
+            basemap = QAction(_icon('data_management/addToMap.png'), 'Add Quick Basemap',
                               self.iface.mainWindow())
             basemap.setToolTip('Add an OSM, Google or ESRI basemap')
             basemap.setMenu(self.build_basemap_menu(self.iface.mainWindow()))
@@ -614,6 +980,12 @@ class KgaToolsPlugin:
             self._browser_paste = None
 
     def remove_layer_menu(self):
+        if getattr(self, '_copy_coordinates', None) is not None:
+            self._copy_coordinates.uninstall()
+            self._copy_coordinates = None
+        if getattr(self, '_filter_selected', None) is not None:
+            self._filter_selected.uninstall()
+            self._filter_selected = None
         if self._layer_menu is not None:
             self._layer_menu.uninstall()
             self._layer_menu.deleteLater()
@@ -672,10 +1044,15 @@ class KgaToolsPlugin:
     def build_toolbar(self):
         """Group the registered algorithms and make one dropdown per group."""
         standalone_icons = dict(STANDALONE_ALGS)
+        if self._reveal is not None:
+            self._reveal.deleteLater()
+        self._reveal = window_reveal.OriginTracker()
+        self.menu.aboutToHide.connect(self._reveal.menu_hidden)
+        window_reveal.set_tracker(self._reveal)
 
         # Add Quick Template leads the toolbar. It is a window of its own, not
         # a Processing algorithm, so it is added here rather than promoted.
-        quick = QAction(_icon('quickTemplate.png'), 'Add Quick Template',
+        quick = QAction(_icon('editing/quickTemplate.png'), 'Add Quick Template',
                         self.iface.mainWindow())
         quick.setToolTip('Add Quick Template - make an empty point, line or '
                          'polygon layer')
@@ -685,7 +1062,7 @@ class KgaToolsPlugin:
         self._owned_widgets.append(quick)
 
         basemap = QToolButton(self.toolbar)
-        basemap.setIcon(_icon('addToMap.png'))
+        basemap.setIcon(_icon('data_management/addToMap.png'))
         basemap.setText('Add Quick Basemap')
         basemap.setToolTip('Add Quick Basemap - add an OSM, Google or ESRI '
                            'basemap to the map')
@@ -695,10 +1072,10 @@ class KgaToolsPlugin:
         self._owned_widgets.append(basemap)
 
         basemap_item = self.menu.addMenu(self.build_basemap_menu(self.menu))
-        basemap_item.setIcon(_icon('addToMap.png'))
+        basemap_item.setIcon(_icon('data_management/addToMap.png'))
         basemap_item.setText('Add Quick Basemap')
 
-        clip_basemap = QAction(_icon('clipBasemap.png'),
+        clip_basemap = QAction(_icon('imagery_basemaps/clipBasemap.png'),
                                'Clip Basemap by Boundary',
                                self.iface.mainWindow())
         clip_basemap.setToolTip('Clip Basemap by Boundary - show a basemap '
@@ -707,6 +1084,28 @@ class KgaToolsPlugin:
         self.toolbar.addAction(clip_basemap)
         self.menu.addAction(clip_basemap)
         self._owned_widgets.append(clip_basemap)
+
+        zoom_location = QAction(_icon('navigation/zoomLocation.png'), 'Zoom to Location',
+                                self.iface.mainWindow())
+        zoom_location.setToolTip('Zoom to Location - go to a continent, '
+                                 'country, province, district, commune, '
+                                 'village or coordinate')
+        zoom_location.triggered.connect(self.show_zoom_location)
+        self.toolbar.addAction(zoom_location)
+        self.menu.addAction(zoom_location)
+        self._owned_widgets.append(zoom_location)
+
+        go_to_xy = QAction(_icon('navigation/goToXY.png'), 'Go To XY',
+                           self.iface.mainWindow())
+        go_to_xy.setCheckable(True)
+        go_to_xy.setToolTip('Go To XY - type a coordinate (meters, feet, '
+                            'degrees, UTM or MGRS), zoom there and mark it '
+                            'with a temporary point')
+        go_to_xy.toggled.connect(self.toggle_go_to_xy)
+        self.toolbar.addAction(go_to_xy)
+        self.menu.addAction(go_to_xy)
+        self._owned_widgets.append(go_to_xy)
+        self._go_to_xy_action = go_to_xy
 
         # Layer Auto-Sort works in the background: no toolbar button, only a
         # menu to switch it off, change the order or sort on demand.
@@ -720,10 +1119,13 @@ class KgaToolsPlugin:
         self._menu_divider()
 
         self._editor_tools = []
+        self._geoai_tools = []
         groups = {}
         promoted = {}
+        companions = {name for names in STANDALONE_COMPANIONS.values()
+                      for name in names}
         for alg in self.provider.algorithms():
-            if alg.name() in standalone_icons:
+            if alg.name() in standalone_icons or alg.name() in companions:
                 promoted[alg.name()] = alg
             else:
                 groups.setdefault(alg.group() or 'General', []).append(alg)
@@ -741,6 +1143,11 @@ class KgaToolsPlugin:
             if alg_name == 'add_data':
                 self.toolbar.addSeparator()
                 self._menu_divider()
+            extra = [promoted[n] for n in STANDALONE_COMPANIONS.get(alg_name, [])
+                     if n in promoted]
+            if extra:
+                self._add_promoted_dropdown(alg_name, action, extra)
+                continue
             self.toolbar.addAction(action)
             self.menu.addAction(action)
             self._owned_widgets.append(action)
@@ -763,6 +1170,9 @@ class KgaToolsPlugin:
                 continue
 
             to_editor = group_name == EDITOR_TOOLBAR_GROUP
+            to_geoai = group_name == GEOAI_TOOLBAR_GROUP
+            # Both put their tools on a toolbar of their own, as buttons.
+            elsewhere = to_editor or to_geoai
 
             button = QToolButton(self.toolbar)
             button.setText(button_label(group_name))
@@ -783,21 +1193,23 @@ class KgaToolsPlugin:
             for alg in ordered_algorithms(group_name, groups[group_name]):
                 action = QAction(algorithm_icon(alg, group_icon),
                                  alg.displayName(),
-                                 submenu if to_editor else menu)
+                                 submenu if elsewhere else menu)
                 action.setToolTip(alg.displayName())
                 # Bind the id, not the instance: instances are replaced on refresh.
                 action.triggered.connect(partial(self.run_algorithm, alg.id()))
-                if to_editor:
-                    # These sit on the KGA Editor toolbar as buttons of their
-                    # own, not in this group's drop-down; they stay in the menu.
+                if elsewhere:
+                    # These sit on the KGA Editor or KGA GeoAI toolbar as
+                    # buttons of their own, not in this group's drop-down;
+                    # they stay in the menu.
                     submenu.addAction(action)
-                    editor_action = QAction(action.icon(), alg.displayName(),
-                                            self.iface.mainWindow())
-                    editor_action.setToolTip(alg.displayName())
-                    editor_action.triggered.connect(
+                    own_action = QAction(action.icon(), alg.displayName(),
+                                         self.iface.mainWindow())
+                    own_action.setToolTip(alg.displayName())
+                    own_action.triggered.connect(
                         partial(self.run_algorithm, alg.id()))
-                    self._editor_tools.append(editor_action)
-                    self._owned_widgets.append(editor_action)
+                    (self._editor_tools if to_editor
+                     else self._geoai_tools).append(own_action)
+                    self._owned_widgets.append(own_action)
                     continue
                 menu.addAction(action)
                 submenu.addAction(action)
@@ -812,8 +1224,8 @@ class KgaToolsPlugin:
             if first_action is not None:
                 self.set_default_action(button, group_icon, first_action)
 
-            if to_editor:
-                button.deleteLater()        # its tools went to the editor toolbar
+            if elsewhere:
+                button.deleteLater()        # its tools went to their own toolbar
             else:
                 self.toolbar.addWidget(button)
                 self._owned_widgets.append(button)
@@ -840,6 +1252,51 @@ class KgaToolsPlugin:
             self.toolbar.addAction(self._data_ingest.toggle_action)
             self.menu.addAction(self._data_ingest.toggle_action)
 
+        # Panels and Toolbars Manager sits right after Data Explorer.
+        if (self._ui_manager is not None
+                and self._ui_manager.toggle_action is not None):
+            self._register_shortcut(self._ui_manager.toggle_action,
+                                    SHORTCUT_UI_MANAGER)
+            self.toolbar.addAction(self._ui_manager.toggle_action)
+            self.menu.addAction(self._ui_manager.toggle_action)
+
+        # Layer Path Manager: its button is on the KGA Layer toolbar
+        # (init_layer_toolbar); in the KGA menu it sits right after the Panels
+        # and Toolbars Manager.
+        if (self._path_manager is not None
+                and self._path_manager.action is not None):
+            self.menu.addAction(self._path_manager.action)
+
+        # Layer Bag leads the KGA Layer toolbar (init_layer_toolbar); in the
+        # KGA menu it sits right after the Layer Path Manager.
+        if self._mini_panel is not None and self._mini_panel.action is not None:
+            self._register_shortcut(self._mini_panel.action, SHORTCUT_MINI_PANEL)
+            self.menu.addAction(self._mini_panel.action)
+
+        # Tool Bag, Symbol Bag and Layer Colors share one "Bags" button (a drop-down)
+        # on the KGA Layer toolbar (init_layer_toolbar), and one submenu in the KGA menu.
+        bag_actions = []
+        if self._tool_bag is not None and self._tool_bag.action is not None:
+            bag_actions.append(self._tool_bag.action)
+        if self._symbol_bag is not None:
+            bag_actions += [a for a in (self._symbol_bag.toggle_action,
+                                        self._symbol_bag.colors_action)
+                            if a is not None]
+        if self._label_bag is not None and self._label_bag.action is not None:
+            bag_actions.append(self._label_bag.action)
+        self._bag_actions = bag_actions
+        if bag_actions:
+            submenu = self.menu.addMenu(_icon('interface/toolBag.png'), 'Bags')
+            for action in bag_actions:
+                submenu.addAction(action)
+
+        # Menu only (no toolbar button): Cursor Style Manager and its on/off switch.
+        if self._cursor_style is not None and self._cursor_style.actions():
+            cursor_menu = self.menu.addMenu(
+                self._cursor_style.panel_action.icon(), 'Map Cursor')
+            for action in self._cursor_style.actions():
+                cursor_menu.addAction(action)
+
         # The KGA Editor checkbox is inserted in front of this separator.
         self._update_separator = self._menu_divider()
 
@@ -853,20 +1310,56 @@ class KgaToolsPlugin:
         self._owned_widgets.append(settings)
 
         # Menu only: an update check is occasional, so it gets no toolbar button.
-        update = QAction(_icon('checkForUpdate.png'), 'Check for Update',
+        update = QAction(_icon('interface/checkForUpdate.png'), 'Check for Update',
                          self.iface.mainWindow())
         update.setToolTip('Check for a newer version of KGA Toolbox')
         update.triggered.connect(self.show_update_check)
         self.menu.addAction(update)
         self._owned_widgets.append(update)
 
-        about = QAction(_icon('kga_logo.png'), 'About Us',
+        about = QAction(_icon('branding/kga_logo.png'), 'About Us',
                         self.iface.mainWindow())
         about.setToolTip('About Us - KGA Toolbox')
         about.triggered.connect(self.show_about)
         # Menu only: About Us is rarely needed, so it gets no toolbar button.
         self.menu.addAction(about)
         self._owned_widgets.append(about)
+
+        # Windows that open out of the toolbar button the user just used.
+        self._reveal.watch_toolbar(self.toolbar)
+
+    def _add_promoted_dropdown(self, leader_name, leader_action, companions):
+        """A promoted tool that shares its button with related tools.
+
+        Same split button as the group drop-downs: the icon half runs the tool
+        picked last (the leader to begin with), the arrow lists all of them.
+        The KGA Toolbox menu gets the same entries as a submenu.
+        """
+        group_icon = leader_action.icon()
+        button = QToolButton(self.toolbar)
+        button.setText(leader_action.text())
+        button.setToolTip(leader_action.text())
+        button.setIcon(group_icon)
+        button.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
+        button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
+        menu = QMenu(button)
+        submenu = self.menu.addMenu(group_icon, leader_action.text())
+
+        menu.addAction(leader_action)
+        submenu.addAction(leader_action)
+        for alg in companions:
+            action = QAction(algorithm_icon(alg, group_icon), alg.displayName(),
+                             menu)
+            action.setToolTip(alg.displayName())
+            action.triggered.connect(partial(self.run_algorithm, alg.id()))
+            menu.addAction(action)
+            submenu.addAction(action)
+        button.setMenu(menu)
+        menu.triggered.connect(partial(self.set_default_action, button,
+                                       group_icon))
+        self.set_default_action(button, group_icon, leader_action)
+        self.toolbar.addWidget(button)
+        self._owned_widgets.extend((button, leader_action))
 
     def rebuild_toolbar(self):
         """Call after adding/removing algorithms during development."""
@@ -878,7 +1371,11 @@ class KgaToolsPlugin:
         self.provider.refreshAlgorithms()
         self.build_toolbar()
         self.remove_editor()
+        self.remove_layer_toolbar()
+        self.remove_geoai_toolbar()
         self.init_editor()
+        self.init_layer_toolbar()
+        self.init_geoai_toolbar()
         if self.panel is not None:
             self.panel.refresh()
 
@@ -919,6 +1416,47 @@ class KgaToolsPlugin:
                 'KGA Toolbox',
                 'Could not open Clip Basemap by Boundary: {}'.format(exc))
 
+    def show_zoom_location(self):
+        try:
+            show_zoom_location()
+        except Exception as exc:
+            QgsMessageLog.logMessage(
+                'Could not open Zoom to Location: {}'.format(
+                    traceback.format_exc()), LOG_TAG,
+                Qgis.MessageLevel.Warning)
+            self.iface.messageBar().pushWarning(
+                'KGA Toolbox',
+                'Could not open Zoom to Location: {}'.format(exc))
+
+    def toggle_go_to_xy(self, on):
+        """The Go To XY button: show or hide the bar over the map."""
+        try:
+            bar = get_go_to_xy_bar()
+            if bar is not None:
+                bar.button = self.toolbar.widgetForAction(self._go_to_xy_action)
+            showing = set_go_to_xy_visible(on)
+            bar = current_go_to_xy()
+            if bar is not None and on:
+                with suppress(TypeError):
+                    bar.closed.disconnect(self._go_to_xy_closed)
+                bar.closed.connect(self._go_to_xy_closed)
+            if on and not showing:
+                self._go_to_xy_closed()
+        except Exception as exc:
+            QgsMessageLog.logMessage(
+                'Could not open Go To XY: {}'.format(traceback.format_exc()),
+                LOG_TAG, Qgis.MessageLevel.Warning)
+            self.iface.messageBar().pushWarning(
+                'KGA Toolbox', 'Could not open Go To XY: {}'.format(exc))
+            self._go_to_xy_closed()
+
+    def _go_to_xy_closed(self):
+        action = getattr(self, '_go_to_xy_action', None)
+        if action is not None and action.isChecked():
+            action.blockSignals(True)
+            action.setChecked(False)
+            action.blockSignals(False)
+
     def remember_layout(self):
         """Snapshot the toolbars and panels, seeing through the start page."""
         window = self.iface.mainWindow()
@@ -934,11 +1472,11 @@ class KgaToolsPlugin:
             self._start_page.reapply_chrome()
         return switched
 
-    def show_settings(self):
+    def show_settings(self, page=None):
         try:
             SettingsDialog(
                 self.iface.mainWindow(),
-                layout_hooks=(self.remember_layout, self.reset_layout)).exec()
+                layout_hooks=(self.remember_layout, self.reset_layout), page=page).exec()
             self.sync_start_page()
             if self._pro_selection is not None:
                 self._pro_selection.refresh()
@@ -946,6 +1484,25 @@ class KgaToolsPlugin:
                 self._pro_layers.refresh()
             if self._map_tabs is not None:
                 self._map_tabs.refresh()
+            layer_scope.refresh_all()
+            if self._smooth_nav is not None:
+                self._smooth_nav.refresh()
+            if self._temp_pan is not None:
+                self._temp_pan.refresh()
+            if self._node_view is not None:
+                self._node_view.refresh()
+            if self._grid is not None:
+                self._grid.refresh()
+            if self._layer_toolbar is not None and self._layer_toolbar.magnify is not None:
+                self._layer_toolbar.magnify.refresh()
+            for magnify in (getattr(self, '_toolbar_magnify', None),
+                            getattr(self._editor, 'magnify', None),
+                            getattr(self._geoai_toolbar, 'magnify', None)):
+                if magnify is not None:
+                    magnify.refresh()
+            create = getattr(self._editor, 'create', None)
+            if create is not None and create.sketch_bar is not None:
+                create.sketch_bar.refresh_settings()
         except Exception as exc:
             QgsMessageLog.logMessage(
                 'Could not open the Settings window: {}'.format(
@@ -1056,11 +1613,137 @@ class KgaToolsPlugin:
                     traceback.format_exc()), LOG_TAG,
                 Qgis.MessageLevel.Warning)
 
+    def init_layer_modes(self):
+        """List By Selection / List By Editing buttons above the layer tree (like Pro's Contents tabs)."""
+        try:
+            from .gui.layer_modes import LayerModes
+            self._layer_modes = LayerModes(self.iface, editor=lambda: self._editor)
+            if not self._layer_modes.install():
+                self._layer_modes = None
+        except Exception:
+            self._layer_modes = None
+            QgsMessageLog.logMessage(
+                'Could not add the Layers panel selection / editing lists: {}'.format(
+                    traceback.format_exc()), LOG_TAG, Qgis.MessageLevel.Warning)
+
+    def remove_layer_modes(self):
+        if self._layer_modes is not None:
+            with suppress(Exception):
+                self._layer_modes.uninstall()
+            self._layer_modes.deleteLater()
+            self._layer_modes = None
+
     def remove_pro_layers(self):
         if self._pro_layers is not None:
             with suppress(Exception):
                 self._pro_layers.uninstall()
             self._pro_layers = None
+
+    def init_smooth_navigation(self):
+        """Animated zoom and kinetic panning (Settings > Appearance)."""
+        try:
+            self._smooth_nav = SmoothNavigation(self.iface)
+            self._smooth_nav.refresh()
+        except Exception:
+            self._smooth_nav = None
+            QgsMessageLog.logMessage(
+                'Could not set up smooth navigation: {}'.format(
+                    traceback.format_exc()), LOG_TAG,
+                Qgis.MessageLevel.Warning)
+
+    def remove_smooth_navigation(self):
+        if self._smooth_nav is not None:
+            with suppress(Exception):
+                self._smooth_nav.uninstall()
+            self._smooth_nav = None
+
+    def init_temporary_pan(self):
+        """Hold a key and left-drag to pan mid-digitizing (Settings > Appearance)."""
+        try:
+            self._temp_pan = TemporaryPan(self.iface)
+            self._temp_pan.refresh()
+        except Exception:
+            self._temp_pan = None
+            QgsMessageLog.logMessage(
+                'Could not set up the temporary pan: {}'.format(
+                    traceback.format_exc()), LOG_TAG,
+                Qgis.MessageLevel.Warning)
+
+    def remove_temporary_pan(self):
+        if self._temp_pan is not None:
+            with suppress(Exception):
+                self._temp_pan.uninstall()
+            self._temp_pan = None
+
+    def init_node_view(self):
+        """Vertices and nodes on the map, like ArcGIS Pro (KGA Layer toolbar, right-click menu, Settings > Editor)."""
+        try:
+            self._node_view = NodeViewController(self.iface)
+            self._node_view.install()
+        except Exception:
+            self._node_view = None
+            QgsMessageLog.logMessage(
+                'Could not set up the vertices and nodes view: {}'.format(
+                    traceback.format_exc()), LOG_TAG,
+                Qgis.MessageLevel.Warning)
+
+    def remove_node_view(self):
+        if self._node_view is not None:
+            with suppress(Exception):
+                self._node_view.uninstall()
+            self._node_view = None
+
+    def init_grid(self):
+        """Map grid like ArcGIS Pro (KGA Layer toolbar and status bar buttons; spacing and rotation)."""
+        try:
+            self._grid = GridController(self.iface, open_settings=lambda: self.show_settings('Editor'))
+            self._grid.install()
+        except Exception:
+            self._grid = None
+            QgsMessageLog.logMessage(
+                'Could not set up the grid: {}'.format(traceback.format_exc()), LOG_TAG,
+                Qgis.MessageLevel.Warning)
+
+    def remove_grid(self):
+        if self._grid is not None:
+            with suppress(Exception):
+                self._grid.uninstall()
+            self._grid = None
+
+    def init_geometry_info(self):
+        """Length / perimeter / area of the selected feature, in the status bar left of the node button."""
+        try:
+            self._geometry_info = GeometryInfoController(self.iface)
+            self._geometry_info.install()
+        except Exception:
+            self._geometry_info = None
+            QgsMessageLog.logMessage(
+                'Could not set up the geometry info: {}'.format(traceback.format_exc()), LOG_TAG,
+                Qgis.MessageLevel.Warning)
+
+    def remove_geometry_info(self):
+        if self._geometry_info is not None:
+            with suppress(Exception):
+                self._geometry_info.uninstall()
+            self._geometry_info = None
+
+    def init_cursor_style(self):
+        """Cursor Style Manager: custom map-canvas cursors (KGA Toolbox menu only)."""
+        try:
+            self._cursor_style = CursorStyleManager(self.iface)
+            self._cursor_style.install()
+        except Exception:
+            self._cursor_style = None
+            QgsMessageLog.logMessage(
+                'Could not set up the Cursor Style Manager: {}'.format(
+                    traceback.format_exc()), LOG_TAG,
+                Qgis.MessageLevel.Warning)
+
+    def remove_cursor_style(self):
+        if self._cursor_style is not None:
+            with suppress(Exception):
+                self._cursor_style.uninstall()
+            self._cursor_style = None
 
     def init_map_tabs(self):
         """Map and layout tabs above the canvas (Settings > Appearance)."""
@@ -1117,7 +1800,17 @@ class KgaToolsPlugin:
         if action.icon().isNull() and not group_icon.isNull():
             button.setIcon(group_icon)
 
+    def _run_from_panel(self, alg_id):
+        """A tool picked in the Geoprocessing panel: its window just appears."""
+        if self._reveal is not None:
+            self._reveal.clear()
+        self.run_algorithm(alg_id)
+
     def run_algorithm(self, alg_id, _retry=True):
+        window_reveal.patch_processing()      # the parameters dialog opens out of its button too
+        self._run_algorithm(alg_id, _retry)
+
+    def _run_algorithm(self, alg_id, _retry=True):
         try:
             import processing
             alg = QgsApplication.processingRegistry().algorithmById(alg_id)
@@ -1168,12 +1861,44 @@ class KgaToolsPlugin:
     # ----------------------------------------------------------------- cleanup
 
     def unload(self):
+        gc_relief.release()
         self._unregister_shortcuts()
+        window_reveal.unload()
+        panel_bubble.unload_reveals()
+        if self._reveal is not None:
+            self._reveal.deleteLater()
+            self._reveal = None
+        self.remove_attribute_bubble()
+        self.remove_layer_toolbar()
+        self.remove_geoai_toolbar()
+        self.remove_label_bag()             # before the bag: its Labels bag holds a Symbols section too
+        self.remove_layer_mini_panel()      # before the bag: its Colors section holds a bag widget
+        self.remove_symbol_bag()
+        self.remove_tool_bag()
+        if self._bag_group is not None:
+            self._bag_group.unload()
+            self._bag_group = None
         self.remove_layer_sort()
+        self.remove_path_manager()
+        self.remove_ui_manager()
         self.remove_data_ingest()
         self.remove_start_page()
         self.remove_pro_selection()
+        self.remove_smooth_navigation()
+        self.remove_temporary_pan()
+        self.remove_geometry_info()
+        self.remove_grid()
+        self.remove_node_view()
+        self.remove_cursor_style()
+        with suppress(Exception):
+            layer_scope.uninstall()
         self.remove_map_tabs()
+        if self._drag_chip is not None:
+            with suppress(Exception):
+                self._drag_chip.uninstall()
+                self._drag_chip.deleteLater()
+            self._drag_chip = None
+        self.remove_layer_modes()
         self.remove_pro_layers()
         self.remove_new_project_basemap()
         self.remove_catalog()
@@ -1191,7 +1916,7 @@ class KgaToolsPlugin:
             self.provider = None
 
         # Some algorithms put a window on the QGIS main window instead of
-        # returning a layer: the Add Open Data window, the Imagery Downloader window, the Generate Contour for ROI and Generate River or Stream for ROI windows, the Reservoir Storage Analyzer window, the Add Grid to Layout
+        # returning a layer: the Add Open Data window, the Imagery Downloader window, the Generate Contour for ROI and Generate River or Stream for ROI windows, the Multipart Line Repair window, the Sliver and Spike Cleaner window, the Strip Lines and Point Grid window, the Point to Geometry Converter window, the Reservoir Storage Analyzer window, the Add Grid to Layout
         # window, the Error Inspector window, the Duplicate Checker dialog, the Duplicate to New Layer dialog, the
         # Sequential Numbering dialog, the Copy-Paste Feature dialog and the
         # Modify Features dialogs. None is parented to
@@ -1208,22 +1933,38 @@ class KgaToolsPlugin:
             construct_polygon,
             copy_parallel,
             copy_paste_feature,
+            CreatePointsFromTable as create_points_from_table_alg,
             csv_to_dem_contour_qgis,
+            dem_dsm_inspector_alg,
+            detect_paddy_plots_imagery_alg,
+            detect_roads_imagery_alg,
             divide_features,
             duplicate_checker,
             duplicate_to_new_layer,
             error_inspector,
             generate_contour_roi_alg,
+            ExportToKML_With_Label as export_to_kml_alg,
+            attributes_xlsx,
+            gdb_gpkg,
             generate_stream_roi_alg,
+            gpkg_to_shapefiles,
             highest_point_per_block_alg,
+            satellite_imagery_archive_alg,
             imagery_downloader_alg,
             kga_layer_symbol_alg,
             layer_package,
             merge_features,
+            multipart_line_repair_alg,
             planarize_line,
+            point_to_geometry_alg,
+            raster_format_converter,
             reservoir_storage_analyzer_alg,
             sequential_numbering_dialog,
+            shapefiles_to_gpkg,
+            sliver_spike_cleaner_alg,
             split_into_cogo_lines,
+            strip_point_grid_alg,
+            update_xy_fields,
         )
         for close in (add_data_alg.close_add_data,
                       add_to_layer_package.close_add_to_layer_package,
@@ -1232,8 +1973,16 @@ class KgaToolsPlugin:
                       callout_label_studio_alg.close_callout_label_studio,
                       kga_layer_symbol_alg.close_kga_layer_symbol,
                       imagery_downloader_alg.close_imagery_downloader,
+                      satellite_imagery_archive_alg.close_satellite_imagery_archive,
+                      detect_roads_imagery_alg.close_detect_roads_imagery,
+                      detect_paddy_plots_imagery_alg.close_detect_paddy_plots_imagery,
+                      dem_dsm_inspector_alg.close_dem_dsm_inspector,
                       generate_contour_roi_alg.close_generate_contour_roi,
                       generate_stream_roi_alg.close_generate_stream_roi,
+                      multipart_line_repair_alg.close_multipart_line_repair,
+                      sliver_spike_cleaner_alg.close_sliver_spike_cleaner,
+                      strip_point_grid_alg.close_strip_point_grid,
+                      point_to_geometry_alg.close_point_to_geometry,
                       highest_point_per_block_alg.close_highest_point_per_block,
                       reservoir_storage_analyzer_alg.close_reservoir_storage,
                       error_inspector.close_error_inspector,
@@ -1243,6 +1992,16 @@ class KgaToolsPlugin:
                       copy_paste_feature.close_copy_paste_feature,
                       copy_parallel.close_copy_parallel,
                       csv_to_dem_contour_qgis.close_csv_dem,
+                      create_points_from_table_alg.close_create_points,
+                      gpkg_to_shapefiles.close_gpkg_to_shp,
+                      shapefiles_to_gpkg.close_shp_to_gpkg,
+                      gdb_gpkg.close_gdb_to_gpkg,
+                      gdb_gpkg.close_gpkg_to_gdb,
+                      attributes_xlsx.close_export_attributes,
+                      attributes_xlsx.close_import_attributes,
+                      export_to_kml_alg.close_kml_export,
+                      raster_format_converter.close_raster_converter,
+                      update_xy_fields.close_update_xy,
                       buffer_features.close_buffer_features,
                       split_into_cogo_lines.close_split_into_cogo_lines,
                       merge_features.close_merge_features,
@@ -1261,6 +2020,11 @@ class KgaToolsPlugin:
             close_quick_template()
         with suppress(Exception):
             close_clip_basemap()
+        with suppress(Exception):
+            close_zoom_location()
+        with suppress(Exception):
+            close_go_to_xy()
+        self._go_to_xy_action = None
 
         if self.panel is not None:
             self.iface.removeDockWidget(self.panel)
@@ -1268,6 +2032,10 @@ class KgaToolsPlugin:
             self.panel = None
             self.panel_action = None
 
+        if getattr(self, '_toolbar_magnify', None) is not None:
+            with suppress(Exception):
+                self._toolbar_magnify.remove()
+            self._toolbar_magnify = None
         if self.toolbar is not None:
             self.toolbar.clear()
             # Removes the toolbar itself from the QGIS main window.

@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:validate_against_domains` |
 | **Group** | KGA Schema Tools |
 | **Source** | `kga_tools/algorithms/domain_apply.py` |
-| **Icon** | `icons/alg_validate.png` |
+| **Icon** | `icons/schema/alg_validate.png` |
 | **Type** | Batch algorithm |
 
 ## Overview

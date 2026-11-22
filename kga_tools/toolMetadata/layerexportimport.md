@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:layerexportimport` |
 | **Group** | KGA Data Management |
 | **Source** | `kga_tools/algorithms/LayerExportImport.py` |
-| **Icon** | `icons/import_export.png` |
+| **Icon** | `icons/conversion/import_export.png` |
 | **Type** | Interactive dialog — modeless, needs the QGIS window |
 
 ## Overview
@@ -89,7 +89,7 @@ Existing tables and files are never overwritten; a clash gets a numbered name.
 2. Drag the source file onto **Source File** from the Browser panel, or use
    **Browse File**. The layers it holds are listed.
 3. Tick the ones you want, edit the *Add As* names if needed.
-4. Tick **Reproject to the project CRS** only if you need it â€” the result is a
+4. Tick **Reproject to the project CRS** only if you need it — the result is a
    memory layer you will have to save.
 5. Press **Import Checked Layers**.
 

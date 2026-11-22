@@ -44,6 +44,35 @@ except ImportError:                                    # pragma: no cover
 
 
 # ----------------------------------------------- Qt5 / Qt6 enum compatibility
+try:
+    from qgis.utils import iface
+except ImportError:                         # pragma: no cover - head-less
+    iface = None
+
+#: The KmlExportDialog window, kept alive between opens so it is not garbage collected.
+DIALOG_INSTANCE = None
+
+
+def _alive(dialog):
+    try:
+        return dialog is not None and not dialog._torn_down
+    except RuntimeError:                    # the Qt object is already gone
+        return False
+
+
+def close_kml_export():
+    """Stop any running job and close the window on plugin unload."""
+    global DIALOG_INSTANCE
+    dialog, DIALOG_INSTANCE = DIALOG_INSTANCE, None
+    if dialog is None:
+        return
+    try:
+        dialog.shutdown()
+    except RuntimeError:                    # already destroyed by Qt
+        pass
+
+
+
 def _enum(owner, scoped, flat):
     obj = owner
     for part in scoped.split("."):
@@ -1239,6 +1268,21 @@ class ExportToKML(QgsProcessingAlgorithm):
             "<p><b>Files are overwritten</b> without asking when a name "
             "already exists in the output folder.</p>"
         )
+
+    def createCustomParametersWidget(self, parent=None):
+        """Open the KmlExportDialog window instead of the plain form.
+
+        The parameters stay, so scripts (`processing.run`), the modeller and
+        batch still work; only the Toolbox dialog is replaced.
+        """
+        global DIALOG_INSTANCE
+        if iface is None:
+            return None
+        from ..gui.kml_export_dialog import KmlExportDialog
+
+        if not _alive(DIALOG_INSTANCE):
+            DIALOG_INSTANCE = KmlExportDialog(iface.mainWindow())
+        return DIALOG_INSTANCE
 
     def createInstance(self):
         return ExportToKML()

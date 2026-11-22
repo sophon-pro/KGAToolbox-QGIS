@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:sequential_numbering` |
 | **Group** | KGA Editing Tools |
 | **Source** | `kga_tools/algorithms/sequential_numbering_dialog.py` |
-| **Icon** | `icons/seqNumbering.png` |
+| **Icon** | `icons/editing/seqNumbering.png` |
 | **Type** | Interactive dialog — modeless, owns a map tool, needs the QGIS canvas |
 
 ## Overview

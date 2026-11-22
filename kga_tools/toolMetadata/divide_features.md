@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:divide_features` |
 | **Group** | KGA Editing Tools |
 | **Source** | `kga_tools/algorithms/divide_features.py` (base dialog and `AngleMapTool` in `kga_tools/gui/modify_dialog.py`) |
-| **Icon** | `icons/divideFeatures.png` |
+| **Icon** | `icons/editing/divideFeatures.png` |
 | **Type** | Interactive dialog — modeless, owns a map tool, needs the QGIS canvas |
 
 ## Overview

@@ -4,34 +4,41 @@ and, at the right of that row, a small ? button that opens the tool's page of th
 modify_<tool id>) in the browser.
 
 Laid out like ArcGIS Pro's Modify Features pane: a search box on top, All Tools / Favorites tabs, then
-collapsible categories of icon tiles. The tools themselves are registered in tools.py; until some are,
+collapsible categories of icon tiles - as a grid (the default) or, with the buttons at the right of the tabs, as a list
+(icon and name on one row each); the choice is remembered. The tools themselves are registered in tools.py; until some are,
 the pane shows a placeholder. Right-click a tile to add it to / remove it from the favorites (favorites.py),
 which are also the buttons on the KGA Editor toolbar.
 """
 
 from contextlib import suppress
 
+from ...gui.panel_bubble import ToolbarReveal
 from qgis.gui import QgsDockWidget
 from qgis.PyQt.QtCore import QEvent, QSize, Qt, QTimer, pyqtSignal
-from qgis.PyQt.QtGui import QIcon
+from qgis.PyQt.QtGui import QColor, QIcon, QPainter, QPixmap
+from qgis.core import QgsSettings
 from qgis.PyQt.QtWidgets import (
+    QButtonGroup,
     QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QScrollArea,
+    QSizePolicy,
     QStackedWidget,
     QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
-from ...branding import docs_url, open_docs
+from ...branding import docs_url, open_docs, themed_icon
 from ..attributes.widgets import make_tab_bar
 from .favorites import favorite_menu
 from .tools import CATEGORIES
 
 TITLE = "Modify Features"
+VIEW_SETTING = "kga_editor/modify_view"
+VIEWS = ("grid", "list")
 TILE_WIDTH = 86
 BLUE = "#0079c1"
 QSS = f"""
@@ -57,6 +64,12 @@ QToolButton#KgaModifyTile {{
     font-size: 9pt; color: #1b1b1b; padding: 4px 2px;
 }}
 QToolButton#KgaModifyTile:hover {{ background: #e1ecf5; border-color: #b8d3e8; }}
+QToolButton#KgaModifyTile[list="true"] {{ text-align: left; padding: 3px 6px; font-size: 10pt; }}
+QToolButton#KgaModifyView {{
+    border: 1px solid transparent; border-radius: 2px; background: transparent; padding: 2px; min-width: 20px;
+}}
+QToolButton#KgaModifyView:hover {{ background: #e1ecf5; border-color: #b8d3e8; }}
+QToolButton#KgaModifyView:checked {{ background: #dfeaf4; border: 1px solid #8fb4d0; }}
 QToolButton#KgaModifyTile[active="true"] {{ background: #dfeaf4; border: 1px solid #8fb4d0; }}
 QLabel#KgaModifyEmpty {{ color: #5f6368; font-size: 10pt; padding: 14px 6px; }}
 QScrollArea {{ border: none; background: transparent; }}
@@ -102,7 +115,26 @@ QCheckBox {{ font-size: 10pt; color: #1b1b1b; }}
 """
 
 
-class ModifyFeaturesPanel(QgsDockWidget):
+def view_icon(kind, color="#3a4a56"):
+    """The grid (four squares) or list (three rows) icon of the view buttons."""
+    pixmap = QPixmap(16, 16)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.setBrush(QColor(color))
+    if kind == "grid":
+        for x in (1, 9):
+            for y in (1, 9):
+                painter.drawRect(x, y, 6, 6)
+    else:
+        for y in (2, 7, 12):
+            painter.drawRect(1, y, 3, 3)
+            painter.drawRect(6, y, 9, 3)
+    painter.end()
+    return QIcon(pixmap)
+
+
+class ModifyFeaturesPanel(ToolbarReveal, QgsDockWidget):
 
     toolRequested = pyqtSignal(str)             # a tool tile was clicked: its id
     backRequested = pyqtSignal()                # the back arrow of a tool page
@@ -112,6 +144,8 @@ class ModifyFeaturesPanel(QgsDockWidget):
         self.setObjectName("KGAModifyFeaturesPanel")
         self.iface = iface
         self.page_widget = None
+        view = str(QgsSettings().value(VIEW_SETTING, "grid"))
+        self.view_mode = view if view in VIEWS else "grid"      # "grid" (default) or "list"
         self.doc_slug = None                    # the documentation page of the tool being shown
         self.collapsed = set()
         self.favorites = favorites              # FavoriteStore: the Favorites tab and the right-click menu
@@ -140,7 +174,26 @@ class ModifyFeaturesPanel(QgsDockWidget):
 
         self.tabs = make_tab_bar(["All Tools", "Favorites"], root)
         self.tabs.currentChanged.connect(self.refresh)
-        outer.addWidget(self.tabs)
+        bar = QHBoxLayout()
+        bar.setContentsMargins(0, 0, 0, 0)
+        bar.setSpacing(2)
+        bar.addWidget(self.tabs)
+        bar.addStretch(1)
+        self.view_buttons = {}
+        group = QButtonGroup(root)
+        for kind, tip in (("grid", "Show as grid"), ("list", "Show as list")):
+            button = QToolButton(root)
+            button.setObjectName("KgaModifyView")
+            button.setIcon(view_icon(kind))
+            button.setCheckable(True)
+            button.setChecked(self.view_mode == kind)
+            button.setToolTip(tip)
+            button.setCursor(Qt.CursorShape.PointingHandCursor)
+            button.clicked.connect(lambda _c=False, k=kind: self.set_view(k))
+            group.addButton(button)
+            bar.addWidget(button)
+            self.view_buttons[kind] = button
+        outer.addLayout(bar)
 
         self.scroll = QScrollArea(root)
         self.scroll.setWidgetResizable(True)
@@ -229,6 +282,16 @@ class ModifyFeaturesPanel(QgsDockWidget):
         return self.stack.currentIndex() == 1
 
     # ------------------------------------------------------------------ content
+    def set_view(self, mode):
+        """Show the tools as a grid of tiles or as a list; remembered for next time."""
+        if mode not in VIEWS:
+            return
+        self.view_mode = mode
+        QgsSettings().setValue(VIEW_SETTING, mode)
+        if not self.view_buttons[mode].isChecked():
+            self.view_buttons[mode].setChecked(True)
+        self.refresh()
+
     def refresh(self, *_args):
         while self.vbox.count():
             item = self.vbox.takeAt(0)
@@ -276,32 +339,40 @@ class ModifyFeaturesPanel(QgsDockWidget):
         self.vbox.addWidget(head)
         if folded:
             return
+        listing = self.view_mode == "list"
         grid_host = QWidget(self.body)
         grid = QGridLayout(grid_host)
         grid.setContentsMargins(0, 0, 0, 0)
-        grid.setSpacing(2)
+        grid.setSpacing(1 if listing else 2)
         columns = self._columns()
         for i, tool in enumerate(tools):
             button = QToolButton(grid_host)
             button.setObjectName("KgaModifyTile")
-            button.setText(tool.label)
-            button.setIcon(QIcon(tool.icon))
-            button.setIconSize(QSize(32, 32))
+            button.setText(tool.label.replace("\n", " ") if listing else tool.label)
+            button.setIcon(themed_icon(tool.icon))
+            button.setIconSize(QSize(22, 22) if listing else QSize(32, 32))
+            button.setProperty("list", listing)
             favorite = self.favorites is not None and self.favorites.has(tool.id)
             button.setToolTip(tool.tip + ("\nFavorite" if favorite else "")
                               + "\nRight-click: add to / remove from favorites")
-            button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
+            button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon if listing
+                                      else Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
             button.setProperty("active", tool.id == self.active_tool)
             button.setProperty("favorite", favorite)
             if self.favorites is not None:
                 button.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
                 button.customContextMenuRequested.connect(
                     lambda pos, t=tool.id, b=button: self.tile_menu(t).exec(b.mapToGlobal(pos)))
-            button.setFixedWidth(TILE_WIDTH - 4)
             button.setCursor(Qt.CursorShape.PointingHandCursor)
             button.clicked.connect(lambda _c=False, t=tool.id: self.toolRequested.emit(t))
-            grid.addWidget(button, i // columns, i % columns, Qt.AlignmentFlag.AlignTop)
-        grid.setColumnStretch(columns, 1)
+            if listing:                                                  # one tool per row, the whole width
+                button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+                grid.addWidget(button, i, 0)
+            else:
+                button.setFixedWidth(TILE_WIDTH - 4)
+                grid.addWidget(button, i // columns, i % columns, Qt.AlignmentFlag.AlignTop)
+        if not listing:
+            grid.setColumnStretch(columns, 1)
         self.vbox.addWidget(grid_host)
 
     def set_active_tool(self, tool_id):
@@ -311,6 +382,8 @@ class ModifyFeaturesPanel(QgsDockWidget):
             self.refresh()
 
     def _columns(self):
+        if getattr(self, "view_mode", "grid") == "list":
+            return 1                                    # a list does not reflow with the width
         return max(1, (self.scroll.viewport().width() - 8) // TILE_WIDTH)
 
     def eventFilter(self, obj, event):

@@ -82,6 +82,7 @@ from qgis.core import (
 )
 from qgis.gui import QgsMapLayerComboBox, QgsMapTool, QgsRubberBand
 
+from .window_reveal import revealed_preview
 from ..branding import help_button
 from ..core.guards import attempt
 from ..core.modify_features import (
@@ -642,6 +643,7 @@ class AngleMapTool(QgsMapTool):
         self._anchor = None
 
 
+@revealed_preview
 class ModifyFeaturesDialog(QDialog):
     """Shared scaffolding for the Modify Features tools."""
 

@@ -5,7 +5,7 @@
 | **Category** | Modify Features > Construct |
 | **Type** | Map tool in the Modify Features pane (not a Processing algorithm) |
 | **Source** | `kga_tools/editor/modify/parallel.py` (ParallelTool) |
-| **Icon** | `kga_tools/icons/copyParallel.png` |
+| **Icon** | `kga_tools/icons/editing/copyParallel.png` |
 | **Also as a window** | [copy_parallel](../copy_parallel.md) (`kga:copy_parallel`) |
 
 ## Overview

@@ -33,6 +33,7 @@ from qgis.PyQt.QtWidgets import (
     QVBoxLayout,
 )
 
+from .window_reveal import revealed
 from ..branding import LOG_TAG
 from ..core import data_paste as dp
 from ..core import projectpkg as pp
@@ -94,6 +95,7 @@ def describe(manifest, path):
     return '<br>'.join(lines)
 
 
+@revealed
 class ImportPackageDialog(QDialog):
 
     def __init__(self, parent=None, package=''):

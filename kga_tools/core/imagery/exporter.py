@@ -16,6 +16,18 @@ from osgeo import gdal, osr
 
 from . import tile_math as tm
 
+try:
+    from qgis.PyQt.QtCore import QT_VERSION_STR
+    _QT6 = QT_VERSION_STR.startswith('6')
+except ImportError:                     # pragma: no cover - outside QGIS
+    _QT6 = False
+
+# GDAL's worker threads for the warp. Not on Qt 6 (QGIS 4): the tile download
+# ran QgsBlockingNetworkRequest on Python pool threads, and while those threads
+# wind down Windows holds new native threads back, so the first multithreaded
+# GDAL step after a download waited 20-30 s (single-threaded: 0.03 s).
+WARP_MULTITHREAD = not _QT6
+
 gdal.UseExceptions()
 
 #: key -> (label, extension, GDAL driver names to try, has alpha, embedded georef)
@@ -236,7 +248,7 @@ def export(spec, has_failed_tiles, report, should_stop):
             temps.append(stage)
             opts = dict(format='GTiff', dstSRS=dst_srs.ExportToWkt(),
                         resampleAlg='bilinear' if reproject else 'near',
-                        multithread=True, callback=None,
+                        multithread=WARP_MULTITHREAD, callback=None,
                         creationOptions=['TILED=YES', 'COMPRESS=DEFLATE',
                                          'BIGTIFF=IF_SAFER', 'ZLEVEL=1'])
             if masked:

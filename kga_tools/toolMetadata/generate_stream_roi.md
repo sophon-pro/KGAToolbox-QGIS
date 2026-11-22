@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:generate_stream_roi` |
 | **Group** | KGA Irrigation Tools |
 | **Source** | `kga_tools/algorithms/generate_stream_roi_alg.py` (dialog in `kga_tools/gui/stream_roi_dialog.py`, area picker in `kga_tools/gui/roi_picker.py`, engine in `kga_tools/core/streams.py` and `kga_tools/core/hydrology.py`, checks in `kga_tools/core/stream_check.py`, symbology in `kga_tools/core/stream_style.py`) |
-| **Icon** | `icons/generateStream.png` |
+| **Icon** | `icons/terrain_water/generateStream.png` |
 | **Type** | Interactive dialog — modeless, needs the QGIS window and an internet connection |
 
 ## Overview

@@ -85,15 +85,20 @@ def _geometry_mask(geometry, crs, name, project):
     return mask
 
 
-def find_or_add_basemap(basemap_id, project=None):
-    """The project's layer for a preset basemap, adding it at the bottom."""
+def find_or_add_basemap(basemap_id, project=None, only_ids=None):
+    """The project's layer for a preset basemap, adding it at the bottom.
+
+    `only_ids` limits the search to those layer ids (the active map, when Map
+    Tabs splits the project into several maps).
+    """
     project = project or QgsProject.instance()
     basemap = DS.basemap_by_id(basemap_id)
     if basemap is None:
         raise ClipError('Unknown basemap.')
     uri = LL.xyz_uri(basemap.url, basemap.zmin, basemap.zmax)
     for layer in project.mapLayers().values():
-        if layer.source() == uri:
+        if layer.source() == uri and (only_ids is None
+                                      or layer.id() in only_ids):
             return layer
     try:
         layer = LL.build_basemap(basemap.url, LL.unique_name(

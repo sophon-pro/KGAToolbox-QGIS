@@ -8,11 +8,35 @@ from qgis.core import (
     QgsProcessingParameterVectorLayer,
     QgsCoordinateReferenceSystem,
     QgsCoordinateTransform,
+    QgsProject,
     Qgis
 )
 import qgis.utils
 from ..branding import docs_url
 from ..core.compat import T_DOUBLE, make_field
+
+
+#: The window, kept alive between opens so it is not garbage collected.
+DIALOG_INSTANCE = None
+
+
+def _alive(dialog):
+    try:
+        return dialog is not None and not dialog._torn_down
+    except RuntimeError:                    # the Qt object is already gone
+        return False
+
+
+def close_update_xy():
+    """Close the window on plugin unload."""
+    global DIALOG_INSTANCE
+    dialog, DIALOG_INSTANCE = DIALOG_INSTANCE, None
+    if dialog is None:
+        return
+    try:
+        dialog.shutdown()
+    except RuntimeError:                    # already destroyed by Qt
+        pass
 
 
 class UpdateXYFields(QgsProcessingAlgorithm):
@@ -65,97 +89,96 @@ class UpdateXYFields(QgsProcessingAlgorithm):
             )
         )
 
-    def processAlgorithm(self, parameters, context, feedback):
-        # Retrieve the layer from the user's input selection
-        layer = self.parameterAsVectorLayer(parameters, 'INPUT', context)
-        
-        if not layer or not layer.isValid():
-            self.show_popup("Error", "The selected input layer is invalid or missing.", Qgis.MessageLevel.Critical)
-            return {}
+    @staticmethod
+    def update_layer(layer, is_latlon, project=None, feedback=None):
+        """Write the X/Y or Lon/Lat fields of *layer*; return (created, updated).
 
-        # Get user choice
-        coord_choice = self.parameterAsEnum(parameters, 'COORD_FORMAT', context)
-        is_latlon = (coord_choice == 1)
-
-        # Determine field names based on choice
-        if is_latlon:
-            x_field = 'LONGITUDE'
-            y_field = 'LATITUDE'
-        else:
-            x_field = 'POINT_X'
-            y_field = 'POINT_Y'
-
-        fields_to_check = [x_field, y_field]
+        Shared by the Processing run and the small window. Raises RuntimeError
+        with a message fit to show the user when the layer cannot be edited.
+        """
+        x_field, y_field = ('LONGITUDE', 'LATITUDE') if is_latlon else ('POINT_X', 'POINT_Y')
         created_fields = []
 
-        # Setup Coordinate Transformation (if Lat/Lon chosen)
         transform = None
         if is_latlon:
-            source_crs = layer.crs()
-            target_crs = QgsCoordinateReferenceSystem("EPSG:4326")
-            transform = QgsCoordinateTransform(source_crs, target_crs, context.project())
+            transform = QgsCoordinateTransform(
+                layer.crs(), QgsCoordinateReferenceSystem("EPSG:4326"),
+                project or QgsProject.instance())
 
-        # Start Editing Session
         if not layer.startEditing():
-            self.show_popup("Failed", f"Could not start editing on layer: {layer.name()}", Qgis.MessageLevel.Critical)
-            return {}
+            raise RuntimeError("Could not start editing on layer: {}".format(layer.name()))
 
         fields = layer.fields()
-
-        # Check and Create Fields
-        for fname in fields_to_check:
+        for fname in (x_field, y_field):
             if fields.indexOf(fname) == -1:
                 layer.addAttribute(make_field(fname, T_DOUBLE))
                 created_fields.append(fname)
-        
         if created_fields:
             layer.updateFields()
-            fields = layer.fields() # Refresh field indices
+            fields = layer.fields()
 
         idx_x = fields.indexOf(x_field)
         idx_y = fields.indexOf(y_field)
+        updated = 0
 
-        # Calculate Geometry
         for f in layer.getFeatures():
             geom = f.geometry()
             if geom.isNull() or geom.isEmpty():
                 continue
-            
-            # Use centroid to safely handle Points, MultiPoints, Lines, and Polygons
+            # Centroid handles points, multipoints, lines and polygons alike.
             centroid_geom = geom.centroid()
             if centroid_geom.isNull():
                 continue
-                
             pt = centroid_geom.asPoint()
-
-            # Transform coordinates if user chose Lat/Lon
-            if is_latlon and transform:
+            if transform is not None:
                 try:
                     pt = transform.transform(pt)
                 except Exception as e:
-                    feedback.reportError(f"Transformation failed for feature {f.id()}: {e}")
+                    if feedback is not None:
+                        feedback.reportError(f"Transformation failed for feature {f.id()}: {e}")
                     continue
-            
-            # Apply attribute changes directly
-            attrs = {
-                idx_x: pt.x(),
-                idx_y: pt.y()
-            }
-            layer.changeAttributeValues(f.id(), attrs)
+            layer.changeAttributeValues(f.id(), {idx_x: pt.x(), idx_y: pt.y()})
+            updated += 1
 
-        # Commit changes to save
         if not layer.commitChanges():
-            self.show_popup("Failed", "Could not commit changes to the layer.", Qgis.MessageLevel.Critical)
+            errors = "; ".join(layer.commitErrors()[:3])
+            layer.rollBack()
+            raise RuntimeError("Could not commit changes to the layer. " + errors)
+        return created_fields, updated
+
+    def processAlgorithm(self, parameters, context, feedback):
+        layer = self.parameterAsVectorLayer(parameters, 'INPUT', context)
+        if not layer or not layer.isValid():
+            self.show_popup("Error", "The selected input layer is invalid or missing.", Qgis.MessageLevel.Critical)
             return {}
 
-        # Success Output
+        is_latlon = (self.parameterAsEnum(parameters, 'COORD_FORMAT', context) == 1)
+        try:
+            created_fields, _updated = self.update_layer(
+                layer, is_latlon, context.project(), feedback)
+        except RuntimeError as exc:
+            self.show_popup("Failed", str(exc), Qgis.MessageLevel.Critical)
+            return {}
+
         msg = f"Successfully updated coordinates for '{layer.name()}'."
         if created_fields:
             msg += f"\n\nNew fields created: {', '.join(created_fields)}"
-        
         self.show_popup("Success", msg, Qgis.MessageLevel.Success)
-
         return {}
+
+    def createCustomParametersWidget(self, parent=None):
+        """Open the small Update X/Y window instead of the plain form.
+
+        The parameters stay, so scripts and the modeller still work.
+        """
+        global DIALOG_INSTANCE
+        if qgis.utils.iface is None:
+            return None
+        from ..gui.update_xy_dialog import UpdateXYDialog
+
+        if not _alive(DIALOG_INSTANCE):
+            DIALOG_INSTANCE = UpdateXYDialog(qgis.utils.iface.mainWindow())
+        return DIALOG_INSTANCE
 
     def show_popup(self, title, text, level):
         """Helper method to show a blocking pop-up message to the user."""

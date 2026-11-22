@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:append_with_mapping` |
 | **Group** | KGA Schema Tools |
 | **Source** | `kga_tools/algorithms/append_with_mapping.py` |
-| **Icon** | `icons/alg_append.png` |
+| **Icon** | `icons/schema/alg_append.png` |
 | **Type** | Batch algorithm (runs on the GUI thread — it writes into a project layer) |
 
 ## Overview

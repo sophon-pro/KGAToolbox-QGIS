@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:export_layers_to_kml` |
 | **Group** | KGA Data Conversion |
 | **Source** | `kga_tools/algorithms/ExportToKML_With_Label.py` |
-| **Icon** | `icons/alg_kml.png` |
+| **Icon** | `icons/conversion/alg_kml.png` |
 | **Type** | Batch algorithm |
 
 ## Overview

@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:checkoverlapsandgaps` |
 | **Group** | KGA Topology |
 | **Source** | `kga_tools/algorithms/topology_checker.py` |
-| **Icon** | `icons/alg_topology.png` |
+| **Icon** | `icons/quality_control/alg_topology.png` |
 | **Type** | Batch algorithm (runs on the GUI thread — it adds error layers to the project) |
 
 ## Overview

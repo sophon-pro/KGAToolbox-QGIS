@@ -5,7 +5,7 @@
 | **Category** | Modify Features > Construct |
 | **Type** | Map tool in the Modify Features pane (not a Processing algorithm) |
 | **Source** | `kga_tools/editor/modify/polygons.py` (PolygonTool) |
-| **Icon** | `kga_tools/icons/constructPolygon.png` |
+| **Icon** | `kga_tools/icons/editing/constructPolygon.png` |
 | **Also as a window** | [construct_polygon](../construct_polygon.md) (`kga:construct_polygon`) |
 
 ## Overview

@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:add_grid` |
 | **Group** | KGA Mapping |
 | **Source** | `kga_tools/algorithms/add_grid_alg.py` (dialog in `kga_tools/gui/add_grid_dialog.py`, settings model in `kga_tools/core/layout_grid.py`) |
-| **Icon** | `icons/addGrid.png` |
+| **Icon** | `icons/mapping/addGrid.png` |
 | **Type** | Interactive dialog — modeless, needs the QGIS window and a print layout |
 
 ## Overview
@@ -39,14 +39,15 @@ frame style is *No frame*.
 |---|---|---|---|
 | **Layout** | Combo box | The layout whose map is selected | Every print layout in the project. The **Open** button beside it opens that layout in the designer, or brings its designer to the front. |
 | **Map item** | Combo box | The selected map | The map items of that layout, by name. |
-| **Grid** | Combo box | `<Add a new grid>` | Also lists the grids the map already has, as `Edit: <name>`. Picking one loads its settings into the form. |
-| **Reload** | Button | — | Read the layouts, maps and grids again, after adding or removing one in the designer. |
-| **Grid name** | Text | `Grid` | What the grid is called in the layout designer's grid list. A name already on that map gets ` 2` appended rather than overwriting. |
+| **Reload** | Button | — | Beside Map item. Read the layouts, maps and grids again, after adding or removing one in the designer. |
+| **Create New Grid / Edit Grid** | Two tabs | Edit when the map has a grid, otherwise Create | Create makes a new grid; Edit changes one the map already has. Edit is greyed out on a map with no grids. Changing the layout or map re-chooses the tab. |
+| **Grid to edit** | Combo box | The first grid | *Edit Grid tab.* The grids the map already has. Picking one loads its settings into the form. |
+| **Grid name** | Text (top of both tabs, kept in step) | `Grid` | What the grid is called in the layout designer's grid list. A name already on that map gets ` 2` appended rather than overwriting. |
 | **Grid interval** | Combo box | Automatic | Only shown while the MGRS set is armed. `Automatic` works the spacing out from the map extent; `10 km`, `1 km`, `100 m`, `10 m` and `1 m` name it instead, which is what a sheet drawn to a stated scale needs — a 1:50,000 map carries a 1 km grid whatever its extent happens to suggest. |
 | **Also add** | Two check boxes | Both off | Only shown while the MGRS set is armed. **1 km mesh** adds the fine mesh of a 1:50,000 sheet; **Labels inside too** repeats the numbers against the inside of the frame. |
 | **Positioning** | Three toggle buttons | Two strips per axis, at 1/4 and 3/4 | Where the interior number strips go: `One strip per axis, centred`, `Two strips per axis, at 1/3 and 2/3`, or `Two strips per axis, at 1/4 and 3/4`. Shown while the MGRS set is armed or the map already has strips, and enabled once **Labels inside too** is ticked. Changing it re-places the strips already on the map. |
 | **100 km letters** | Combo box | In the margin | Only shown while the MGRS set is armed. `In the margin, outside the numbers` or `Inside the map, against the frame`. |
-| **Preset** | Combo box | `Start from...` | Fills the whole form in one pick: *Thin black graticule*, *Exterior ticks, labels outside*, *Zebra frame, labels outside*, *Lat/long graticule in degrees*, *Crosses, labels inside*. It also re-suggests the interval, because a preset can change the CRS. Below the separator sits **MGRS grid**, which is not a preset but a *set* — see *The MGRS preset*. |
+| **Preset** | Combo box (Create tab) | `Start from...` | Fills the whole form in one pick: *Thin black graticule*, *Exterior ticks, labels outside*, *Zebra frame, labels outside*, *Lat/long graticule in degrees*, *Crosses, labels inside*. It also re-suggests the interval, because a preset can change the CRS. Below the separator sits **MGRS grid**, which is not a preset but a *set* — see *The MGRS preset*. |
 
 ### Grid tab
 
@@ -116,6 +117,10 @@ says so and stops — see *Notes and limits*.
 5. Set the frame and the label sides, then press **Add Grid**.
 6. Look at the sheet, change a number, press **Apply** again. Repeat until it
    reads right at print size.
+
+To change a grid the map already has, right-click it in the layout's **Contents**
+panel (under the map's *Grids* group) and choose **Edit…**. The window opens on
+the **Edit Grid** tab with that grid chosen under **Grid to edit**.
 
 ### The MGRS preset
 

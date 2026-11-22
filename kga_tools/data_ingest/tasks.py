@@ -378,12 +378,19 @@ class ExpressionSelectTask(_Task):
             return None
 
 
+def crs_for_gdal(crs):
+    """A CRS string GDAL always accepts: 'EPSG:xxxx' when known, else PROJ."""
+    auth = crs.authid()
+    return auth if auth else crs.toProj()
+
+
 class RasterExportTask(_Task):
     """Writes the visible part of a raster to a NEW GeoTIFF (gdal_translate)."""
 
-    def __init__(self, src, dst, bbox, on_done):
+    def __init__(self, src, dst, bbox, on_done, cutline=None):
         super().__init__("Exporting raster view", on_done, hidden=False)
         self.src, self.dst, self.bbox = src, dst, bbox
+        self.cutline = cutline  # (polygon WKT, CRS WKT): mask the pixels outside the polygon
 
     def run(self):
         try:
@@ -393,9 +400,18 @@ class RasterExportTask(_Task):
             def cb(pct, _msg, _data):
                 self.setProgress(pct * 100)
                 return 0 if self.isCanceled() else 1
-            out = gdal.Translate(self.dst, self.src, projWin=[xmin, ymax, xmax, ymin], format="GTiff",
-                                 creationOptions=["TILED=YES", "COMPRESS=DEFLATE", "BIGTIFF=IF_SAFER"],
-                                 callback=cb)
+            creation = ["TILED=YES", "COMPRESS=DEFLATE", "BIGTIFF=IF_SAFER"]
+            if self.cutline:
+                wkt, crs_wkt = self.cutline
+                ds = gdal.Open(self.src)
+                nodata = ds.GetRasterBand(1).GetNoDataValue() if ds is not None else None
+                ds = None
+                extra = {"dstNodata": nodata} if nodata is not None else {"dstAlpha": True}
+                out = gdal.Warp(self.dst, self.src, format="GTiff", cutlineWKT=wkt, cutlineSRS=crs_wkt,
+                                cropToCutline=True, creationOptions=creation, callback=cb, **extra)
+            else:
+                out = gdal.Translate(self.dst, self.src, projWin=[xmin, ymax, xmax, ymin], format="GTiff",
+                                     creationOptions=creation, callback=cb)
             if out is None:
                 self.error = "GDAL could not write %s" % self.dst
             out = None

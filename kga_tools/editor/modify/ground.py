@@ -12,6 +12,7 @@ ellipsoid set these measures give the ground figure; with none they give the fla
 """
 
 import math
+from bisect import bisect_right
 
 from qgis.core import QgsDistanceArea, QgsProject, QgsUnitTypes, QgsWkbTypes
 
@@ -91,12 +92,7 @@ class LengthMeasure:
         """y at x along the piecewise linear line through (xs, ys); beyond the ends the end segment carries on."""
         if len(xs) < 2 or xs[-1] - xs[0] <= 0:
             return x
-        if x <= xs[0]:
-            i = 0
-        elif x >= xs[-1]:
-            i = len(xs) - 2
-        else:
-            i = max(j for j in range(len(xs) - 1) if xs[j] <= x)
+        i = min(max(bisect_right(xs, x) - 1, 0), len(xs) - 2)
         span = xs[i + 1] - xs[i]
         if span <= 0:
             return ys[i]
@@ -108,6 +104,13 @@ class LengthMeasure:
             return ground_distance
         flat, ground = self.profile(points)
         return self._interpolate(ground, flat, ground_distance)
+
+    def flats_at(self, points, ground_distances, profile=None):
+        """flat_at for many distances at once: the profile of the line is worked out once (or passed in)."""
+        if self._da is None:
+            return list(ground_distances)
+        flat, ground = profile or self.profile(points)
+        return [self._interpolate(ground, flat, g) for g in ground_distances]
 
     def ground_at(self, points, flat_distance):
         if self._da is None:

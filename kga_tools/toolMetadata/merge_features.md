@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:merge_features` |
 | **Group** | KGA Editing Tools |
 | **Source** | `kga_tools/algorithms/merge_features.py` (base dialog in `kga_tools/gui/modify_dialog.py`) |
-| **Icon** | `icons/mergeFeatures.png` |
+| **Icon** | `icons/editing/mergeFeatures.png` |
 | **Type** | Interactive dialog — modeless, owns a map tool, needs the QGIS canvas |
 
 ## Overview

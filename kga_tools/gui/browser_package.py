@@ -32,7 +32,7 @@ except ImportError:                         # pragma: no cover - head-less
     iface = None
 
 PROVIDER_KEY = 'kga_layer_package'
-ICON_FILE = 'layerPackage.png'
+ICON_FILE = 'data_management/layerPackage.png'
 
 
 def _log(message, level=Qgis.MessageLevel.Warning):

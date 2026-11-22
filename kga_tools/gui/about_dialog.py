@@ -32,7 +32,7 @@ from qgis.PyQt.QtWidgets import (
     QWidget,
 )
 
-from ..branding import ICON_DIR, KGA_LINKS, PLUGIN_DIR
+from ..branding import KGA_LINKS, PLUGIN_DIR, icon_path
 
 # What the toolbox does, in the order the toolbar presents it. Kept short:
 # this is a "what is this plugin" answer, not the manual.
@@ -65,7 +65,8 @@ FEATURES = [
      'Check overlaps and gaps, check points on boundary vertices, and step '
      'through what they found in the Error Inspector'),
     ('Geometry Utilities',
-     'Find duplicates, and update X/Y and geometry fields'),
+     'Find duplicates, clean spikes and slivers from split polygons, build lines and '
+     'polygons from ordered points, and update X/Y and geometry fields'),
     ('Irrigation Tools',
      'DEM and contour analysis, contours and streams from the free '
      'Copernicus DEM, and reservoir rating curves'),
@@ -118,9 +119,9 @@ class AboutDialog(QDialog):
         header.setSpacing(16)
 
         logo = QLabel(self)
-        pixmap = QPixmap(os.path.join(ICON_DIR, 'kga_logo.png'))
+        pixmap = QPixmap(icon_path('branding/kga_logo.png'))
         if pixmap.isNull():
-            pixmap = QPixmap(os.path.join(ICON_DIR, 'kga.png'))
+            pixmap = QPixmap(icon_path('branding/kga.png'))
         if not pixmap.isNull():
             logo.setPixmap(pixmap.scaled(
                 72, 72, Qt.AspectRatioMode.KeepAspectRatio,

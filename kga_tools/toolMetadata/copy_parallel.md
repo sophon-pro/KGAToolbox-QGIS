@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:copy_parallel` |
 | **Group** | KGA Editing Tools |
 | **Source** | `kga_tools/algorithms/copy_parallel.py` (base dialog in `kga_tools/gui/modify_dialog.py`) |
-| **Icon** | `icons/copyParallel.png` |
+| **Icon** | `icons/editing/copyParallel.png` |
 | **Type** | Interactive dialog — modeless, owns a map tool, needs the QGIS canvas |
 
 ## Overview

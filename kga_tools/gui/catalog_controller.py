@@ -50,10 +50,12 @@ from . import processing_defaults
 from ..core import layout_import, layout_shortcuts, map_shortcuts
 from . import new_layout_dialog, new_project_basemap
 from .browser_layouts import LayoutShortcutInstaller
+from .browser_textfiles import TextFileInstaller
 from .browser_project_package import ProjectPackageInstaller
 from .catalog_menu import CatalogMenu
 from .project_open_guard import ProjectOpenGuard
 from .save_guard import SaveGuard
+from .scratch_close_guard import ScratchCloseGuard
 from .catalog_panel import (
     TAB_COMPUTER,
     TAB_PROJECT,
@@ -85,9 +87,11 @@ def _log(message, level=Qgis.MessageLevel.Warning):
 
 class CatalogController(QObject):
 
-    def __init__(self, iface, parent=None):
+    def __init__(self, iface, parent=None, group=None):
         super().__init__(parent)
         self.iface = iface
+        self.group = group            # BubbleGroup shared with the bags (None: no bubble)
+        self.bubble = None            # CatalogBubbleManager
         self.workspace = None
         self.model = None
         self.panel = None
@@ -102,12 +106,15 @@ class CatalogController(QObject):
         self._menu = None
         self._package_items = None
         self._layout_items = None
+        self._text_items = None
         self._layout_timer = None
         self._open_guard = None
         self._save_guard = None
+        self._scratch_guard = None
         self._untitled = None
         self._recoverable = []
         self._offered = False
+        self._offer_widget = None
         self._nudged = None
         self._listed = None
         self._connected = False
@@ -153,6 +160,7 @@ class CatalogController(QObject):
         self.panel.set_workspace_text(self.workspace)
         self.iface.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea,
                                  self.panel)
+        self._install_bubble()
 
         map_tabs.add_listener(self._maps_changed)
         self._menu = CatalogMenu(self)
@@ -176,8 +184,17 @@ class CatalogController(QObject):
             _log('Could not add layout shortcuts to the Browser:\n{}'.format(
                 traceback.format_exc()))
 
+        # .txt tables, which QGIS does not list on its own
+        self._text_items = TextFileInstaller()
+        try:
+            self._text_items.install()
+        except Exception:
+            self._text_items = None
+            _log('Could not add text files to the Browser:\n{}'.format(
+                traceback.format_exc()))
+
         self.toggle_action = self.panel.toggleViewAction()
-        self.toggle_action.setIcon(_icon('catalog.png'))
+        self.toggle_action.setIcon(_icon('workspace/catalog.png'))
         self.toggle_action.setText('Catalog')
         self.toggle_action.setToolTip(
             'Show or hide the Catalog panel (project, connections, computer, '
@@ -187,6 +204,8 @@ class CatalogController(QObject):
         # showing the dock would leave it behind the Toolbox's tab; bring it
         # to the front whenever the button switches it on.
         self.toggle_action.triggered.connect(self._raise_panel)
+        if self.bubble is not None:
+            self.bubble.toggle_action = self.toggle_action
 
         self._add_project_menu_actions()
         self._watch_toolbox()
@@ -208,6 +227,16 @@ class CatalogController(QObject):
                 self._save_guard.uninstall()
             self._save_guard = None
             _log('Could not watch Save:' + chr(10) + traceback.format_exc())
+
+        # Scratch layers are saved (or let go on purpose) before a close.
+        self._scratch_guard = ScratchCloseGuard(self)
+        try:
+            self._scratch_guard.install()
+        except Exception:
+            with suppress(Exception):
+                self._scratch_guard.uninstall()
+            self._scratch_guard = None
+            _log('Could not watch scratch layers:' + chr(10) + traceback.format_exc())
 
         project = QgsProject.instance()
         project.readProject.connect(self._project_changed)
@@ -235,6 +264,21 @@ class CatalogController(QObject):
         with suppress(Exception):
             self.iface.initializationCompleted.connect(self._start_up_done)
         QTimer.singleShot(RECOVERY_FALLBACK_MS, self._offer_recovery)
+
+    def _install_bubble(self):
+        """Minimize-to-bubble, shared with the Tool Bag's bubbles. Never blocks the Catalog."""
+        if self.group is None:
+            return
+        try:
+            from .panel_bubble import PanelBubbleManager, file_glyph, install_title_bar
+            self.bubble = PanelBubbleManager(
+                self.panel, self.group, self.iface.mapCanvas(), self._raise_panel,
+                'catalog', 'Catalog – click to open', file_glyph('bubble/catalog.png'))
+            self.panel.minimizeRequested.connect(self.bubble.minimize)
+            install_title_bar(self.panel, self.bubble)      # Minimize beside Float and Close
+        except Exception:
+            self.bubble = None
+            _log('Could not add the Catalog bubble:\n{}'.format(traceback.format_exc()))
 
     def _make_untitled(self):
         """A fresh scratch workspace for this session's unsaved project.
@@ -277,14 +321,29 @@ class CatalogController(QObject):
         discard = QPushButton('Discard', widget)
         recover.setToolTip('Show it in the Catalog as the Untitled workspace')
         discard.setToolTip('Delete it')
-        # Deferred: the handler removes the bar item that owns the clicked button.
-        recover.clicked.connect(
-            lambda: QTimer.singleShot(0, lambda: self._recover(found, widget)))
-        discard.clicked.connect(
-            lambda: QTimer.singleShot(0, lambda: self._discard_recoverable(widget)))
+        # Bound slots, no closures over Qt objects; the work is deferred because
+        # it removes the bar item that owns the clicked button.
+        self._offer_widget = widget
+        recover.clicked.connect(self._recover_clicked)
+        discard.clicked.connect(self._discard_clicked)
         widget.layout().addWidget(recover)
         widget.layout().addWidget(discard)
         bar.pushWidget(widget, Qgis.MessageLevel.Warning, 0)
+
+    def _recover_clicked(self, _checked=False):
+        QTimer.singleShot(0, self._recover_deferred)
+
+    def _discard_clicked(self, _checked=False):
+        QTimer.singleShot(0, self._discard_deferred)
+
+    def _recover_deferred(self):
+        widget, self._offer_widget = self._offer_widget, None
+        if self._recoverable:
+            self._recover(self._recoverable[0], widget)
+
+    def _discard_deferred(self):
+        widget, self._offer_widget = self._offer_widget, None
+        self._discard_recoverable(widget)
 
     def _start_page_stack(self):
         """The central stack while QGIS's welcome (start) page is in front, else None."""
@@ -422,32 +481,32 @@ class CatalogController(QObject):
     def _add_project_menu_actions(self):
         menu = self.iface.projectMenu()
         window = self.iface.mainWindow()
-        self.set_action = QAction(_icon('setWorkspace.png'), 'Set Workspace...',
+        self.set_action = QAction(_icon('workspace/setWorkspace.png'), 'Set Workspace...',
                                   window)
         self.set_action.setToolTip(
             'Choose the folder and name of the project; everything the '
             'project owns is kept there')
         self.set_action.triggered.connect(
             lambda _checked=False: self.set_workspace_dialog())
-        self.open_action = QAction(_icon('openWorkspace.png'), 'Open Workspace...', window)
+        self.open_action = QAction(_icon('workspace/openWorkspace.png'), 'Open Workspace...', window)
         self.open_action.setToolTip('Open a KGA workspace folder')
         self.open_action.triggered.connect(
             lambda _checked=False: self.open_workspace_dialog())
-        self.convert_action = QAction(_icon('convertProject.png'),
+        self.convert_action = QAction(_icon('workspace/convertProject.png'),
                                       'Convert Project to Workspace...', window)
         self.convert_action.setToolTip(
             'Turn the open QGIS project (.qgz) into a KGA workspace: its data '
             'is gathered into one folder with a default GeoPackage')
         self.convert_action.triggered.connect(
             lambda _checked=False: self.convert_project())
-        self.share_action = QAction(_icon('shareWorkspace.png'),
+        self.share_action = QAction(_icon('workspace/shareWorkspace.png'),
                                     'Share Workspace...', window)
         self.share_action.setToolTip(
             'Package the project, its data and layouts into one .kgapp file '
             'to send to someone')
         self.share_action.triggered.connect(
             lambda _checked=False: self.share_workspace())
-        self.import_action = QAction(_icon('importProjectPackage.png'),
+        self.import_action = QAction(_icon('workspace/importProjectPackage.png'),
                                      'Import Project Package...', window)
         self.import_action.setToolTip(
             'Unpack a .kgapp project package into a workspace and open it')
@@ -983,6 +1042,15 @@ class CatalogController(QObject):
                 traceback.format_exc()))
             self.show_in_folder(path)
 
+    def reveal_path(self, path):
+        """Show the Catalog and select `path` in it (Reveal in Catalog)."""
+        if self.panel is None:
+            return False
+        self._dock_with_toolbox()
+        self.panel.show()
+        self.panel.raise_()
+        return self.panel.reveal_path(path)
+
     def show_in_folder(self, path):
         QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.dirname(path)))
 
@@ -1341,6 +1409,11 @@ class CatalogController(QObject):
             with suppress(Exception):
                 self._save_guard.uninstall()
             self._save_guard = None
+        if self._scratch_guard is not None:
+            with suppress(Exception):
+                self._scratch_guard.uninstall()
+            self._scratch_guard.deleteLater()
+            self._scratch_guard = None
         self._remove_project_menu_actions()
         if self._open_guard is not None:
             with suppress(Exception):
@@ -1355,12 +1428,20 @@ class CatalogController(QObject):
             with suppress(Exception):
                 self._layout_items.uninstall()
             self._layout_items = None
+        if self._text_items is not None:
+            with suppress(Exception):
+                self._text_items.uninstall()
+            self._text_items = None
         if self._menu is not None:
             with suppress(Exception):
                 QgsGui.dataItemGuiProviderRegistry().removeProvider(self._menu)
             self._menu = None
         with suppress(Exception):
             ts.unregister()
+        if self.bubble is not None:
+            with suppress(Exception):
+                self.bubble.unload()
+            self.bubble = None
         if self.panel is not None:
             with suppress(Exception):
                 self.iface.removeDockWidget(self.panel)

@@ -27,6 +27,50 @@ from ..core.compat import no_threading, parameter_as_field_list
 MISSING_IGNORE, MISSING_REPORT, MISSING_FAIL = range(3)
 
 
+try:
+    from qgis.utils import iface
+except ImportError:                         # pragma: no cover - head-less
+    iface = None
+
+#: The ExportAttributesDialog window, kept alive between opens so it is not garbage collected.
+DIALOG_EXPORT = None
+
+#: The ImportAttributesDialog window, kept alive between opens so it is not garbage collected.
+DIALOG_IMPORT = None
+
+
+def _alive(dialog):
+    try:
+        return dialog is not None and not dialog._torn_down
+    except RuntimeError:                    # the Qt object is already gone
+        return False
+
+
+def close_export_attributes():
+    """Stop any running job and close the window on plugin unload."""
+    global DIALOG_EXPORT
+    dialog, DIALOG_EXPORT = DIALOG_EXPORT, None
+    if dialog is None:
+        return
+    try:
+        dialog.shutdown()
+    except RuntimeError:                    # already destroyed by Qt
+        pass
+
+
+def close_import_attributes():
+    """Stop any running job and close the window on plugin unload."""
+    global DIALOG_IMPORT
+    dialog, DIALOG_IMPORT = DIALOG_IMPORT, None
+    if dialog is None:
+        return
+    try:
+        dialog.shutdown()
+    except RuntimeError:                    # already destroyed by Qt
+        pass
+
+
+
 class AttributesToXlsxAlgorithm(QgsProcessingAlgorithm):
     """Export attributes to a workbook."""
 
@@ -41,6 +85,21 @@ class AttributesToXlsxAlgorithm(QgsProcessingAlgorithm):
 
     def tr(self, string):
         return QCoreApplication.translate('KgaAttributesXlsx', string)
+
+    def createCustomParametersWidget(self, parent=None):
+        """Open the ExportAttributesDialog window instead of the plain form.
+
+        The parameters stay, so scripts (`processing.run`), the modeller and
+        batch still work; only the Toolbox dialog is replaced.
+        """
+        global DIALOG_EXPORT
+        if iface is None:
+            return None
+        from ..gui.attributes_xlsx_dialogs import ExportAttributesDialog
+
+        if not _alive(DIALOG_EXPORT):
+            DIALOG_EXPORT = ExportAttributesDialog(iface.mainWindow())
+        return DIALOG_EXPORT
 
     def createInstance(self):
         return AttributesToXlsxAlgorithm()
@@ -212,6 +271,21 @@ class XlsxToAttributesAlgorithm(QgsProcessingAlgorithm):
 
     def tr(self, string):
         return QCoreApplication.translate('KgaAttributesXlsx', string)
+
+    def createCustomParametersWidget(self, parent=None):
+        """Open the ImportAttributesDialog window instead of the plain form.
+
+        The parameters stay, so scripts (`processing.run`), the modeller and
+        batch still work; only the Toolbox dialog is replaced.
+        """
+        global DIALOG_IMPORT
+        if iface is None:
+            return None
+        from ..gui.attributes_xlsx_dialogs import ImportAttributesDialog
+
+        if not _alive(DIALOG_IMPORT):
+            DIALOG_IMPORT = ImportAttributesDialog(iface.mainWindow())
+        return DIALOG_IMPORT
 
     def createInstance(self):
         return XlsxToAttributesAlgorithm()

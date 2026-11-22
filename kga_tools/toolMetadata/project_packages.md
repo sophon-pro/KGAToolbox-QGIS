@@ -5,7 +5,7 @@
 | **Algorithm ID** | none: Project menu and Catalog menu commands (not Processing algorithms) |
 | **Group** | Project menu > Share Workspace, Import Project Package, Convert Project to Workspace |
 | **Source** | `kga_tools/core/projectpkg.py`, `project_share.py`, `project_analysis.py`; `kga_tools/gui/share_workspace_dialog.py`, `import_package_dialog.py`, `convert_project_dialog.py`, `project_open_guard.py` |
-| **Icon** | `icons/shareWorkspace.png`, `icons/importProjectPackage.png`, `icons/convertProject.png` |
+| **Icon** | `icons/workspace/shareWorkspace.png`, `icons/workspace/importProjectPackage.png`, `icons/workspace/convertProject.png` |
 | **Type** | Dialogs. Part of the Catalog (QGIS 3.36 or newer) |
 
 ## Overview

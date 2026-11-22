@@ -7,6 +7,7 @@ list and runs it straight away, so no empty Processing dialog lands in front.
 """
 
 import traceback
+from contextlib import suppress
 
 from qgis.core import Qgis, QgsMessageLog, QgsProcessingAlgorithm
 from qgis.PyQt.QtCore import QCoreApplication, Qt
@@ -24,6 +25,38 @@ except ImportError:                         # pragma: no cover - head-less
 #: `processAlgorithm` returns. Re-running while it is open raises it; re-running
 #: after it was closed builds a clean one.
 DIALOG_INSTANCE = None
+
+
+def edit_grid(layout, map_item, grid_id):
+    """Open the Add Grid window on the Edit Grid tab, on this grid.
+
+    Used by the layout Contents panel's right-click > Edit on a grid row.
+    """
+    global DIALOG_INSTANCE
+    from ..core import layout_grid as LG
+    from ..gui.add_grid_dialog import AddGridDialog
+
+    dialog = DIALOG_INSTANCE
+    if dialog is not None:
+        try:
+            if not dialog.isVisible():
+                dialog.deleteLater()
+                dialog = None
+        except RuntimeError:                # Qt already destroyed the widget
+            dialog = None
+    if dialog is None:
+        parent = None
+        with suppress(Exception):
+            parent = LG.designer_window(iface, layout)
+        if parent is None and iface is not None:
+            parent = iface.mainWindow()
+        dialog = AddGridDialog(parent)
+    DIALOG_INSTANCE = dialog
+    dialog.show_grid(layout, map_item, grid_id)
+    dialog.setWindowModality(Qt.WindowModality.NonModal)
+    dialog.show()
+    dialog.raise_()
+    dialog.activateWindow()
 
 
 class AddGridAlgorithm(QgsProcessingAlgorithm):

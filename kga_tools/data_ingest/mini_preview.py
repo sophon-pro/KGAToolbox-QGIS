@@ -25,6 +25,9 @@ from qgis.core import (
     QgsExpressionContext,
     QgsExpressionContextUtils,
     QgsFeatureRequest,
+    QgsGeometry,
+    QgsMemoryProviderUtils,
+    QgsPointXY,
     QgsMessageLog,
     QgsProject,
     QgsRasterLayer,
@@ -73,7 +76,9 @@ from qgis.PyQt.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QTabWidget,
+    QMenu,
     QToolBar,
+    QToolButton,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -221,6 +226,82 @@ class SelectTool(QgsMapTool):
         super().deactivate()
 
 
+class DrawAreaTool(QgsMapTool):
+    """Draw a rectangle (drag) or a polygon (click points; right-click or double-click
+    finishes, Esc cancels). Hands the finished shape, in canvas CRS, to `on_done`."""
+
+    def __init__(self, canvas, polygon, on_done, on_cancel=None):
+        super().__init__(canvas)
+        self.polygon = polygon
+        self.on_done = on_done
+        self.on_cancel = on_cancel
+        self.start = None
+        self.points = []
+        self.band = QgsRubberBand(canvas, compat.geometry_type("Polygon"))
+        self.band.setColor(QColor(0, 120, 215, 50))
+        self.band.setStrokeColor(QColor(0, 120, 215))
+        self.band.setWidth(2)
+        self.setCursor(Qt.CursorShape.CrossCursor)
+
+    def _reset(self):
+        self.start = None
+        self.points = []
+        self.band.reset(compat.geometry_type("Polygon"))
+
+    def _finish(self, geom):
+        self._reset()
+        self.on_done(geom)
+
+    def canvasPressEvent(self, e):  # noqa: N802
+        if self.polygon:
+            return
+        self.start = QgsPointXY(e.mapPoint())
+
+    def canvasMoveEvent(self, e):  # noqa: N802
+        p = QgsPointXY(e.mapPoint())
+        if self.polygon:
+            if self.points:
+                self.band.setToGeometry(QgsGeometry.fromPolygonXY([self.points + [p]]), None)
+        elif self.start is not None:
+            self.band.setToGeometry(QgsGeometry.fromRect(QgsRectangle(self.start, p)), None)
+
+    def canvasReleaseEvent(self, e):  # noqa: N802
+        p = QgsPointXY(e.mapPoint())
+        if not self.polygon:
+            if self.start is None:
+                return
+            rect = QgsRectangle(self.start, p)
+            self.start = None
+            if rect.width() == 0 or rect.height() == 0:
+                self._reset()
+                return
+            self._finish(QgsGeometry.fromRect(rect))
+            return
+        if e.button() == Qt.MouseButton.RightButton:
+            if len(self.points) >= 3:
+                self._finish(QgsGeometry.fromPolygonXY([self.points]))
+            else:
+                self._reset()
+            return
+        self.points.append(p)
+        self.band.setToGeometry(QgsGeometry.fromPolygonXY([self.points + [p]]), None)
+
+    def canvasDoubleClickEvent(self, e):  # noqa: N802
+        if self.polygon and len(self.points) >= 3:
+            self._finish(QgsGeometry.fromPolygonXY([self.points]))
+
+    def keyPressEvent(self, e):  # noqa: N802
+        if e.key() == Qt.Key.Key_Escape:
+            self._reset()
+            if self.on_cancel:
+                self.on_cancel()
+            e.accept()
+
+    def deactivate(self):
+        self.band.reset(compat.geometry_type("Polygon"))
+        super().deactivate()
+
+
 class IdentifyTool(QgsMapToolIdentify):
     def __init__(self, canvas, layer, on_results):
         super().__init__(canvas)
@@ -243,9 +324,12 @@ class IdentifyTool(QgsMapToolIdentify):
 # ---------------------------------------------------------------------------
 
 class ExportDialog(QDialog):
-    def __init__(self, layer, source_path, visible_fields, canvas_extent, parent=None):
+    def __init__(self, layer, source_path, visible_fields, canvas_extent, parent=None, area=None, area_label=None):
         super().__init__(parent)
         self.layer = layer
+        self.area = area  # QgsGeometry in layer CRS, or None for the map view
+        if area is not None and canvas_extent is None:
+            canvas_extent = area.boundingBox()
         self.source_path = source_path
         self.canvas_extent = canvas_extent
         self.setWindowTitle("Export features to a new file")
@@ -257,9 +341,12 @@ class ExportDialog(QDialog):
         n_sel, n_all = layer.selectedFeatureCount(), layer.featureCount()
         self.r_sel = QRadioButton("Selected features (%s)" % "{:,}".format(n_sel))
         self.r_all = QRadioButton("All features (%s)" % ("{:,}".format(n_all) if n_all >= 0 else "?"))
-        self.r_view = QRadioButton("Features in the current map view")
+        self.r_view = QRadioButton("Features in the current map view" if area is None else
+                                   "Features inside the %s" % (area_label or "chosen area"))
         self.r_sel.setEnabled(n_sel > 0)
         (self.r_sel if n_sel > 0 else self.r_all).setChecked(True)
+        if area is not None:
+            self.r_view.setChecked(True)
         group = QButtonGroup(self)
         for r in (self.r_sel, self.r_all, self.r_view):
             group.addButton(r)
@@ -304,7 +391,7 @@ class ExportDialog(QDialog):
         for text, state in (("All", Qt.CheckState.Checked), ("None", Qt.CheckState.Unchecked)):
             b = QPushButton(text)
             b.clicked.connect(lambda _c=False, s=state: [self.fields.item(i).setCheckState(s)
-                                                          for i in range(self.fields.count())])
+                                                         for i in range(self.fields.count())])
             row.addWidget(b)
         row.addStretch()
         fl.addLayout(row)
@@ -438,6 +525,14 @@ class ExportDialog(QDialog):
     def output_path(self):
         return self.file.filePath()
 
+    def exact_area(self):
+        """The polygon to cut features with, when the area is not a plain rectangle."""
+        if self.area is None or not self.r_view.isChecked():
+            return None
+        if self.area.isGeosEqual(QgsGeometry.fromRect(self.area.boundingBox())):
+            return None
+        return self.area
+
 
 def tasks_safe_name(text):
     import re
@@ -457,6 +552,75 @@ def unique_path(path):
 # ---------------------------------------------------------------------------
 # The window
 # ---------------------------------------------------------------------------
+
+class LayerPickDialog(QDialog):
+    """Choose a layer from the current map, or browse for a file that is not in it."""
+
+    def __init__(self, title, text, candidates, preview_layer, polygon_only, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.setMinimumWidth(420)
+        self.polygon_only = polygon_only
+        self.preview_layer = preview_layer
+        self._layers = []  # keeps browsed layers alive
+        lay = QVBoxLayout(self)
+        lay.addWidget(QLabel(text))
+        row = QHBoxLayout()
+        self.combo = QComboBox()
+        row.addWidget(self.combo, 1)
+        self.browse_btn = QPushButton("Browse...")
+        self.browse_btn.clicked.connect(self.browse)
+        row.addWidget(self.browse_btn)
+        lay.addLayout(row)
+        self.note = QLabel("")
+        self.note.setWordWrap(True)
+        lay.addWidget(self.note)
+        bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        bb.accepted.connect(self.accept)
+        bb.rejected.connect(self.reject)
+        lay.addWidget(bb)
+        for lyr in candidates:
+            self._add(lyr)
+        if self.combo.count():
+            self.combo.setCurrentIndex(0)
+        else:
+            self.note.setText("No layer in the current map fits - use Browse to pick a file.")
+
+    def _add(self, lyr):
+        sel = lyr.selectedFeatureCount() if isinstance(lyr, QgsVectorLayer) else 0
+        label = "%s%s%s" % (lyr.name(), " (this layer)" if lyr is self.preview_layer else "",
+                            " - %d selected" % sel if sel else "")
+        self.combo.addItem(label, lyr)
+
+    def browse(self):
+        from qgis.PyQt.QtWidgets import QFileDialog
+        flt = "Vector data (*.shp *.gpkg *.geojson *.json *.kml *.gml *.fgb *.gdb);;All files (*)"
+        if not self.polygon_only:
+            flt = "Vector or raster data (*);;" + flt
+        path, _ = QFileDialog.getOpenFileName(self, "Choose a layer", "", flt)
+        if path:
+            self.add_file(path)
+
+    def add_file(self, path):
+        name = os.path.splitext(os.path.basename(path))[0]
+        lyr = QgsVectorLayer(path, name, "ogr")
+        if not lyr.isValid() and not self.polygon_only:
+            lyr = QgsRasterLayer(path, name, "gdal")
+        if not lyr.isValid():
+            self.note.setText("Cannot read %s." % os.path.basename(path))
+            return False
+        if self.polygon_only and lyr.geometryType() != compat.geometry_type("Polygon"):
+            self.note.setText("%s has no polygons." % os.path.basename(path))
+            return False
+        self._layers.append(lyr)
+        self.note.setText("")
+        self._add(lyr)
+        self.combo.setCurrentIndex(self.combo.count() - 1)
+        return True
+
+    def chosen(self):
+        return self.combo.currentData()
+
 
 class MiniPreviewDialog(QDialog):
     def __init__(self, layer, data, iface, parent=None):
@@ -577,20 +741,154 @@ class MiniPreviewDialog(QDialog):
                                          lambda: self._set_tool(self.tool_identify, self.act_identify), True, "I")
         tools.append(self.act_identify)
         self.toolbar.addSeparator()
-        if self.is_vector:
-            self.act_export = self._action("plugin:export.svg", "Export features to a new file…",
-                                           self.export_features, shortcut="Ctrl+E")
-        else:
-            self.act_export = self._action("plugin:export.svg", "Export visible area to a new GeoTIFF…",
-                                           self.export_raster_view)
-        # labelled button so it reads as "Export", never as "Save"
-        self.act_export.setIconText("Export")
-        btn = self.toolbar.widgetForAction(self.act_export)
-        if btn is not None:
-            btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self._build_export_button()
         for a in tools:
             group.addAction(a)
         group.setExclusive(True)
+
+    def _build_export_button(self):
+        """Export drop-down: the preview canvas, a drawn rectangle or polygon, the layer
+        extent, or the boundary of a polygon layer."""
+        what = "features" if self.is_vector else "the area"
+        menu = QMenu(self)
+        self.export_actions = {}
+        for key, icon, text, tip in (
+                ("canvas", "/mActionZoomToArea.svg", "Current preview canvas",
+                 "Export what the preview shows now"),
+                ("rect", "/mActionSelectRectangle.svg", "Draw rectangle",
+                 "Drag a rectangle on the preview, then export %s inside it" % what),
+                ("polygon", "/mActionSelectPolygon.svg", "Draw polygon",
+                 "Click the corners (right-click or double-click to finish), then export %s inside it" % what),
+                ("layer", "/mActionZoomFullExtent.svg", "Layer extent...", "Export the part inside the extent of a layer"),
+                ("boundary", "/mActionSelectPolygon.svg", "Polygon boundary...",
+                 "Choose a polygon layer; its (selected) polygons cut the export")):
+            act = QAction(_icon(icon), text, self)
+            act.setToolTip(tip)
+            act.setStatusTip(tip)
+            act.triggered.connect(lambda _c=False, k=key: self.start_export(k))
+            if key == "canvas":
+                act.setShortcut("Ctrl+E")
+            menu.addAction(act)
+            self.export_actions[key] = act
+            if key == "polygon":
+                menu.addSeparator()
+        self.act_export = QAction(_icon("plugin:export.svg"), "Export", self)
+        self.act_export.setMenu(menu)
+        self.act_export.setToolTip("Export to a new file")
+        self.toolbar.addAction(self.act_export)
+        btn = self.toolbar.widgetForAction(self.act_export)
+        if isinstance(btn, QToolButton):
+            btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+            btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+
+    def start_export(self, mode):
+        """Entry point of every Export menu item."""
+        if mode == "canvas":
+            self._export_area(self._to_layer_crs(QgsGeometry.fromRect(self.canvas.extent())),
+                              "current preview canvas")
+        elif mode == "layer":
+            self._export_layer_extent()
+        elif mode in ("rect", "polygon"):
+            self._draw_for_export(mode == "polygon")
+        elif mode == "boundary":
+            self._export_boundary()
+
+    def _to_layer_crs(self, geom):
+        geom = QgsGeometry(geom)
+        src = self.canvas.mapSettings().destinationCrs()
+        if src.isValid() and self.layer.crs().isValid() and src != self.layer.crs():
+            geom.transform(QgsCoordinateTransform(src, self.layer.crs(), QgsProject.instance()))
+        return geom
+
+    def _draw_for_export(self, polygon):
+        previous = self.canvas.mapTool()
+        self._draw_tool = DrawAreaTool(
+            self.canvas, polygon,
+            lambda g: self._drawn(g, previous, polygon),
+            on_cancel=lambda: self._restore_tool(previous))
+        self.canvas.setMapTool(self._draw_tool)
+        self.iface.messageBar().pushInfo(
+            "Mini Preview", "Draw a polygon on the preview: click the corners, right-click to finish (Esc cancels)."
+            if polygon else "Drag a rectangle on the preview (Esc cancels).")
+
+    def _restore_tool(self, tool):
+        if tool is not None:
+            self.canvas.setMapTool(tool)
+
+    def _drawn(self, geom, previous, polygon):
+        self._restore_tool(previous)
+        self._export_area(self._to_layer_crs(geom), "drawn polygon" if polygon else "drawn rectangle")
+
+    def _map_layers(self, vector_only, polygon_only):
+        """Layers of the current map (the project's layer panel), optionally only polygon layers."""
+        found = []
+        for node in QgsProject.instance().layerTreeRoot().findLayers():
+            lyr = node.layer()
+            if lyr is None or not lyr.isValid():
+                continue
+            if isinstance(lyr, QgsVectorLayer):
+                if polygon_only and lyr.geometryType() != compat.geometry_type("Polygon"):
+                    continue
+            elif vector_only or polygon_only or not isinstance(lyr, QgsRasterLayer):
+                continue
+            found.append(lyr)
+        return found
+
+    def _pick_layer(self, title, text, polygon_only):
+        """Ask which layer to use: the previewed one, a layer of the current map, or a browsed file."""
+        candidates = self._map_layers(polygon_only, polygon_only)
+        if not polygon_only or (self.is_vector and self.layer.geometryType() == compat.geometry_type("Polygon")):
+            candidates.insert(0, self.layer)
+        dlg = LayerPickDialog(title, text, candidates, self.layer, polygon_only, self)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return None
+        return dlg.chosen()
+
+    def _boundary_geometry(self, lyr):
+        """Union of the selected polygons of `lyr` (all of them if none are selected), in layer CRS."""
+        feats = list(lyr.getSelectedFeatures()) if lyr.selectedFeatureCount() else list(lyr.getFeatures())
+        geoms = [f.geometry() for f in feats if f.hasGeometry() and not f.geometry().isEmpty()]
+        if not geoms:
+            return None
+        union = QgsGeometry.unaryUnion(geoms)
+        if lyr.crs().isValid() and self.layer.crs().isValid() and lyr.crs() != self.layer.crs():
+            union.transform(QgsCoordinateTransform(lyr.crs(), self.layer.crs(), QgsProject.instance()))
+        return union
+
+    def _export_boundary(self):
+        """Pick a polygon layer (or browse for a file); its selected polygons (else all) cut the export."""
+        lyr = self._pick_layer("Polygon boundary", "Use the polygons of (selected ones if any, else all):", True)
+        if lyr is None:
+            return
+        geom = self._boundary_geometry(lyr)
+        if geom is None:
+            QMessageBox.information(self, "Export", "That layer has no polygons to use.")
+            return
+        self._export_area(geom, "boundary of %s" % lyr.name())
+
+    def _export_layer_extent(self):
+        lyr = self._pick_layer("Layer extent", "Export the part inside the extent of:", False)
+        if lyr is None:
+            return
+        if lyr is self.layer:
+            self._export_area(QgsGeometry.fromRect(self.layer.extent()), "layer extent", whole=True)
+            return
+        rect = lyr.extent()
+        if lyr.crs().isValid() and self.layer.crs().isValid() and lyr.crs() != self.layer.crs():
+            rect = QgsCoordinateTransform(lyr.crs(), self.layer.crs(),
+                                          QgsProject.instance()).transformBoundingBox(rect)
+        self._export_area(QgsGeometry.fromRect(rect), "extent of %s" % lyr.name())
+
+    def _export_area(self, geom, label, whole=False):
+        if geom is None or geom.isEmpty():
+            return
+        if not geom.boundingBox().intersects(self.layer.extent()):
+            QMessageBox.information(self, "Export", "The %s does not overlap the layer." % label)
+            return
+        if self.is_vector:
+            self.export_features(area=geom, label=label, whole=whole)
+        else:
+            self.export_raster_view(area=geom, label=label)
 
     def _set_tool(self, tool, action):
         self.canvas.setMapTool(tool)
@@ -1166,7 +1464,7 @@ class MiniPreviewDialog(QDialog):
             self.sel_label.setText("%s of %s selected" % ("{:,}".format(self.layer.selectedFeatureCount()),
                                                            "{:,}".format(total) if total >= 0 else "?"))
             if hasattr(self, "act_export"):
-                self.act_export.setToolTip("Export %s to a new file (Ctrl+E)" % (
+                self.act_export.setToolTip("Export %s to a new file" % (
                     "%s selected features" % "{:,}".format(self.layer.selectedFeatureCount())
                     if self.layer.selectedFeatureCount() else "features"))
 
@@ -1178,20 +1476,34 @@ class MiniPreviewDialog(QDialog):
         self.scale_label.setText("1:%s" % "{:,}".format(int(round(scale))))
 
     # ------------------------------------------------------------ export
-    def export_features(self):
+    def export_features(self, area=None, label=None, whole=False):
         extent = None
-        try:
-            extent = self.tool_pan.toLayerCoordinates(self.layer, self.canvas.extent())
-        except Exception:
-            extent = self.canvas.extent()
-        dlg = ExportDialog(self.layer, self.source_path, self.visible_fields, extent, self)
+        if area is None:
+            try:
+                extent = self.tool_pan.toLayerCoordinates(self.layer, self.canvas.extent())
+            except Exception:
+                extent = self.canvas.extent()
+        dlg = ExportDialog(self.layer, self.source_path, self.visible_fields, extent, self,
+                           area=area, area_label=label)
+        if whole:
+            dlg.r_all.setChecked(True)
         if dlg.exec() != QDialog.DialogCode.Accepted:
             return
         out = dlg.output_path()
         options = dlg.options()
         add = dlg.add_to_project.isChecked()
         layer_name = options.layerName or os.path.splitext(os.path.basename(out))[0]
-        task = QgsVectorFileWriterTask(self.layer, out, options)
+        source = self.layer
+        exact = dlg.exact_area()
+        if exact is not None:
+            source = self._features_inside(exact)
+            options.filterExtent = QgsRectangle()
+            options.onlySelectedFeatures = False
+            if source.featureCount() == 0:
+                QMessageBox.information(self, "Export", "No features fall inside the %s." % (label or "area"))
+                return
+        task = QgsVectorFileWriterTask(source, out, options)
+        task._kga_source = source  # keep the temporary layer alive while writing
         driver = options.driverName
         task.writeComplete.connect(
             lambda f, t=task: (self._forget_task(t), self._export_done(f or out, layer_name, add, driver)))
@@ -1201,6 +1513,19 @@ class MiniPreviewDialog(QDialog):
         self._tasks.append(task)
         QgsApplication.taskManager().addTask(task)
         self.iface.messageBar().pushInfo("Mini Preview", "Exporting to %s…" % os.path.basename(out))
+
+    def _features_inside(self, geom):
+        """A memory copy of the features that really intersect `geom` (not just its bounding box)."""
+        mem = QgsMemoryProviderUtils.createMemoryLayer(
+            "area_export", self.layer.fields(), self.layer.wkbType(), self.layer.crs())
+        engine = QgsGeometry.createGeometryEngine(geom.constGet())
+        engine.prepareGeometry()
+        req = QgsFeatureRequest().setFilterRect(geom.boundingBox())
+        keep = [f for f in self.layer.getFeatures(req)
+                if f.hasGeometry() and engine.intersects(f.geometry().constGet())]
+        mem.dataProvider().addFeatures(keep)
+        mem.updateExtents()
+        return mem
 
     def _export_done(self, path, layer_name, add, driver):
         self.last_export = path
@@ -1214,11 +1539,12 @@ class MiniPreviewDialog(QDialog):
                 msg += " and added to the project (group 'Exports')"
         self.iface.messageBar().pushSuccess("Mini Preview", msg)
 
-    def export_raster_view(self):
+    def export_raster_view(self, area=None, label=None):
         src = self.layer.source()
         out = unique_path(os.path.join(exports_folder(), tasks_safe_name(self.layer.name()) + "_clip.tif"))
         from qgis.PyQt.QtWidgets import QFileDialog
-        out, _ = QFileDialog.getSaveFileName(self, "Export visible area to a new GeoTIFF", out, "GeoTIFF (*.tif)")
+        out, _ = QFileDialog.getSaveFileName(
+            self, "Export the %s to a new GeoTIFF" % (label or "visible area"), out, "GeoTIFF (*.tif)")
         if not out:
             return
         if not out.lower().endswith((".tif", ".tiff")):
@@ -1227,13 +1553,19 @@ class MiniPreviewDialog(QDialog):
         if reason:
             QMessageBox.warning(self, "Export", "Not allowed - this tool never modifies source data.\n" + reason)
             return
-        ext = self.tool_pan.toLayerCoordinates(self.layer, self.canvas.extent())
+        if area is None:
+            ext = self.tool_pan.toLayerCoordinates(self.layer, self.canvas.extent())
+        else:
+            ext = area.boundingBox()
         ext = ext.intersect(self.layer.extent())
         if ext.isEmpty():
             QMessageBox.information(self, "Export", "The map view does not overlap the raster.")
             return
+        cutline = None
+        if area is not None and not area.isGeosEqual(QgsGeometry.fromRect(area.boundingBox())):
+            cutline = (area.asWkt(), tasks.crs_for_gdal(self.layer.crs()))
         task = tasks.RasterExportTask(src, out, (ext.xMinimum(), ext.yMinimum(), ext.xMaximum(), ext.yMaximum()),
-                                      lambda t: self._raster_done(t))
+                                      lambda t: self._raster_done(t), cutline=cutline)
         self._run_task(task)
 
     def _raster_done(self, task):
@@ -1245,7 +1577,7 @@ class MiniPreviewDialog(QDialog):
         if new.isValid():
             loader.place_layer(new, {"source_path": task.dst, "kind": "raster", "bin_path": ["Exports"]},
                                {"bin_mode": "custom", "custom_bin": "Exports"})
-        self.iface.messageBar().pushSuccess("Mini Preview", "Exported visible area to %s" % task.dst)
+        self.iface.messageBar().pushSuccess("Mini Preview", "Exported to %s" % task.dst)
 
     # ------------------------------------------------------------- tasks
     def _run_task(self, task):

@@ -5,7 +5,7 @@
 | **Category** | Modify Features > Construct |
 | **Type** | Map tool in the Modify Features pane (not a Processing algorithm) |
 | **Source** | `kga_tools/editor/modify/merge.py` (MergeTool) |
-| **Icon** | `kga_tools/icons/mergeFeatures.png` |
+| **Icon** | `kga_tools/icons/editing/mergeFeatures.png` |
 | **Also as a window** | [merge_features](../merge_features.md) (`kga:merge_features`) |
 
 ## Overview

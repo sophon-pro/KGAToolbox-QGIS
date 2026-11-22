@@ -26,6 +26,7 @@ from qgis.PyQt.QtWidgets import (
     QRadioButton, QSizePolicy, QSpinBox, QTabWidget, QVBoxLayout,
     QWidget)
 
+from .window_reveal import revealed
 from ..branding import LOG_TAG, open_docs
 from ..core import contour_style as style
 from ..core import contours as C
@@ -44,7 +45,7 @@ except ImportError:                         # pragma: no cover - head-less
 
 ALG_NAME = 'generate_contour_roi'
 
-# Colours sampled from icons/kga.png, as in the Imagery Downloader.
+# Colours sampled from icons/branding/kga.png, as in the Imagery Downloader.
 BLUE = '#174592'
 ORANGE = '#FC663A'
 
@@ -89,6 +90,7 @@ def tr(text):
     return text
 
 
+@revealed
 class ContourRoiDialog(QDialog):
 
     def __init__(self, parent=None):

@@ -26,6 +26,7 @@ from qgis.PyQt.QtWidgets import (
     QMessageBox, QPlainTextEdit, QProgressBar, QPushButton, QSpinBox, QTabWidget,
     QStackedWidget, QVBoxLayout, QWidget)
 
+from .window_reveal import revealed_preview
 from ..branding import open_docs
 from ..core import csv_dem as C
 from ..core.imagery import paths
@@ -35,7 +36,7 @@ from .output_fields import FollowingField
 ALG_NAME = 'csvtodemcontour'
 TITLE = 'CSV to DEM and Contour'
 
-# Colours sampled from icons/kga.png, as in the Imagery Downloader.
+# Colours sampled from icons/branding/kga.png, as in the Imagery Downloader.
 BLUE = '#174592'
 ORANGE = '#FC663A'
 RED = '#B3261E'
@@ -172,6 +173,7 @@ class CsvDemTask(QgsTask):
                                'error': self.error, 'stopped': self.stopped})
 
 
+@revealed_preview
 class CsvDemDialog(QDialog):
     """Survey CSV in; DEM GeoTIFF and contours out."""
 

@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:create_layer_package` |
 | **Group** | KGA Data Management |
 | **Source** | `kga_tools/algorithms/layer_package.py` (window in `kga_tools/gui/create_package_dialog.py`, engine in `kga_tools/core/packaging.py`) |
-| **Icon** | `icons/alg_package_out.png` |
+| **Icon** | `icons/data_management/alg_package_out.png` |
 | **Type** | Interactive (opens its own window; no Processing parameters) |
 
 ## Overview

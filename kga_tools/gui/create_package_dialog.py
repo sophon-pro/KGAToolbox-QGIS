@@ -18,7 +18,7 @@ from ..core import output_defaults as od
 from ..core import packaging as P
 from ..core.changelog import ChangeReport
 from .add_to_package_dialog import selection_count
-from .layer_checklist import LayerChecklist
+from .project_layer_checklist import ProjectLayerChecklist
 from .output_fields import FollowingField
 from .package_window import PackageWindow, tr
 
@@ -38,7 +38,7 @@ class CreatePackageDialog(PackageWindow):
         self.setMinimumSize(520, 520)
         outer = QVBoxLayout(self)
 
-        self.checklist = LayerChecklist(tr('Layers to package'), self)
+        self.checklist = ProjectLayerChecklist(tr('Layers to package'), self)
         self.checklist.changed.connect(self.refresh_state)
         self.checklist.message.connect(self.say)
         outer.addWidget(self.checklist, 1)

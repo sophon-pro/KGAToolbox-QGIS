@@ -31,6 +31,7 @@ from qgis.core import (
     QgsProviderRegistry,
 )
 from qgis.gui import QgsMapLayerComboBox, QgsFileWidget
+from ..gui.window_reveal import revealed_preview
 from ..branding import docs_url, help_button
 from ..core import output_defaults as od
 from ..core.compat import T_DOUBLE, T_LONGLONG, make_field
@@ -58,6 +59,7 @@ DEST_TEMP = 0
 DEST_FOLDER = 1
 DEST_GPKG = 2
 DEST_GDB = 3
+DEST_APPEND = 4   # add the result to a layer that already exists
 
 # Default output name per conversion mode
 MODE_SUFFIX = {
@@ -81,7 +83,103 @@ RESERVED_FIELDS = {
 CHUNK_SIZE = 10000
 
 
+class _AppendSink:
+    """Writes generated features into an existing layer.
+
+    Attributes are matched to the target's fields by name (a Shapefile target
+    also matches on the 10-character truncated name). Geometry is moved to the
+    target's CRS, Z/M and single/multi type. The target's primary key is left
+    unset so the destination assigns it. If the layer is not already in an edit
+    session it is edited and committed for each batch.
+    """
+
+    def __init__(self, layer, source_crs, out_fields):
+        self.layer = layer
+        self.error = ''
+        self.written = 0
+        self.transform = None
+        if layer.crs() != source_crs:
+            self.transform = QgsCoordinateTransform(
+                source_crs, layer.crs(), QgsProject.instance())
+
+        pk = set(layer.dataProvider().pkAttributeIndexes())
+        out_by_name = {}
+        for i in range(out_fields.count()):
+            out_by_name[out_fields.at(i).name().lower()] = i
+        self.mapping = []          # (target index, output index)
+        self.unmatched = []
+        tfields = layer.fields()
+        for ti in range(tfields.count()):
+            name = tfields.at(ti).name()
+            low = name.lower()
+            if ti in pk or low in ('fid', 'objectid'):
+                continue
+            oi = out_by_name.get(low)
+            if oi is None and len(low) <= 10:
+                for oname, idx in out_by_name.items():
+                    if oname[:10] == low:
+                        oi = idx
+                        break
+            if oi is not None:
+                self.mapping.append((ti, oi))
+        mapped_out = set(oi for _, oi in self.mapping)
+        self.unmatched = [out_fields.at(i).name()
+                          for i in range(out_fields.count())
+                          if i not in mapped_out
+                          and out_fields.at(i).name().lower() not in
+                          ('fid_src', 'objectid_src')]
+
+    def _convert(self, feat):
+        out = QgsFeature(self.layer.fields())
+        attrs = feat.attributes()
+        for ti, oi in self.mapping:
+            out.setAttribute(ti, attrs[oi])
+        geom = QgsGeometry(feat.geometry())
+        if self.transform is not None:
+            geom.transform(self.transform)
+        tw = self.layer.wkbType()
+        if QgsWkbTypes.hasZ(geom.wkbType()) and not QgsWkbTypes.hasZ(tw):
+            geom.get().dropZValue()
+        elif QgsWkbTypes.hasZ(tw) and not QgsWkbTypes.hasZ(geom.wkbType()):
+            geom.get().addZValue(0)
+        if QgsWkbTypes.hasM(geom.wkbType()) and not QgsWkbTypes.hasM(tw):
+            geom.get().dropMValue()
+        elif QgsWkbTypes.hasM(tw) and not QgsWkbTypes.hasM(geom.wkbType()):
+            geom.get().addMValue(0)
+        if QgsWkbTypes.isMultiType(tw) and not geom.isMultipart():
+            geom.convertToMultiType()
+        out.setGeometry(geom)
+        return out
+
+    def addFeatures(self, feats):
+        layer = self.layer
+        converted = [self._convert(f) for f in feats]
+        was_editing = layer.isEditable()
+        if not was_editing and not layer.startEditing():
+            self.error = "Could not start editing '%s'." % layer.name()
+            return False
+        ok = layer.addFeatures(converted)
+        if not ok:
+            self.error = "'%s' rejected the new features." % layer.name()
+        if not was_editing:
+            if ok and layer.commitChanges():
+                pass
+            else:
+                if ok:
+                    self.error = "; ".join(layer.commitErrors()) or \
+                        "Could not save changes to '%s'." % layer.name()
+                layer.rollBack()
+                return False
+        if ok:
+            self.written += len(converted)
+        return ok
+
+    def errorMessage(self):
+        return self.error
+
+
 # ----------------------------------------------------------------- the dialog
+@revealed_preview
 class DynamicGeometryDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -143,9 +241,14 @@ class DynamicGeometryDialog(QDialog):
             "Temporary layer",
             "Folder (ESRI Shapefile)",
             "GeoPackage (.gpkg)",
-            "File Geodatabase (.gdb)"
+            "File Geodatabase (.gdb)",
+            "Append to existing layer"
         ])
         form.addRow("Store Output In:", self.dest_combo)
+
+        # Target for "Append to existing layer"
+        self.target_combo = QgsMapLayerComboBox()
+        form.addRow("Append To Layer:", self.target_combo)
 
         # Folder / database container
         self.output_location = QgsFileWidget()
@@ -203,6 +306,11 @@ class DynamicGeometryDialog(QDialog):
         else:
             self.layer_combo.setFilters(QgsMapLayerProxyModel.Filter.PolygonLayer)
 
+        # The layer being appended to must hold what this mode produces.
+        self.target_combo.setFilters(
+            QgsMapLayerProxyModel.Filter.LineLayer if mode == MODE_LINES
+            else QgsMapLayerProxyModel.Filter.PointLayer)
+
         self.update_default_name()
         self.update_destination_ui()
 
@@ -235,7 +343,8 @@ class DynamicGeometryDialog(QDialog):
             self._set_row_label(self.output_location, "File Geodatabase:")
 
         # In a project the location starts at the project's folder / database.
-        if self._location_follow.is_ours():
+        self._set_row_visible(self.target_combo, dest == DEST_APPEND)
+        if dest != DEST_APPEND and self._location_follow.is_ours():
             self.output_location.setFilePath('')
             self._location_follow.last = ''
             if dest == DEST_FOLDER:
@@ -243,7 +352,7 @@ class DynamicGeometryDialog(QDialog):
             elif dest == DEST_GPKG:
                 self._location_follow.suggest_path(od.project_database())
 
-        is_file_out = dest != DEST_TEMP
+        is_file_out = dest not in (DEST_TEMP, DEST_APPEND)
         self._set_row_visible(self.output_location, is_file_out)
         self._set_row_visible(self.output_name, is_file_out)
         if is_file_out:
@@ -354,6 +463,32 @@ class DynamicGeometryDialog(QDialog):
         if dest == DEST_TEMP:
             return {'kind': DEST_TEMP, 'driver': None, 'path': '',
                     'layer_name': '', 'action': None}
+
+        if dest == DEST_APPEND:
+            target = self.target_combo.currentLayer()
+            if not isinstance(target, QgsVectorLayer) or not target.isValid():
+                QMessageBox.warning(self, "Error",
+                                    "Please choose the layer to append to.")
+                return None
+            want = (QgsWkbTypes.GeometryType.LineGeometry
+                    if self.mode_combo.currentIndex() == MODE_LINES
+                    else QgsWkbTypes.GeometryType.PointGeometry)
+            if target.geometryType() != want:
+                QMessageBox.warning(
+                    self, "Error",
+                    "'%s' is a %s layer, which cannot receive this result."
+                    % (target.name(),
+                       QgsWkbTypes.geometryDisplayString(target.geometryType())))
+                return None
+            caps = target.dataProvider().capabilities()
+            if not (caps & target.dataProvider().Capability.AddFeatures):
+                QMessageBox.warning(
+                    self, "Error",
+                    "'%s' does not allow adding features." % target.name())
+                return None
+            return {'kind': DEST_APPEND, 'driver': None, 'path': '',
+                    'layer_name': target.name(), 'action': None,
+                    'target': target}
 
         location = self.output_location.filePath().strip().strip('"')
         if not location:
@@ -496,6 +631,7 @@ class DynamicGeometryDialog(QDialog):
         if dest is None:
             return
         is_temp = dest['kind'] == DEST_TEMP
+        is_append = dest['kind'] == DEST_APPEND
         is_shp = dest['kind'] == DEST_FOLDER
 
         # Build base output WKB type. Centroid / pointOnSurface always return a
@@ -598,6 +734,17 @@ class DynamicGeometryDialog(QDialog):
             sink = out_layer.dataProvider()
             sink.addAttributes(out_fields.toList())
             out_layer.updateFields()
+        elif is_append:
+            out_layer = dest['target']
+            sink = _AppendSink(out_layer, source.crs(), out_fields)
+            if not sink.mapping:
+                QMessageBox.warning(
+                    self, "Error",
+                    "None of the generated fields match a field in '%s', so "
+                    "nothing could be written.\n\nAdd fields such as %s to the "
+                    "layer, or choose a different layer."
+                    % (out_layer.name(), ", ".join(meta_fields.values())))
+                return
         else:
             # An open dataset is locked on Windows, so let go of the previous
             # result before trying to replace it.
@@ -739,11 +886,17 @@ class DynamicGeometryDialog(QDialog):
                                  % (type(exc).__name__, exc))
             return
         finally:
+            if is_append:
+                appended = sink.written
+                unmatched = sink.unmatched
             if not is_temp:
                 # Dropping the writer flushes and finalises the dataset.
                 sink = None
 
-        if is_temp:
+        if is_append:
+            out_layer.updateExtents()
+            out_layer.triggerRepaint()
+        elif is_temp:
             out_layer.updateExtents()
             QgsProject.instance().addMapLayer(out_layer)
         else:
@@ -767,11 +920,19 @@ class DynamicGeometryDialog(QDialog):
 
         # Count what actually landed, not what was generated, so a rejected
         # insert can never be reported as a success.
-        written_count = out_layer.featureCount() if out_layer.isValid() else -1
+        if is_append:
+            written_count = appended
+        else:
+            written_count = out_layer.featureCount() if out_layer.isValid() else -1
         short = 0 <= written_count < created_count
 
         msg = "Conversion completed.\nCreated %d output features." % created_count
-        if not is_temp:
+        if is_append:
+            msg += "\n\nAppended %d feature(s) to '%s'." % (appended, out_layer.name())
+            if unmatched:
+                msg += ("\nNo matching field in the layer, so not copied:\n  %s"
+                        % ", ".join(unmatched))
+        elif not is_temp:
             msg += ("\n\nWritten to:\n%s" % dest['path'] if is_shp else
                     "\n\nLayer '%s' written to:\n%s"
                     % (dest['layer_name'], dest['path']))
@@ -1033,7 +1194,10 @@ class GeometryConversionAlgorithm(QgsProcessingAlgorithm):
             "Opens a dialog that converts polygon or line layers into simpler "
             "geometries: boundary segments, central points, boundary vertices "
             "or line vertices.\n\n"
-            "Output can be a temporary layer, a GeoPackage or a Shapefile.")
+            "Output can be a temporary layer, a GeoPackage or a Shapefile, or "
+            "it can be appended to an existing point or line layer. When "
+            "appending, values are copied into fields with the same name, "
+            "and the geometry is converted to the layer's CRS.")
 
     def flags(self):
         base = super().flags()

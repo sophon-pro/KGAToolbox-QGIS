@@ -38,6 +38,7 @@ from qgis.gui import (
     QgsRubberBand,
 )
 
+from ..gui.window_reveal import revealed_preview
 from ..core.compat import no_threading
 from ..branding import docs_url, help_button
 # `qgis.PyQt.sip` is the name that works both where sip is a
@@ -271,6 +272,7 @@ class SequentialNumberingMapTool(QgsMapTool):
 #  dialog
 # --------------------------------------------------------------------------- #
 
+@revealed_preview
 class SequentialNumberingDialog(QDialog):
 
     def __init__(self, iface, parent=None):

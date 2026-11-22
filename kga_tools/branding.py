@@ -8,12 +8,13 @@ registered in exactly one place.
 import os
 
 from qgis.core import Qgis, QgsMessageLog
-from qgis.PyQt.QtCore import QUrl
-from qgis.PyQt.QtGui import QDesktopServices, QIcon
-from qgis.PyQt.QtWidgets import QPushButton
+from qgis.PyQt.QtCore import QPoint, QRect, QSize, Qt, QUrl
+from qgis.PyQt.QtGui import QDesktopServices, QIcon, QIconEngine, QPainter, QPixmap
+from qgis.PyQt.QtWidgets import QApplication, QPushButton
 
 PLUGIN_DIR = os.path.dirname(__file__)
 ICON_DIR = os.path.join(PLUGIN_DIR, 'icons')
+DARK_ICON_DIR = os.path.join(ICON_DIR, 'dark')   # made by dev_tools/make_dark_icons.py
 
 LOG_TAG = 'KGA Toolbox'
 KGA_WEBSITE = 'https://khmergrs.com'
@@ -31,11 +32,18 @@ KGA_LINKS = [
 # Algorithms promoted out of their group menu into their own toolbar button,
 # in the order they should appear at the head of the toolbar.
 STANDALONE_ALGS = [
-    ('spatialdatamanager', 'spatialDataManager.png'),
-    ('layerexportimport', 'import_export.png'),
-    ('add_data', 'addData.png'),
-    ('imagery_downloader', 'imagery_download.png'),
+    ('spatialdatamanager', 'data_management/spatialDataManager.png'),
+    ('layerexportimport', 'conversion/import_export.png'),
+    ('add_data', 'data_management/addData.png'),
+    ('imagery_downloader', 'imagery_basemaps/imagery_download.png'),
 ]
+
+# Algorithms that share their toolbar button with a promoted one: the button
+# becomes a drop-down listing the leader first, then these. They are still
+# ordinary algorithms in the Processing panel and the group menus.
+STANDALONE_COMPANIONS = {
+    'imagery_downloader': ['satellite_imagery_archive'],
+}
 
 # Groups kept in the KGA Toolbox menu (and the Processing/KGA panel) but given
 # no toolbar button, to leave room for the most-used tools.
@@ -62,79 +70,168 @@ GROUP_LAST = [
 
 # Optional per-group icon files in icons/. Missing files fall back to text.
 GROUP_ICONS = {
-    'KGA Data Conversion': 'conversion.png',
-    'KGA Data Management': 'management.png',
-    'KGA Geometry Utilities': 'geometry.png',
-    'KGA Irrigation Tools': 'irrigation.png',
-    'KGA Mapping': 'Mapping.png',
-    'KGA Topology': 'topology.png',
-    'KGA Schema Tools': 'schema.png',
-    'KGA Editing Tools': 'editing.png',
+    'KGA Data Conversion': 'toolbox_groups/conversion.png',
+    'KGA Data Management': 'toolbox_groups/management.png',
+    'KGA Geometry Utilities': 'toolbox_groups/geometry.png',
+    'KGA Irrigation Tools': 'toolbox_groups/irrigation.png',
+    'KGA Mapping': 'toolbox_groups/Mapping.png',
+    'KGA Topology': 'toolbox_groups/topology.png',
+    'KGA Schema Tools': 'toolbox_groups/schema.png',
+    'KGA Editing Tools': 'toolbox_groups/editing.png',
+    'KGA GeoAI': 'toolbox_groups/geoai.png',
 }
 
 # Optional per-algorithm icon files in icons/, keyed by alg.name(). Missing
 # files fall back to the group icon, so this can stay sparse.
 ALG_ICONS = {
-    'create_points_from_table': 'PointFromTable.png',
-    'export_layers_to_kml': 'alg_kml.png',
-    'geometry_conversion_dynamic': 'alg_geometry.png',
-    'gpkgtoshapefiles': 'shapefile.png',
-    'shapefilestogpkg': 'gpkg.png',
-    'layerexportimport': 'import_export.png',
-    'add_data': 'addData.png',
-    'imagery_downloader': 'imagery_download.png',
-    'duplicate_to_new_layer': 'duplicateLayer.png',
-    'generate_contour_roi': 'generateContour.png',
-    'highest_point_per_block': 'highestPoint.png',
-    'generate_stream_roi': 'generateStream.png',
-    'csvtodemcontour': 'csvToDemContour.png',
-    'demelevationcorrectionandpointsamplereport': 'demCorrectionReport.png',
-    'reservoir_rating_curve': 'reservoirRatingCurve.png',
-    'reservoir_storage_analyzer': 'storageCapacityCurve.png',
-    'add_grid': 'addGrid.png',
-    'callout_label_studio': 'calloutLabelStudio.png',
-    'kga_layer_symbol': 'kgaLayerSymbol.png',
-    'dem_legend_bar': 'demLegendBar.png',
-    'checkoverlapsandgaps': 'alg_topology.png',
-    'domain_manager': 'domain.png',
-    'apply_domain_library': 'alg_domain_apply.png',
-    'validate_against_domains': 'alg_validate.png',
-    'append_with_mapping': 'alg_append.png',
-    'generate_field_mapping': 'alg_mapping.png',
-    'sequential_numbering': 'seqNumbering.png',
+    'create_points_from_table': 'conversion/PointFromTable.png',
+    'export_layers_to_kml': 'conversion/alg_kml.png',
+    'geometry_conversion_dynamic': 'conversion/alg_geometry.png',
+    'gpkgtoshapefiles': 'conversion/shapefile.png',
+    'shapefilestogpkg': 'conversion/gpkg.png',
+    'layerexportimport': 'conversion/import_export.png',
+    'add_data': 'data_management/addData.png',
+    'imagery_downloader': 'imagery_basemaps/imagery_download.png',
+    'satellite_imagery_archive': 'imagery_basemaps/historical_imagery.png',
+    'detect_roads_imagery': 'geoai/detectRoads.png',
+    'detect_paddy_plots_imagery': 'geoai/detectPaddy.png',
+    'duplicate_to_new_layer': 'data_management/duplicateLayer.png',
+    'generate_contour_roi': 'terrain_water/generateContour.png',
+    'highest_point_per_block': 'terrain_water/highestPoint.png',
+    'dem_dsm_inspector': 'terrain_water/demDsmInspector.png',
+    'generate_stream_roi': 'terrain_water/generateStream.png',
+    'multipart_line_repair': 'quality_control/multipartLineRepair.png',
+    'sliver_spike_cleaner': 'quality_control/sliverSpikeCleaner.png',
+    'point_to_geometry': 'conversion/pointToGeometry.png',
+    'strip_point_grid': 'conversion/stripPointGrid.png',
+    'csvtodemcontour': 'terrain_water/csvToDemContour.png',
+    'demelevationcorrectionandpointsamplereport': 'terrain_water/demCorrectionReport.png',
+    'reservoir_rating_curve': 'terrain_water/reservoirRatingCurve.png',
+    'reservoir_storage_analyzer': 'terrain_water/storageCapacityCurve.png',
+    'add_grid': 'mapping/addGrid.png',
+    'callout_label_studio': 'mapping/calloutLabelStudio.png',
+    'kga_layer_symbol': 'mapping/kgaLayerSymbol.png',
+    'dem_legend_bar': 'mapping/demLegendBar.png',
+    'checkoverlapsandgaps': 'quality_control/alg_topology.png',
+    'domain_manager': 'schema/domain.png',
+    'apply_domain_library': 'schema/alg_domain_apply.png',
+    'validate_against_domains': 'schema/alg_validate.png',
+    'append_with_mapping': 'schema/alg_append.png',
+    'generate_field_mapping': 'schema/alg_mapping.png',
+    'sequential_numbering': 'editing/seqNumbering.png',
     # The ArcGIS Modify Features replicas, in the same order as their
     # ALG_ORDER block below.
-    'construct_polygon': 'constructPolygon.png',
-    'copy_parallel': 'copyParallel.png',
-    'buffer_features': 'bufferFeature.png',
-    'split_into_cogo_lines': 'splitCogoLines.png',
-    'divide_features': 'divideFeatures.png',
-    'merge_features': 'mergeFeatures.png',
-    'clip_features': 'clipFeatures.png',
-    'attributes_to_xlsx': 'toExcel.png',
-    'xlsx_to_attributes': 'fromExcel.png',
-    'raster_format_converter': 'rasterFormatConverter.png',
-    'filegdb_to_geopackage': 'alg_gdb_to_gpkg.png',
-    'geopackage_to_filegdb': 'alg_gpkg_to_gdb.png',
-    'create_layer_package': 'alg_package_out.png',
-    'open_layer_package': 'alg_package_in.png',
-    'add_to_layer_package': 'addToLayerPackage.png',
-    'planarizelines': 'planarizeTool.png',
-    'checkpointsonboundary': 'pointOnBoundary.png',
-    'errorinspector': 'errorInspector.png',
-    'duplicate_checker': 'checkDuplicate.png', 
-    'updatexyfields': 'updateXYFields.png',
-    'updategeometryfields': 'updateGeomFields.png',
-    'copy_paste_feature': 'copyPaste.png',
+    'construct_polygon': 'editing/constructPolygon.png',
+    'copy_parallel': 'editing/copyParallel.png',
+    'buffer_features': 'editing/bufferFeature.png',
+    'split_into_cogo_lines': 'editing/splitCogoLines.png',
+    'divide_features': 'editing/divideFeatures.png',
+    'merge_features': 'editing/mergeFeatures.png',
+    'clip_features': 'editing/clipFeatures.png',
+    'attributes_to_xlsx': 'conversion/toExcel.png',
+    'xlsx_to_attributes': 'conversion/fromExcel.png',
+    'raster_format_converter': 'conversion/rasterFormatConverter.png',
+    'filegdb_to_geopackage': 'conversion/alg_gdb_to_gpkg.png',
+    'geopackage_to_filegdb': 'conversion/alg_gpkg_to_gdb.png',
+    'create_layer_package': 'data_management/alg_package_out.png',
+    'open_layer_package': 'data_management/alg_package_in.png',
+    'add_to_layer_package': 'data_management/addToLayerPackage.png',
+    'planarizelines': 'editing/planarizeTool.png',
+    'checkpointsonboundary': 'quality_control/pointOnBoundary.png',
+    'errorinspector': 'quality_control/errorInspector.png',
+    'duplicate_checker': 'quality_control/checkDuplicate.png', 
+    'updatexyfields': 'data_management/updateXYFields.png',
+    'updategeometryfields': 'data_management/updateGeomFields.png',
+    'copy_paste_feature': 'editing/copyPaste.png',
 }           
 
 
+def ui_is_dark():
+    """True while QGIS runs a dark user-interface theme (Night Mapping and the like)."""
+    app = QApplication.instance()
+    return app is not None and app.palette().window().color().lightness() < 128
+
+
+def dark_variant(path):
+    """The dark-theme copy of an icon under icons/ (kept in icons/dark/), or None if it has none."""
+    try:
+        rel = os.path.relpath(os.path.normpath(path), ICON_DIR)
+    except ValueError:                      # another drive on Windows
+        return None
+    if rel.startswith('..'):
+        return None
+    dark = os.path.join(DARK_ICON_DIR, rel)
+    return dark if os.path.isfile(dark) else None
+
+
+def icon_path(filename):
+    """Path of an icon in icons/ for the current theme, for code that needs a file (QPixmap, style sheets)."""
+    path = os.path.join(ICON_DIR, filename)
+    return (ui_is_dark() and dark_variant(path)) or path
+
+
+class _ThemedIconEngine(QIconEngine):
+    """Draws the light or the dark copy of an icon, whichever matches the theme at paint time,
+    so toolbars and menus follow a theme switch without being rebuilt."""
+
+    def __init__(self, light, dark):
+        super().__init__()
+        self._paths = (light, dark)
+        self._icons = {}
+
+    def _current(self):
+        path = self._paths[1] if ui_is_dark() else self._paths[0]
+        found = self._icons.get(path)
+        if found is None:
+            found = self._icons[path] = QIcon(path)
+        return found
+
+    def scaledPixmap(self, size, mode, state, scale):
+        # Render at the physical pixel size ourselves. Handing the request to the nested QIcon
+        # made it apply the screen's pixel ratio a second time, and the pixmap Qt then had to
+        # shrink back was drawn without smoothing - stair-stepped toolbar icons on scaled displays.
+        scale = scale if scale and scale > 0 else 1.0
+        phys = QSize(max(1, round(size.width() * scale)), max(1, round(size.height() * scale)))
+        pix = QPixmap(phys)
+        pix.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pix)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+        self._current().paint(painter, QRect(QPoint(0, 0), phys),
+                              Qt.AlignmentFlag.AlignCenter, mode, state)
+        painter.end()
+        pix.setDevicePixelRatio(scale)
+        return pix
+
+    def paint(self, painter, rect, mode, state):
+        pix = self.scaledPixmap(rect.size(), mode, state, painter.device().devicePixelRatioF())
+        painter.drawPixmap(rect.topLeft(), pix)
+
+    def pixmap(self, size, mode, state):
+        return self.scaledPixmap(size, mode, state, 1.0)
+
+    def actualSize(self, size, mode, state):
+        return self._current().actualSize(size, mode, state)
+
+    def availableSizes(self, mode=QIcon.Mode.Normal, state=QIcon.State.Off):
+        return self._current().availableSizes(mode, state)
+
+    def clone(self):
+        return _ThemedIconEngine(*self._paths)
+
+
+def themed_icon(path):
+    """QIcon for an icon file that switches to its icons/dark/ copy while the theme is dark.
+    Files with no dark copy (and files outside icons/) give a plain QIcon."""
+    dark = dark_variant(path)
+    return QIcon(_ThemedIconEngine(os.path.normpath(path), dark)) if dark else QIcon(path)
+
+
 def icon(filename):
-    """QIcon for a file in icons/, or a null QIcon if it is absent."""
+    """QIcon for a file in icons/ that follows the light / dark theme, or a null QIcon if it is absent."""
     if not filename:
         return QIcon()
     path = os.path.join(ICON_DIR, filename)
-    return QIcon(path) if os.path.exists(path) else QIcon()
+    return themed_icon(path) if os.path.exists(path) else QIcon()
 
 
 def docs_url(alg_name):
@@ -204,10 +301,16 @@ def button_label(group_name):
 # only make sense read together: "Open Layer Package" belongs under "Create
 # Layer Package", not four entries below it.
 ALG_ORDER = {
+    'KGA GeoAI': [
+        # In the order they were added: roads first, then paddy plots.
+        'detect_roads_imagery',
+        'detect_paddy_plots_imagery',
+    ],
     'KGA Data Management': [
         # Getting data in comes before anything that can be done to it.
         'add_data',
         'imagery_downloader',
+        'satellite_imagery_archive',
         'create_layer_package',
         'open_layer_package',
         'add_to_layer_package',
@@ -240,6 +343,8 @@ ALG_ORDER = {
         'highest_point_per_block',
         'generate_contour_roi',
         'generate_stream_roi',
+        'multipart_line_repair',
+        'dem_dsm_inspector',
     ],
     'KGA Mapping': [
         # Callout Label Studio leads: labelling is the first thing a map

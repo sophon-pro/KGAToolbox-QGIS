@@ -1,6 +1,6 @@
 # Modify Features — Tool Reference
 
-One page for each of the **30 tools** in the Modify Features pane (KGA Editor toolbar, QGIS 3.44 or newer). The pane itself is described in [Modify Features](../modify_features.md); the tools are modelled on the ArcGIS Pro Modify Features pane.
+One page for each of the **32 tools** in the Modify Features pane (KGA Editor toolbar, QGIS 3.44 or newer). The pane itself is described in [Modify Features](../modify_features.md); the tools are modelled on the ArcGIS Pro Modify Features pane.
 
 ## Common behaviour
 
@@ -46,7 +46,7 @@ One page for each of the **30 tools** in the Modify Features pane (KGA Editor to
 | [Explode](explode.md) | Breaks multi-part features into single parts, or pulls single parts out of them. |
 | [Planarize](planarize.md) | Cuts the selected lines where they cross each other, laid out like the Planarize pane of ArcGIS Pro. |
 
-## Construct — 6
+## Construct — 8
 
 | Tool | What it does |
 |---|---|
@@ -55,6 +55,8 @@ One page for each of the **30 tools** in the Modify Features pane (KGA Editor to
 | [Copy Parallel](copy_parallel.md) | Copies the selected lines at a distance, on one or both sides, laid out like the Copy Parallel pane of ArcGIS Pro. |
 | [Construct Polygons](construct_polygons.md) | Builds polygons from the selected lines that enclose an area, laid out like the Construct Polygons pane of ArcGIS Pro. |
 | [Offset](offset.md) | Creates points along a reference line, each at a distance along it and a distance to its side, laid out like the Offset pane of ArcGIS Pro. |
+| [Points On Line](points_along_line.md) | Constructs points along a selected or drawn line: a number of points, an equal distance, or a table of distances, laid out like the Create Points Along Line pane of ArcGIS Pro. |
+| [Points On Polygon Boundary](points_on_polygon_boundary.md) | Constructs points on the boundary of a selected polygon: a number all the way round, an equal distance or a table of distances from a starting point, clockwise or counter-clockwise. |
 | [Copy Paste](copy_paste.md) | The Copy-Paste Feature tool inside the pane. |
 
 ## Attributes — 2

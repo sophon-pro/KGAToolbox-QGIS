@@ -217,6 +217,17 @@ def mark_advanced(parameter):
     return parameter
 
 
+def scoped(owner, scope, name):
+    """`owner.scope.name` (scoped enum: QGIS 4, PyQt6) or else `owner.name` (older builds).
+
+    Looked up by name, so the old spelling is only used where the new one does not exist.
+    """
+    holder = getattr(owner, scope, None) if scope else None
+    if holder is not None and hasattr(holder, name):
+        return getattr(holder, name)
+    return getattr(owner, name)
+
+
 def enum_value(*candidates):
     """The first enum member that exists in this QGIS / Qt version.
 
@@ -232,3 +243,16 @@ def enum_value(*candidates):
         except AttributeError:
             continue
     raise AttributeError('none of the enum spellings exist: {}'.format([p for _o, p in candidates]))
+
+
+def action_widgets(action):
+    """Widgets (toolbar buttons, menus, toolbars) an action is shown in.
+
+    Qt 6 removed QAction.associatedWidgets(); associatedObjects() (Qt 5.? and
+    Qt 6) also lists non-widget owners such as action groups, so filter.
+    """
+    getter = getattr(action, 'associatedWidgets', None)
+    if getter is not None:
+        return list(getter())
+    from qgis.PyQt.QtWidgets import QWidget
+    return [o for o in action.associatedObjects() if isinstance(o, QWidget)]

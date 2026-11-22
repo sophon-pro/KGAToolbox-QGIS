@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:add_to_layer_package` |
 | **Group** | KGA Data Management |
 | **Source** | `kga_tools/algorithms/add_to_layer_package.py` (window in `kga_tools/gui/add_to_package_dialog.py`, engine in `kga_tools/core/packaging.py`) |
-| **Icon** | `icons/addToLayerPackage.png` |
+| **Icon** | `icons/data_management/addToLayerPackage.png` |
 | **Type** | Interactive (opens its own window; no Processing parameters) |
 
 ## Overview

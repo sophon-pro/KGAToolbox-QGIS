@@ -16,6 +16,7 @@ from qgis.PyQt.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
 from qgis.core import (NULL, QgsFeatureRequest, QgsProcessingAlgorithm,
                        QgsMimeDataUtils, QgsProject,
                        QgsVectorLayer, QgsVectorFileWriter, QgsWkbTypes)
+from ..gui.window_reveal import revealed
 from ..branding import docs_url, help_button
 from ..core import output_defaults as od
 from ..gui.output_fields import FollowingField
@@ -208,6 +209,7 @@ class DropLineEdit(QLineEdit):
 
 
 # ----------------------------------------------------------------- the dialog
+@revealed
 class LayerExportImportDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)

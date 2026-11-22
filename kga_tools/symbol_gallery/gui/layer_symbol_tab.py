@@ -4,7 +4,7 @@ from contextlib import suppress
 import os
 
 from qgis.PyQt.QtCore import QTimer
-from qgis.PyQt.QtGui import QIcon
+from ...branding import themed_icon
 from qgis.PyQt.QtWidgets import QVBoxLayout
 from qgis.core import QgsRasterLayer, QgsVectorLayer
 from qgis.gui import (
@@ -15,7 +15,7 @@ from .gallery_panel import GalleryPanel
 from .styling_dock_order import StylingDockOrder
 
 TITLE = "KGA Layer Symbol"
-ICON = os.path.join(os.path.dirname(__file__), "..", "..", "icons", "kgaLayerSymbol.png")
+ICON = os.path.join(os.path.dirname(__file__), "..", "..", "icons", "mapping/kgaLayerSymbol.png")
 
 
 class LayerSymbolConfigWidget(QgsMapLayerConfigWidget):
@@ -25,14 +25,15 @@ class LayerSymbolConfigWidget(QgsMapLayerConfigWidget):
     is applied after Symbology, so it wins); the Symbology page is re-read
     afterwards so a later OK there does not put the old style back."""
 
-    def __init__(self, iface, layer, canvas, parent=None, live=False):
+    def __init__(self, iface, layer, canvas, parent=None):
         super().__init__(layer, canvas, parent)
         self._layer = layer
         self.setPanelTitle(TITLE)
         self.setObjectName("KGALayerSymbolTab")
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
-        self.panel = GalleryPanel(iface, self, layer=layer, live=live)
+        self.panel = GalleryPanel(iface, self, layer=layer)
+        self.panel.changed.connect(self.widgetChanged)
         lay.addWidget(self.panel)
         self._sync_timer = QTimer(self)
         self._sync_timer.setSingleShot(True)
@@ -75,7 +76,7 @@ class LayerSymbolTabFactory(QgsMapLayerConfigWidgetFactory):
     after_symbology = "mOptsPage_Labels"
 
     def __init__(self, iface, order=None):
-        super().__init__(TITLE, QIcon(ICON))
+        super().__init__(TITLE, themed_icon(ICON))
         self.iface = iface
         # keeps our button right after Symbology in the Layer Styling panel
         self.order = order if order is not None else StylingDockOrder(iface, TITLE)
@@ -107,13 +108,13 @@ class LayerSymbolTabFactory(QgsMapLayerConfigWidgetFactory):
         return TITLE
 
     def icon(self):
-        return QIcon(ICON)
+        return themed_icon(ICON)
 
     def layerPropertiesPagePositionHint(self):
         return self.after_symbology
 
     def createWidget(self, layer, canvas, dockWidget=True, parent=None):
-        return LayerSymbolConfigWidget(self.iface, layer, canvas, parent, live=bool(dockWidget))
+        return LayerSymbolConfigWidget(self.iface, layer, canvas, parent)
 
 
 class RasterLayerSymbolTabFactory(LayerSymbolTabFactory):

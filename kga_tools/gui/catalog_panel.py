@@ -12,10 +12,13 @@ Four tabs, as in Pro:
 All four are views onto one private `QgsBrowserGuiModel` (see `catalog_items`),
 so every item behaves exactly as it does in the QGIS Browser: drag it onto the
 map, double-click a layer, right-click for QGIS's own menu plus the KGA entries
-(Copy / Paste, layer packages, ...).
+(Copy / Paste, layer packages, ...). Dragging layers onto a GeoPackage, File
+Geodatabase or folder copies them there (`catalog_dnd`).
 """
 
 import os
+import re
+import sys
 import traceback
 from contextlib import suppress
 
@@ -40,6 +43,7 @@ from qgis.PyQt.QtCore import (
     QModelIndex,
     QPointF,
     QRectF,
+    QSize,
     QSortFilterProxyModel,
     Qt,
     QTimer,
@@ -66,6 +70,8 @@ from ..core import gpkg_layers as gl
 from ..branding import icon as _icon
 from . import browser_paste as bp
 from . import catalog_items as ci
+from .catalog_dnd import CatalogDragDrop
+from .panel_bubble import ToolbarReveal
 from .project_open_guard import asking_enabled, set_asking
 
 SETTINGS_TAB = 'KGA/catalog/tab'
@@ -312,6 +318,12 @@ class CatalogPage(QWidget):
         self.view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.view.customContextMenuRequested.connect(self.show_menu)
         self.view.doubleClicked.connect(self.double_clicked)
+        # compact drag badge, and drop-to-copy onto a database or folder
+        try:
+            self._dnd = CatalogDragDrop(self, panel.iface)
+        except Exception:
+            self._dnd = None
+            _log('Catalog drag and drop is off:\n{}'.format(traceback.format_exc()))
 
         self.search = QgsFilterLineEdit(self)
         self.search.setPlaceholderText(placeholder)
@@ -557,7 +569,70 @@ def handle_double_click(item, context):
 
 # --------------------------------------------------------------- the panel
 
-class CatalogPanel(QgsDockWidget):
+_PENDING = 'pending'
+_SCHEMES = re.compile(r'^(?:gpkg|sqlite|spatialite|ogr|gdb|file):', re.IGNORECASE)
+
+
+def _norm_path(path):
+    """A browser item path or a file path in one comparable form ('' for a virtual node)."""
+    text = str(path or '').replace(chr(92), '/')
+    if text.startswith('kga'):
+        return ''
+    text = _SCHEMES.sub('', text)
+    if re.match(r'^/[A-Za-z]:', text):
+        text = text[1:]
+    text = text.rstrip('/') if len(text) > 3 else text
+    return text.lower() if sys.platform == 'win32' else text
+
+
+def _walk(page, index, target, depth):
+    """Depth-first search of the tab for the item at `target`.
+
+    Returns the item's index, _PENDING when a folder on the way is still filling
+    in, or None when it is not below `index`.
+    """
+    proxy = page.proxy
+    pending = False
+    for row in range(proxy.rowCount(index)):
+        child = proxy.index(row, 0, index)
+        item = proxy.dataItem(child)
+        if item is None:
+            continue
+        here = _norm_path(item.path())
+        if here == target:
+            return child
+        if here:
+            # a real folder or file: only go down when it is an ancestor
+            if not (target.startswith(here.rstrip('/') + '/')):
+                continue
+        elif depth > 3:
+            continue
+        if item.state() != Qgis.BrowserItemState.Populated:
+            page.view.expand(child)
+            if proxy.canFetchMore(child):
+                proxy.fetchMore(child)
+            pending = True
+            continue
+        page.view.expand(child)
+        found = _walk(page, child, target, depth + 1)
+        if found == _PENDING:
+            pending = True
+        elif found is not None:
+            return found
+    return _PENDING if pending else None
+
+
+class _FlatTabWidget(QTabWidget):
+    """A document-mode tab widget without the tab-bar base line.
+
+    In document mode QTabWidget's only painting is a base frame under its corner
+    widgets, which showed as a line above the Minimize and menu buttons."""
+
+    def paintEvent(self, _event):
+        return
+
+
+class CatalogPanel(ToolbarReveal, QgsDockWidget):
     """The dock: tabs over one shared model."""
 
     setWorkspaceRequested = pyqtSignal()
@@ -566,6 +641,7 @@ class CatalogPanel(QgsDockWidget):
     shareWorkspaceRequested = pyqtSignal()
     importPackageRequested = pyqtSignal()
     refreshRequested = pyqtSignal(str)
+    minimizeRequested = pyqtSignal()
 
     def __init__(self, iface, model, parent=None):
         super().__init__('Catalog', parent)
@@ -574,7 +650,7 @@ class CatalogPanel(QgsDockWidget):
         self.setObjectName('KgaCatalogPanel')
         self.setWindowTitle('Catalog')
 
-        self.tabs = QTabWidget(self)
+        self.tabs = _FlatTabWidget(self)
         self.tabs.setDocumentMode(True)
         self.tabs.tabBar().setDrawBase(False)
         self.tabs.setStyleSheet(TAB_STYLE)
@@ -612,19 +688,20 @@ class CatalogPanel(QgsDockWidget):
         button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         button.setStyleSheet('QToolButton::menu-indicator { image: none; }')
         menu = QMenu(button)
-        menu.addAction(_icon('setWorkspace.png'), 'Set Workspace...',
+        menu.addAction(_icon('workspace/setWorkspace.png'), 'Set Workspace...',
                        self.setWorkspaceRequested.emit)
-        menu.addAction(_icon('openWorkspace.png'), 'Open Workspace...',
+        menu.addAction(_icon('workspace/openWorkspace.png'), 'Open Workspace...',
                        self.openWorkspaceRequested.emit)
-        menu.addAction(_icon('convertProject.png'),
+        menu.addAction(_icon('workspace/convertProject.png'),
                        'Convert Project to Workspace...',
                        self.convertProjectRequested.emit)
-        menu.addAction(_icon('shareWorkspace.png'), 'Share Workspace...',
+        menu.addAction(_icon('workspace/shareWorkspace.png'), 'Share Workspace...',
                        self.shareWorkspaceRequested.emit)
-        menu.addAction(_icon('importProjectPackage.png'),
+        menu.addAction(_icon('workspace/importProjectPackage.png'),
                        'Import Project Package...',
                        self.importPackageRequested.emit)
         menu.addSeparator()
+        menu.addAction('Minimize to Bubble', self.minimizeRequested.emit)
         menu.addAction(QgsApplication.getThemeIcon('/mActionRefresh.svg'),
                        'Refresh', self.refresh_tab)
         menu.addAction(QgsApplication.getThemeIcon('/mActionCollapseTree.svg'),
@@ -644,7 +721,23 @@ class CatalogPanel(QgsDockWidget):
         menu.aboutToShow.connect(self._sync_ask_action)
         button.setMenu(menu)
         self.menu_button = button
-        self.tabs.setCornerWidget(button, Qt.Corner.TopRightCorner)
+
+        # Minimize sits in the dock's title bar, beside Float and Close (gui/panel_bubble.py).
+
+        # Flat buttons, no frame: the stock auto-raise frame draws a line under each one.
+        corner = QWidget()
+        corner.setStyleSheet(
+            'QToolButton { border: none; background: transparent; padding: 3px;'
+            ' border-radius: 4px; }'
+            'QToolButton:hover { background: rgba(0, 121, 193, 40); }'
+            'QToolButton:pressed { background: rgba(0, 121, 193, 80); }'
+            'QToolButton::menu-indicator { image: none; }')
+        button.setIconSize(QSize(16, 16))
+        row = QHBoxLayout(corner)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(0)
+        row.addWidget(button)
+        self.tabs.setCornerWidget(corner, Qt.Corner.TopRightCorner)
 
     # Favourites live in QGIS's own setting, one 'folder|||name' per entry.
     FAVORITES_SETTING = 'browser/favourites'
@@ -798,6 +891,53 @@ class CatalogPanel(QgsDockWidget):
         page = self.current_page()
         if page is not None:
             self.refreshRequested.emit(page.tab)
+
+    # ------------------------------------------------------------- reveal
+
+    def reveal_path(self, path):
+        """Find `path` in the Project or Computer tab, expand down to it and select it.
+
+        Folders fill in on a background thread, so the search runs again every
+        150 ms (from the top, on model rows only: never `QgsDataItem.children()`)
+        until the item turns up, a tab has nothing under it, or about 12 s pass.
+        Returns True when a search was started.
+        """
+        target = _norm_path(path)
+        if not target:
+            return False
+        self._reveal = {'target': target, 'tries': 0}
+        timer = getattr(self, '_reveal_timer', None)
+        if timer is None:
+            timer = self._reveal_timer = QTimer(self)
+            timer.setSingleShot(True)
+            timer.timeout.connect(self._reveal_step)
+        timer.start(0)
+        return True
+
+    def _reveal_step(self):
+        state = getattr(self, '_reveal', None)
+        if not state:
+            return
+        state['tries'] += 1
+        pending = False
+        for key in (TAB_PROJECT, TAB_COMPUTER):
+            page = self.pages.get(key)
+            if page is None:
+                continue
+            result = _walk(page, page.view.rootIndex(), state['target'], 0)
+            if isinstance(result, QModelIndex):
+                self.show_tab(key)
+                page.view.setCurrentIndex(result)
+                page.view.scrollTo(result)
+                self._reveal = None
+                return
+            pending = pending or result == _PENDING
+        if pending and state['tries'] < 80:
+            self._reveal_timer.start(150)
+            return
+        self._reveal = None
+        self.iface.messageBar().pushInfo(
+            'Catalog', 'This location is not in the Catalog. Add its folder to the project first.')
 
     def show_tab(self, key):
         page = self.pages.get(key)

@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:attributes_to_xlsx` |
 | **Group** | KGA Data Conversion |
 | **Source** | `kga_tools/algorithms/attributes_xlsx.py` (engine in `kga_tools/core/xlsx_io.py`) |
-| **Icon** | `icons/toExcel.png` |
+| **Icon** | `icons/conversion/toExcel.png` |
 | **Type** | Batch algorithm |
 
 ## Overview

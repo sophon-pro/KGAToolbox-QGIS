@@ -24,6 +24,7 @@ from qgis.PyQt.QtWidgets import (
     QHBoxLayout, QLabel, QLineEdit, QMessageBox, QProgressBar, QPushButton,
     QRadioButton, QSlider, QSpinBox, QVBoxLayout)
 
+from .window_reveal import revealed
 from ..branding import LOG_TAG, open_docs
 from ..core import net
 from ..core.imagery import checkpoint as ck
@@ -46,7 +47,7 @@ except ImportError:                         # pragma: no cover - head-less
 SETTINGS = 'kga_tools/imagery_downloader'
 
 MODE_CANVAS, MODE_LAYER, MODE_DRAW, MODE_POLYGON = range(4)
-# Colours sampled from icons/kga.png
+# Colours sampled from icons/branding/kga.png
 BLUE = '#174592'
 NAVY = '#1B3665'
 ORANGE = '#FC663A'
@@ -79,6 +80,7 @@ def _human_time(seconds):
     return '%d h %02d min' % (seconds // 3600, (seconds % 3600) // 60)
 
 
+@revealed
 class ImageryDownloaderDialog(QDialog):
 
     def __init__(self, parent=None):

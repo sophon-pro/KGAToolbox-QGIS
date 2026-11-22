@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:construct_polygon` |
 | **Group** | KGA Editing Tools |
 | **Source** | `kga_tools/algorithms/construct_polygon.py` (base dialog in `kga_tools/gui/modify_dialog.py`) |
-| **Icon** | `icons/constructPolygon.png` |
+| **Icon** | `icons/editing/constructPolygon.png` |
 | **Type** | Interactive dialog — modeless, owns a map tool, needs the QGIS canvas |
 
 ## Overview

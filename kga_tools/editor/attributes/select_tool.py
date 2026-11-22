@@ -43,6 +43,9 @@ class AttributesSelectTool(SelectTool):
         self.line_band.setColor(QColor(255, 140, 0, 220))
         self.line_band.setWidth(2)
 
+    def right_click_menu_allowed(self):
+        return self.mode == "rectangle"        # polygon / line: right-click finishes the shape
+
     def dispose(self):
         with suppress(Exception):
             self.line_band.reset(GEOM_LINE)

@@ -39,6 +39,7 @@ from ..branding import LOG_TAG
 from ..branding import icon as _icon
 from ..core import data_paste as dp
 from ..core import gdb_convert as gc
+from . import app_events
 from .paste_dialog import PasteDialog, needs_dialog, remembered_options
 from ..core.compat import enum_value
 
@@ -154,7 +155,7 @@ class BrowserCopyPaste(QgsDataItemGuiProvider):
         sources = sources_from_items(selected)
         extras = other_layer_uris(selected)
         if sources or extras:
-            add = self._add(menu, first, 'addToMap.png', 'Add to Map')
+            add = self._add(menu, first, 'data_management/addToMap.png', 'Add to Map')
             last = add
             add.setToolTip('Add {} layer(s) to the map'.format(
                 len(sources) + len(extras)))
@@ -162,7 +163,7 @@ class BrowserCopyPaste(QgsDataItemGuiProvider):
             added = True
 
         if sources:
-            copy = self._add(menu, first, 'copyInBrowser.png', 'Copy')
+            copy = self._add(menu, first, 'data_management/copyInBrowser.png', 'Copy')
             last = copy
             copy.setToolTip('Copy {} item(s) so they can be pasted into a '
                             'folder, GeoPackage or File Geodatabase'.format(
@@ -174,7 +175,7 @@ class BrowserCopyPaste(QgsDataItemGuiProvider):
         target = self.paste_target(selected)
         if target is not None:
             text = 'Paste' if len(held) <= 1 else 'Paste ({})'.format(len(held))
-            paste = self._add(menu, first, 'pasteInBrowser.png', text)
+            paste = self._add(menu, first, 'data_management/pasteInBrowser.png', text)
             paste.setEnabled(bool(held))
             paste.setToolTip('Paste {} into {}'.format(
                 ', '.join(s.name for s in held[:3]) +
@@ -189,7 +190,7 @@ class BrowserCopyPaste(QgsDataItemGuiProvider):
 
             if target.kind == dp.TARGET_FOLDER:
                 # The common case, one click: no format window.
-                as_shp = self._add(menu, first, 'pasteInBrowser.png',
+                as_shp = self._add(menu, first, 'data_management/pasteInBrowser.png',
                                    'Paste as Shapefile')
                 as_shp.setEnabled(bool(held))
                 as_shp.setToolTip('Paste into {} as shapefiles'.format(
@@ -328,7 +329,10 @@ class BrowserCopyPaste(QgsDataItemGuiProvider):
 
     def paste(self, target_path, browser_path, fmt=None):
         """Paste the clipboard. `fmt` skips the format question for a folder."""
-        sources = dp.CLIPBOARD.sources()
+        self.paste_sources(dp.CLIPBOARD.sources(), target_path, browser_path, fmt)
+
+    def paste_sources(self, sources, target_path, browser_path, fmt=None):
+        """Paste these sources (a drop in the Catalog uses this directly)."""
         target = dp.target_for_path(target_path)
         window = self.iface.mainWindow()
         try:
@@ -496,16 +500,15 @@ class BrowserPasteInstaller(object):
         self.provider = BrowserCopyPaste(self.iface)
         QgsGui.dataItemGuiProviderRegistry().addProvider(self.provider)
         self.shortcuts = BrowserShortcuts(self.provider)
-        QApplication.instance().installEventFilter(self.shortcuts)
+        # through the plugin's one application-wide filter, and only for key presses
+        app_events.add((QEvent.Type.KeyPress,), self.shortcuts.eventFilter)
 
     def uninstall(self):
         if self.provider is None:
             return
         try:
             if self.shortcuts is not None:
-                app = QApplication.instance()
-                if app is not None:
-                    app.removeEventFilter(self.shortcuts)
+                app_events.remove(self.shortcuts.eventFilter)
                 self.shortcuts.deleteLater()
             QgsGui.dataItemGuiProviderRegistry().removeProvider(self.provider)
         finally:

@@ -61,8 +61,8 @@ QgsLayerTreeView::branch:has-children:closed {{
 QgsLayerTreeView::branch:has-children:open {{
     border-image: none; image: url({opened}); }}
 """.format(hover=hover, selected=selected, text=text,
-           closed=_url('pro_branch_closed.svg'),
-           opened=_url('pro_branch_open.svg'))
+           closed=_url('interface/pro_branch_closed.svg'),
+           opened=_url('interface/pro_branch_open.svg'))
 
 
 class _Delegate(QStyledItemDelegate):

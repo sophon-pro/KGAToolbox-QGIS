@@ -128,7 +128,7 @@ def map_item(path, parent):
     item = QgsDataCollectionItem(
         parent, name or os.path.splitext(os.path.basename(path))[0], path,
         MAP_PROVIDER_KEY)
-    item.setIcon(_kga_icon('mapTab.png'))
+    item.setIcon(_kga_icon('mapping/mapTab.png'))
     item.setToolTip('Map "{}"\nDouble-click to open'.format(name))
     # what the map uses, as written into the shortcut
     for number, layer in enumerate(ms.read_layers(path)):
@@ -204,7 +204,7 @@ class MapShortcutMenu(QgsDataItemGuiProvider):
             path = item.path()
             existing = menu.actions()
             first = existing[0] if existing else None
-            action = menu.addAction(_kga_icon('mapTab.png'), 'Open Map',
+            action = menu.addAction(_kga_icon('mapping/mapTab.png'), 'Open Map',
                                     lambda: open_map(self.iface, path))
             if first is not None:
                 menu.removeAction(action)

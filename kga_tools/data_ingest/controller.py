@@ -10,7 +10,7 @@ import os
 from contextlib import suppress
 
 from qgis.PyQt.QtCore import QObject, Qt
-from qgis.PyQt.QtGui import QIcon
+from ..branding import icon as branding_icon
 
 from .compat import QAction
 
@@ -21,15 +21,17 @@ _ICON_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'icons')
 
 class DataIngestController(QObject):
 
-    def __init__(self, iface, parent=None, catalog_getter=None):
+    def __init__(self, iface, parent=None, catalog_getter=None, group=None):
         super().__init__(parent)
         self.iface = iface
+        self.group = group            # BubbleGroup shared with the bags (None: no bubble)
+        self.bubble = None
         self.catalog_getter = catalog_getter  # the KGA Catalog, for Add to Project
         self.dock = None
         self.toggle_action = None
 
     def initGui(self):  # noqa: N802 - QGIS naming
-        icon = QIcon(os.path.join(_ICON_DIR, 'dataIngest.png'))
+        icon = branding_icon('data_management/dataIngest.png')
         self.toggle_action = QAction(icon, TITLE, self.iface.mainWindow())
         self.toggle_action.setToolTip(
             'Data Explorer: browse, search, preview and ingest geodata '
@@ -47,11 +49,38 @@ class DataIngestController(QObject):
             self.dock.visibilityChanged.connect(self.toggle_action.setChecked)
             self.iface.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea,
                                      self.dock)
+            self.dock.hide()       # built hidden, so the first open from the toolbar animates too
+            self._install_bubble()
         self.dock.setVisible(bool(checked) or not self.dock.isVisible())
         if self.dock.isVisible():
             self.dock.raise_()
 
+    def _install_bubble(self):
+        """Minimize-to-bubble, shared with the bags' bubbles. Never blocks the Data Explorer."""
+        if self.group is None:
+            return
+        try:
+            from ..gui.panel_bubble import PanelBubbleManager, file_glyph, install_title_bar
+            self.bubble = PanelBubbleManager(
+                self.dock, self.group, self.iface.mapCanvas(), self._restore,
+                'explorer', 'Data Explorer – click to open',
+                file_glyph('bubble/data_explorer.png'))
+            self.dock.minimizeRequested.connect(self.bubble.minimize)
+            install_title_bar(self.dock, self.bubble)       # Minimize beside Float and Close
+            self.bubble.toggle_action = self.toggle_action
+        except Exception:
+            self.bubble = None
+
+    def _restore(self):
+        if self.dock is not None:
+            self.dock.show()
+            self.dock.raise_()
+
     def unload(self):
+        if self.bubble is not None:
+            with suppress(Exception):
+                self.bubble.unload()
+            self.bubble = None
         if self.toggle_action is not None:
             with suppress(Exception):
                 self.iface.unregisterMainWindowAction(self.toggle_action)

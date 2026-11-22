@@ -28,6 +28,7 @@ from qgis.PyQt.QtWidgets import (
     QPushButton, QRadioButton, QScrollArea, QSpinBox, QTextBrowser,
     QVBoxLayout, QWidget)
 
+from .window_reveal import revealed
 from ..branding import LOG_TAG, open_docs
 from ..core import contour_style
 from ..core import dem_sources as DEM
@@ -49,7 +50,7 @@ except ImportError:                         # pragma: no cover - head-less
 ALG_NAME = 'generate_stream_roi'
 TITLE = 'Generate River or Stream for ROI'
 
-# Colours sampled from icons/kga.png, as in the Imagery Downloader.
+# Colours sampled from icons/branding/kga.png, as in the Imagery Downloader.
 BLUE = '#174592'
 ORANGE = '#FC663A'
 
@@ -96,6 +97,7 @@ def tr(text):
     return text
 
 
+@revealed
 class StreamRoiDialog(QDialog):
 
     def __init__(self, parent=None):

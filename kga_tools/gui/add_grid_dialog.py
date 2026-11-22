@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 """Add Grid to Layout dialog.
 
-One window over `core.layout_grid`. The user picks a layout, a map item and
-either a new grid or one the map already has, sets it up across three tabs -
-the grid itself, its frame, its labels - and presses Apply.
+One window over `core.layout_grid`. The user picks a layout and a map item,
+then works on the Create New Grid or the Edit Grid tab - it opens on Edit when
+the map already has a grid, on Create when it has none - and sets the grid up
+across three tabs (the grid itself, its frame, its labels) before pressing
+Apply.
 
 Four decisions shape it:
 
@@ -57,6 +59,7 @@ from qgis.PyQt.QtWidgets import (
 )
 from qgis.gui import QgsColorButton, QgsFontButton, QgsProjectionSelectionWidget
 
+from .window_reveal import revealed
 from ..branding import LOG_TAG, open_docs
 from ..core import interior_labels as IL
 from ..core import layout_grid as LG
@@ -68,8 +71,9 @@ except ImportError:                         # pragma: no cover - head-less
 
 ALG_NAME = 'add_grid'
 
-#: What the grid combo shows for "make a new one".
-NEW_GRID = '__new__'
+#: The two pages of the mode tabs.
+CREATE_TAB = 0
+EDIT_TAB = 1
 
 #: Marks a preset combo entry as a grid *set* rather than a single-grid preset.
 SET_PREFIX = 'set:'
@@ -152,6 +156,7 @@ def _positioning_icon(key):
     return QIcon(pixmap)
 
 
+@revealed
 class AddGridDialog(QDialog):
     """The whole tool."""
 
@@ -214,9 +219,11 @@ class AddGridDialog(QDialog):
 
     def _build_target(self):
         box = QGroupBox(tr('Which map'), self)
-        form = QFormLayout(box)
+        column = QVBoxLayout(box)
+        form = QFormLayout()
         form.setFieldGrowthPolicy(
             QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        column.addLayout(form)
 
         self.layout_combo = QComboBox(box)
         self.layout_combo.currentIndexChanged.connect(self._on_layout_changed)
@@ -233,23 +240,85 @@ class AddGridDialog(QDialog):
         layout_line.addWidget(self.open_button)
         form.addRow(tr('Layout'), layout_row)
 
-        self.map_combo = QComboBox(box)
+        map_row = QWidget(box)
+        map_line = QHBoxLayout(map_row)
+        map_line.setContentsMargins(0, 0, 0, 0)
+        self.map_combo = QComboBox(map_row)
         self.map_combo.currentIndexChanged.connect(self._on_map_changed)
-        form.addRow(tr('Map item'), self.map_combo)
-
-        row = QWidget(box)
-        grid_row = QHBoxLayout(row)
-        grid_row.setContentsMargins(0, 0, 0, 0)
-        self.grid_combo = QComboBox(row)
-        self.grid_combo.currentIndexChanged.connect(self._on_grid_changed)
-        grid_row.addWidget(self.grid_combo, 1)
-        self.reload_button = QPushButton(tr('Reload'), row)
+        map_line.addWidget(self.map_combo, 1)
+        self.reload_button = QPushButton(tr('Reload'), map_row)
         self.reload_button.setToolTip(tr(
             'Read the layouts, maps and grids again, after adding or removing '
             'one in the layout designer.'))
         self.reload_button.clicked.connect(self._on_reload_clicked)
-        grid_row.addWidget(self.reload_button)
-        form.addRow(tr('Grid'), row)
+        map_line.addWidget(self.reload_button)
+        form.addRow(tr('Map item'), map_row)
+
+        # What to do with the map: make a grid, or change one it has. The tool
+        # opens on whichever fits - Edit when the map already carries a grid.
+        self.mode_tabs = QTabWidget(box)
+        self.mode_tabs.addTab(self._build_create_page(), tr('Create New Grid'))
+        self.mode_tabs.addTab(self._build_edit_page(), tr('Edit Grid'))
+        self.mode_tabs.currentChanged.connect(self._on_mode_changed)
+        column.addWidget(self.mode_tabs)
+
+        # Used by both modes, so it sits under the tabs rather than in one.
+        shared = QFormLayout()
+        shared.setFieldGrowthPolicy(
+            QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        column.addLayout(shared)
+
+        # The strips' positioning. Only meaningful with "Labels inside too",
+        # so it is disabled without it; it never touches the margin labels.
+        self.positioning_widget = QWidget(box)
+        positioning = QHBoxLayout(self.positioning_widget)
+        positioning.setContentsMargins(0, 0, 0, 0)
+        self.positioning_group = QButtonGroup(self.positioning_widget)
+        self.positioning_group.setExclusive(True)
+        self.positioning_buttons = {}
+        for key, label in IL.POSITION_OPTIONS:
+            button = QToolButton(self.positioning_widget)
+            button.setCheckable(True)
+            button.setAutoRaise(False)
+            button.setIcon(_positioning_icon(key))
+            button.setIconSize(QSize(32, 32))
+            button.setToolTip(tr(label))
+            self.positioning_group.addButton(button)
+            self.positioning_buttons[key] = button
+            positioning.addWidget(button)
+        positioning.addStretch(1)
+        self.positioning_buttons[IL.DEFAULT_POSITION].setChecked(True)
+        self.positioning_group.buttonClicked.connect(self._on_positioning_changed)
+        shared.addRow(tr('Positioning'), self.positioning_widget)
+
+        self.shared_form = shared
+        return box
+
+    def _build_edit_page(self):
+        page = QWidget(self)
+        form = QFormLayout(page)
+        form.setFieldGrowthPolicy(
+            QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        # One name per grid, shown on both tabs: the two boxes mirror each
+        # other, and `name_edit` (the Create one) is what the form reads.
+        self.edit_name_edit = QLineEdit(page)
+        self.edit_name_edit.setPlaceholderText(tr('Grid'))
+        self.edit_name_edit.textChanged.connect(self.name_edit.setText)
+        self.name_edit.textChanged.connect(self.edit_name_edit.setText)
+        form.addRow(tr('Grid name'), self.edit_name_edit)
+        self.grid_combo = QComboBox(page)
+        self.grid_combo.setToolTip(tr(
+            'The grids this map already has. Picking one loads its settings '
+            'into the tabs below.'))
+        self.grid_combo.currentIndexChanged.connect(self._on_grid_changed)
+        form.addRow(tr('Grid to edit'), self.grid_combo)
+        return page
+
+    def _build_create_page(self):
+        box = QWidget(self)
+        form = QFormLayout(box)
+        form.setFieldGrowthPolicy(
+            QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
 
         self.name_edit = QLineEdit(box)
         self.name_edit.setPlaceholderText(tr('Grid'))
@@ -318,30 +387,7 @@ class AddGridDialog(QDialog):
         extras.addStretch(1)
         form.addRow(tr('Also add'), self.extras_widget)
 
-        # The strips' positioning. Only meaningful with "Labels inside too",
-        # so it is disabled without it; it never touches the margin labels.
-        self.positioning_widget = QWidget(box)
-        positioning = QHBoxLayout(self.positioning_widget)
-        positioning.setContentsMargins(0, 0, 0, 0)
-        self.positioning_group = QButtonGroup(self.positioning_widget)
-        self.positioning_group.setExclusive(True)
-        self.positioning_buttons = {}
-        for key, label in IL.POSITION_OPTIONS:
-            button = QToolButton(self.positioning_widget)
-            button.setCheckable(True)
-            button.setAutoRaise(False)
-            button.setIcon(_positioning_icon(key))
-            button.setIconSize(QSize(32, 32))
-            button.setToolTip(tr(label))
-            self.positioning_group.addButton(button)
-            self.positioning_buttons[key] = button
-            positioning.addWidget(button)
-        positioning.addStretch(1)
-        self.positioning_buttons[IL.DEFAULT_POSITION].setChecked(True)
-        self.positioning_group.buttonClicked.connect(self._on_positioning_changed)
-        form.addRow(tr('Positioning'), self.positioning_widget)
-
-        self.target_form = form
+        self.create_form = form
         return box
 
     def interior_positioning(self):
@@ -798,9 +844,19 @@ class AddGridDialog(QDialog):
         self.set_status(tr('Opened "{}" in the layout designer.').format(
             layout.name()))
 
-    def reload_targets(self):
-        """Fill the layout combo, preferring whatever is selected in a designer."""
-        wanted_layout, wanted_map = LG.active_selection(iface)
+    def show_grid(self, layout, map_item, grid_id):
+        """Open on the Edit Grid tab with this grid of this map chosen."""
+        self.reload_targets(layout, map_item)
+        self._on_map_changed(preferred_grid=grid_id)
+        self.schedule_follow()
+
+    def reload_targets(self, layout=None, map_item=None):
+        """Fill the layout combo, preferring whatever is selected in a designer.
+
+        `layout` and `map_item` name the target outright, for a caller that
+        already knows it (the Contents panel's "Edit" on a grid).
+        """
+        wanted_layout, wanted_map = (layout, map_item) if layout is not None             else LG.active_selection(iface)
 
         self._loading = True
         self.layout_combo.clear()
@@ -831,10 +887,11 @@ class AddGridDialog(QDialog):
         return self._at(self._maps, self.map_combo.currentIndex())
 
     def current_grid(self):
-        """The selected existing grid, or None when a new one is to be added."""
+        """The grid being edited, or None on the Create New Grid tab."""
         map_item = self.current_map()
         grid_id = self.grid_combo.currentData()
-        if map_item is None or not grid_id or grid_id == NEW_GRID:
+        if (map_item is None or not grid_id
+                or self.mode_tabs.currentIndex() != EDIT_TAB):
             return None
         grid = map_item.grids().grid(grid_id)
         return grid if grid is not None else None
@@ -869,15 +926,20 @@ class AddGridDialog(QDialog):
 
         self._loading = True
         self.grid_combo.clear()
-        self.grid_combo.addItem(tr('<Add a new grid>'), NEW_GRID)
         if map_item is not None:
             for grid in map_item.grids().asList():
-                self.grid_combo.addItem(
-                    tr('Edit: {}').format(grid.name() or tr('Grid')), grid.id())
-        self._loading = False
-
+                self.grid_combo.addItem(grid.name() or tr('Grid'), grid.id())
+        has_grids = self.grid_combo.count() > 0
+        # Nothing to edit on a map without grids; with grids, open on editing
+        # the one asked for (or the first), since that is the likelier job.
+        self.mode_tabs.setTabEnabled(EDIT_TAB, has_grids)
         index = self.grid_combo.findData(preferred_grid) if preferred_grid else -1
         self.grid_combo.setCurrentIndex(index if index >= 0 else 0)
+        self.mode_tabs.setCurrentIndex(EDIT_TAB if has_grids else CREATE_TAB)
+        self._loading = False
+        self._on_grid_changed()
+
+    def _on_mode_changed(self, _index=None):
         self._on_grid_changed()
 
     def _on_grid_changed(self, _index=None):
@@ -912,6 +974,7 @@ class AddGridDialog(QDialog):
             self.apply_button.setText(tr('Apply') if editing
                                       else tr('Add Grid'))
         self.apply_button.setEnabled(map_item is not None)
+        self.remove_button.setVisible(editing)
         self.remove_button.setEnabled(editing and not armed)
 
         if map_item is None:
@@ -1084,14 +1147,14 @@ class AddGridDialog(QDialog):
         self._set_row_visible(self.frame_form, self.frame_fill_2, zebra)
 
         armed_set = bool(self._pending_set)
-        self._set_row_visible(self.target_form, self.mgrs_step_combo, armed_set)
-        self._set_row_visible(self.target_form, self.letters_combo, armed_set)
-        self._set_row_visible(self.target_form, self.extras_widget, armed_set)
+        self._set_row_visible(self.create_form, self.mgrs_step_combo, armed_set)
+        self._set_row_visible(self.create_form, self.letters_combo, armed_set)
+        self._set_row_visible(self.create_form, self.extras_widget, armed_set)
         map_item = self.current_map() if hasattr(self, 'map_combo') else None
         has_strips = map_item is not None and any(
             grid.customProperty(LG.INTERIOR_PROPERTY, '')
             for grid in map_item.grids().asList())
-        self._set_row_visible(self.target_form, self.positioning_widget,
+        self._set_row_visible(self.shared_form, self.positioning_widget,
                               armed_set or has_strips)
         self.positioning_widget.setEnabled(
             has_strips or self.interior_check.isChecked())

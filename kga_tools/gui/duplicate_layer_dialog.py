@@ -16,6 +16,7 @@ from qgis.PyQt.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QFileDialog, QFormLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QSizePolicy, QVBoxLayout)
 
+from .window_reveal import revealed
 from ..branding import LOG_TAG, help_button
 from ..core import duplicate_layer as dup
 from ..core import output_defaults as od
@@ -47,6 +48,7 @@ def tr(text):
     return text
 
 
+@revealed
 class DuplicateLayerDialog(QDialog):
 
     def __init__(self, parent=None):

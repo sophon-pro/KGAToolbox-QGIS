@@ -190,6 +190,14 @@ def install():
     """Wrap the stock Processing dialog so it fills its outputs when built."""
     try:
         from processing.gui.AlgorithmDialog import AlgorithmDialog
+    except ImportError:
+        # QGIS 4.x replaced AlgorithmDialog with AlgorithmWidget; the parts used
+        # here (mainWidget(), algorithm(), in_place, the panel's wrappers) are the same.
+        try:
+            from processing.gui.algorithm_widget import AlgorithmWidget as AlgorithmDialog
+        except Exception as error:      # noqa: BLE001 - no Processing, nothing to do
+            _log('Output defaults are off, Processing is unavailable: {}'.format(error))
+            return False
     except Exception as error:      # noqa: BLE001 - no Processing, nothing to do
         _log('Output defaults are off, Processing is unavailable: {}'.format(error))
         return False

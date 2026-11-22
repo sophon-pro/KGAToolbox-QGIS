@@ -37,6 +37,7 @@ from qgis.core import (
 )
 from qgis.gui import QgsMapLayerComboBox, QgsMapTool, QgsRubberBand
 
+from ..gui.window_reveal import revealed_preview
 from ..branding import LOG_TAG, docs_url, help_button
 from ..core import schema
 from ..core.compat import no_threading, type_name
@@ -1050,6 +1051,7 @@ class PasteSpecialDialog(QDialog):
 #  main dialog
 # --------------------------------------------------------------------------- #
 
+@revealed_preview
 class CopyPasteDialog(QDialog):
     """Copy features onto the KGA clipboard, then paste them somewhere else."""
 

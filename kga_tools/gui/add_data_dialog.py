@@ -54,6 +54,7 @@ from qgis.PyQt.QtWidgets import (
     QWidget,
 )
 
+from .window_reveal import revealed
 from ..branding import LOG_TAG, open_docs
 from ..core import data_sources as DS
 from ..core import dem_sources as DEM
@@ -130,6 +131,7 @@ def tr(text):
     return text
 
 
+@revealed
 class AddDataDialog(QDialog):
     """The whole tool."""
 

@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8cc2ff"/><stop offset="1" stop-color="#5b95f5"/>
+    </linearGradient>
+    <linearGradient id="flap" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e8f1ff"/>
+    </linearGradient>
+  </defs>
+  <!-- handle -->
+  <path d="M21 22 C21 7, 43 7, 43 22" fill="none" stroke="#3d6fd1" stroke-width="5" stroke-linecap="round"/>
+  <!-- pencil peeking out -->
+  <g transform="rotate(-16 18 20)">
+    <rect x="14.5" y="9" width="7" height="18" rx="1.5" fill="#ffd166" stroke="#2f3e5c" stroke-width="1.8"/>
+    <rect x="14.5" y="9" width="7" height="4" rx="1.5" fill="#ff8fab" stroke="#2f3e5c" stroke-width="1.8"/>
+  </g>
+  <!-- ruler peeking out -->
+  <g transform="rotate(14 46 20)">
+    <rect x="42" y="8" width="8" height="19" rx="1.5" fill="#9be08f" stroke="#2f3e5c" stroke-width="1.8"/>
+    <path d="M42 13h3M42 17h4M42 21h3" stroke="#2f3e5c" stroke-width="1.4" stroke-linecap="round"/>
+  </g>
+  <!-- bag body -->
+  <path d="M9 26 Q9 21 14 21 H50 Q55 21 55 26 L53 52 Q52.5 59 45.5 59 H18.5 Q11.5 59 11 52 Z"
+        fill="url(#body)" stroke="#2f3e5c" stroke-width="2.4" stroke-linejoin="round"/>
+  <!-- zipper band -->
+  <path d="M10 27.5 H54" stroke="#ffffff" stroke-width="3" stroke-linecap="round" opacity=".9"/>
+  <path d="M13 27.5 H51" stroke="#2f3e5c" stroke-width="1" stroke-dasharray="1.6 1.8" opacity=".55"/>
+  <rect x="45" y="25.5" width="6" height="8" rx="2" fill="#ffd166" stroke="#2f3e5c" stroke-width="1.5"/>
+  <!-- face -->
+  <ellipse cx="25" cy="42" rx="2.4" ry="2.9" fill="#2f3e5c"/>
+  <ellipse cx="39" cy="42" rx="2.4" ry="2.9" fill="#2f3e5c"/>
+  <circle cx="25.8" cy="41" r=".9" fill="#ffffff"/>
+  <circle cx="39.8" cy="41" r=".9" fill="#ffffff"/>
+  <ellipse cx="20.5" cy="47.5" rx="3" ry="1.8" fill="#ff8fab" opacity=".8"/>
+  <ellipse cx="43.5" cy="47.5" rx="3" ry="1.8" fill="#ff8fab" opacity=".8"/>
+  <path d="M28.5 47.5 Q32 51 35.5 47.5" fill="none" stroke="#2f3e5c" stroke-width="2" stroke-linecap="round"/>
+</svg>

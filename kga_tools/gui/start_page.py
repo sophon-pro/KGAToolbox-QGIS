@@ -20,7 +20,7 @@ import traceback
 from contextlib import contextmanager, suppress
 
 from qgis.core import Qgis, QgsApplication, QgsMessageLog, QgsProject, QgsSettings
-from qgis.PyQt.QtCore import QDateTime, QLocale, QObject, QSize, Qt, QTimer, QUrl
+from qgis.PyQt.QtCore import QDateTime, QEvent, QLocale, QObject, QSize, Qt, QTimer, QUrl
 from qgis.PyQt.QtGui import QDesktopServices, QKeySequence, QPixmap
 from qgis.PyQt.QtWidgets import (
     QMenuBar,
@@ -47,6 +47,7 @@ from qgis.PyQt.QtWidgets import (
 
 from ..branding import KGA_WEBSITE, LOG_TAG
 from ..core import kga_settings as ks
+from ..core import compat
 from ..branding import icon as _icon
 
 RECENT_GROUP = 'UI/recentProjects'
@@ -441,7 +442,7 @@ class OpenPage(QWidget):
         another.setObjectName('flat')
         another.setCursor(Qt.CursorShape.PointingHandCursor)
         another.clicked.connect(self.page.browse_project)
-        workspace = QPushButton(_icon('openWorkspace.png'), ' Open workspace')
+        workspace = QPushButton(_icon('workspace/openWorkspace.png'), ' Open workspace')
         workspace.setObjectName('flat')
         workspace.setCursor(Qt.CursorShape.PointingHandCursor)
         workspace.clicked.connect(lambda: self.page.call('open_workspace'))
@@ -590,10 +591,10 @@ class NewPage(QWidget):
         add(Tile(theme_icon('/mActionNewMap.svg'), 'Map',
                  'A new empty project (with the basemap chosen in Settings)'),
             call=page.new_map)
-        add(Tile(_icon('setWorkspace.png'), 'Workspace',
+        add(Tile(_icon('workspace/setWorkspace.png'), 'Workspace',
                  'A new map whose data lives in its own workspace folder'),
             'new_workspace')
-        add(Tile(_icon('importProjectPackage.png'), 'Import Package',
+        add(Tile(_icon('workspace/importProjectPackage.png'), 'Import Package',
                  'Unpack a .kgapp project package and open it'),
             'import_package')
         divider = QFrame()
@@ -698,7 +699,7 @@ class StartPage(QWidget):
         brand = QHBoxLayout()
         brand.setContentsMargins(16, 0, 10, 14)
         logo = QLabel()
-        logo.setPixmap(_icon('kga.png').pixmap(QSize(30, 30)))
+        logo.setPixmap(_icon('branding/kga.png').pixmap(QSize(30, 30)))
         name = QLabel('KGA Toolbox')
         name.setObjectName('navBrand')
         brand.addWidget(logo)
@@ -900,10 +901,18 @@ class StartPageInstaller(QObject):
         self._previous = 0
         self._open_action = None
         self._moved_open = []
+        self._screen = None             # QGIS 4's QgsWelcomeScreen, when that is what we cover
 
     def welcome_page(self):
+        return self._find('QgsWelcomePage')
+
+    def welcome_screen(self):
+        """QGIS 4's welcome screen: a QML overlay over the map, not a stack page."""
+        return self._find('QgsWelcomeScreen')
+
+    def _find(self, class_name):
         for widget in self.iface.mainWindow().findChildren(QWidget):
-            if widget.metaObject().className() == 'QgsWelcomePage':
+            if widget.metaObject().className() == class_name:
                 return widget
         return None
 
@@ -917,6 +926,9 @@ class StartPageInstaller(QObject):
         page = self.welcome_page()
         layout = page.layout() if page is not None else None
         if layout is None:
+            screen = self.welcome_screen()
+            if screen is not None and self._stack_of_canvas() is not None:
+                return self._install_over_screen(screen)
             # The main window is still being built; look again shortly.
             if self._tries < 20:
                 self._tries += 1
@@ -952,6 +964,75 @@ class StartPageInstaller(QObject):
             with suppress(Exception):
                 self.iface.initializationCompleted.connect(self._sync_docks)
         return True
+
+    # -- QGIS 4: the welcome screen is an overlay, so the start page is a stack page --
+
+    def _stack_of_canvas(self):
+        parent = self.iface.mapCanvas().parentWidget()
+        return parent if isinstance(parent, QStackedWidget) else None
+
+    def _install_over_screen(self, screen):
+        """QGIS 4.x has no QgsWelcomePage to fill. Its QgsWelcomeScreen (QML, a
+        QQuickWidget) sits over the map while no project is open. The start page
+        becomes a page of the map stack instead, shown whenever QGIS shows its
+        screen and left when QGIS hides it. The screen itself is never hidden here,
+        so QGIS's own show/hide keeps telling us what it means to show."""
+        self._screen = screen
+        self._stack = self._stack_of_canvas()
+        self.page = QWidget()
+        self.page.setObjectName('kgaStartPageHost')
+        self.page.setAutoFillBackground(True)
+        layout = QVBoxLayout(self.page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.handlers = dict(self.handlers, back=self.leave)
+        self.start = StartPage(self.iface, self.handlers)
+        layout.addWidget(self.start)
+        self._stack.addWidget(self.page)
+        self._take_over_open()
+        self._keep_blank_project_clean()
+        for signal in (self.iface.projectRead, self.iface.newProjectCreated):
+            signal.connect(self.leave_after_project)
+        self._stack.currentChanged.connect(self._page_changed)
+        self._adopt_saved_docks()
+        screen.installEventFilter(self)
+        if screen.isVisible():
+            self._screen_shown()
+        else:
+            self._page_changed(self._stack.currentIndex())
+        with suppress(Exception):
+            self.iface.initializationCompleted.connect(self._sync_docks)
+        return True
+
+    def eventFilter(self, obj, event):  # noqa: N802 - Qt virtual
+        if obj is getattr(self, '_screen', None):
+            kind = event.type()
+            if kind == QEvent.Type.Show:
+                QTimer.singleShot(0, self._screen_shown)
+            elif kind == QEvent.Type.Hide:
+                QTimer.singleShot(0, self._screen_hidden)
+        return False
+
+    def _screen_shown(self):
+        """QGIS shows its welcome screen: show ours over it instead."""
+        if self._stack is None or self.start is None:
+            return
+        with suppress(RuntimeError):
+            if self._stack.currentWidget() is not self.page:
+                self._previous = self._stack.indexOf(self.iface.mapCanvas())
+                self._overlay = False
+                self.start.set_overlay(False)
+                self._stack.setCurrentWidget(self.page)
+            # Under the stack, not the stack raised: the message bar stays on top.
+            self._screen.lower()                # the QML screen stays shown, just covered
+            self.start.show_page(0)
+
+    def _screen_hidden(self):
+        """QGIS hid its screen (a project opened): back to the map."""
+        if self._stack is None or self.start is None or self._overlay:
+            return
+        with suppress(RuntimeError):
+            if self._stack.currentWidget() is self.page:
+                self._stack.setCurrentIndex(max(0, self._stack.indexOf(self.iface.mapCanvas())))
 
     def _adopt_saved_docks(self):
         """Panels a previous session left hidden by the start page are ours still."""
@@ -1086,7 +1167,7 @@ class StartPageInstaller(QObject):
         ours.setShortcut(original.shortcut())
         ours.triggered.connect(lambda _checked=False: self.show_open())
         self._moved_open = []
-        for widget in original.associatedWidgets():
+        for widget in compat.action_widgets(original):
             if isinstance(widget, (QMenu, QToolBar)):
                 widget.insertAction(original, ours)
                 widget.removeAction(original)
@@ -1155,6 +1236,24 @@ class StartPageInstaller(QObject):
         # saved with everything hidden, and the next start needs them to bring
         # it all back (a plugin switched off just leaves harmless names behind).
         self._restore_docks(persist=False)
+        screen = getattr(self, '_screen', None)
+        if screen is not None:
+            # QGIS 4: our page lives in the map stack; QGIS's screen was left alone.
+            self._screen = None
+            stack, page, start = self._stack, self.page, self.start
+            self._stack = self.page = self.start = None
+            with suppress(RuntimeError):
+                screen.removeEventFilter(self)
+            with suppress(RuntimeError):
+                if stack.currentWidget() is page:
+                    stack.setCurrentIndex(max(0, stack.indexOf(self.iface.mapCanvas())))
+                stack.removeWidget(page)
+                page.hide()
+                page.deleteLater()
+            with suppress(RuntimeError):
+                if screen.isVisible():
+                    screen.raise_()
+            return
         self._stack = None
         page, start = self.page, self.start
         self.page = self.start = None

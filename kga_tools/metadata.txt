@@ -5,22 +5,28 @@ qgisMaximumVersion=4.99.0
 description=Spatial data management, schema, editing, conversion and topology utilities, plus open boundaries, basemaps, elevation, land cover and web imagery on demand.
 about=KGA Toolbox is a set of practical QGIS tools for spatial data management, editing and open data. Key features:
     - File Geodatabase <-> GeoPackage conversion with field domains and aliases
-    - KGA Editor toolbar (QGIS 3.44+): Edit Session, Create Features, Modify Features (30 tools), Open Feature Attribute
+    - KGA Editor toolbar (QGIS 3.44+): Edit Session, Create Features, Modify Features (32 tools), Open Feature Attribute
+    - KGA Layer toolbar: Layer Bag (attribute table, statistics, labels and colours of the selected layer), Quick Labeling, Quick Symbology, Bags
     - Catalog panel, workspaces and shareable project packages (QGIS 3.36+)
     - Browser Copy and Paste, Domain Editor, Append with Field Mapping, Excel attribute round-trip
     - Layer packages, topology checks and an Error Inspector
     - Open data: boundaries (including a Cambodia database), basemaps, DEM, land cover, web imagery
     - Irrigation tools: contours, rivers and streams, reservoir storage, DEM correction
     - Layout grids, MGRS, guides and Khmer north arrows; callout labels and a symbol gallery
-    - Pro-style start page, selection and Layers panel, optional map tabs (Settings)
+    - Pro-style start page, selection and Layers panel, map tabs (on by default; Settings)
     - Data Explorer: browse, search, preview and ingest geodata (QGIS 3.44+)
+    - Tool Bag: a floating bag of your favourite tools that shrinks into a bubble on the map, in list or grid layout
+    - Symbol Bag and Layer Colors: a floating symbol library and a live layer colour tool, bubbles grouped with the Tool Bag's
+    - Satellite Imagery Archive, DEM / DSM Inspector, Zoom to Location and optional ArcGIS Pro-style smooth navigation
     Not affiliated with or endorsed by Esri. ArcGIS is a trademark of Esri.
     Network use (only when you ask; nothing runs in the background):
     - Add Open Data: geoBoundaries, HDX, Natural Earth (GitHub), OpenStreetMap, Google and Esri tiles, Copernicus DEM and ESA WorldCover on Amazon S3, Esri Living Atlas, OpenTopography (needs your own free API key), and any address you enter. The KGA Database (Cambodia) source reads api.github.com with an access key you enter once, kept in the QGIS password store and sent only there.
-    - Imagery Downloader: the chosen tile service. Generate Contour and River tools: the Copernicus DEM bucket, plus Overpass (overpass-api.de, overpass.kumi.systems) only if you tick the OpenStreetMap check.
+    - Imagery Downloader: the chosen tile service. Satellite Imagery Archive: earth-search.aws.element84.com and the imagery files it lists (Sentinel-2, Amazon S3), planetarycomputer.microsoft.com (Landsat; a free anonymous read token is requested from it), api.openaerialmap.org and the image hosts it lists, any STAC catalog address you enter, and Google Earth Engine only if you install its package and sign in. Only your area's bounding box and dates are sent. Generate Contour and River tools: the Copernicus DEM bucket, plus Overpass (overpass-api.de, overpass.kumi.systems) only if you tick the OpenStreetMap check.
+    - Go To XY: only when its Search Place unit is used, photon.komoot.io receives the text you type, and the map centre, to suggest places as you type, nominatim.openstreetmap.org receives it when you press Search, and a Google Maps link you paste is opened (maps.app.goo.gl, google.com) to read the place it names.
+    - Zoom to Location: geoBoundaries (province, district and commune outlines) and Overpass (overpass-api.de, villages from OpenStreetMap), only for the place you pick, plus the tile service of the basemap you choose.
     - Check for Update: api.github.com, no project data sent.
     - Only a country code, bounding box or tile numbers are sent; no project data or layers are uploaded. Downloads are cached in the QGIS profile.
-version=1.0.0
+version=1.1.0
 author=Khmer GRS Academy (KGA)
 email=khmergisacademy@gmail.com
 
@@ -30,13 +36,49 @@ repository=https://github.com/sophon-pro/KGAToolbox-QGIS
 
 hasProcessingProvider=yes
 
-icon=icons/kga.png
+icon=icons/branding/kga.png
 experimental=False
 deprecated=False
 category=Vector
-tags=processing,admin boundaries,administrative,basemap,xyz,satellite,google,esri,opendata,geoboundaries,hdx,download,topology,geopackage,filegdb,geodatabase,arcgis,conversion,domains,schema,excel,packaging,duplicates,geometry,validation,copy,paste,editing,cogo,survey,parcel,buffer,merge,divide,clip,parallel,polygon,raster,orthophoto,ecw,geotiff,jpeg2000,gdal,layout,print,grid,graticule,coordinates,map,mgrs,utm,military,reference,zone,contour,dem,elevation,stream,river,hydrology,watershed
+tags=processing,admin boundaries,administrative,basemap,xyz,satellite,google,esri,opendata,geoboundaries,hdx,download,topology,geopackage,filegdb,geodatabase,arcgis,conversion,domains,schema,excel,packaging,duplicates,geometry,validation,copy,paste,editing,cogo,survey,parcel,buffer,merge,divide,clip,parallel,polygon,raster,orthophoto,ecw,geotiff,jpeg2000,gdal,layout,print,grid,graticule,coordinates,map,mgrs,utm,military,reference,zone,contour,dem,elevation,stream,river,hydrology,watershed,transect,strip,sampling
 
 changelog=
+    1.1.0
+    - New: Strip Lines and Point Grid (Geometry Utilities): parallel strip lines, equal or with a repeating pattern of gaps, a point grid at a set distance, or a grid of squares, rectangles, hexagons, triangles or regular polygons with centre points, over the map extent, a drawn rectangle or polygon, a layer's extent or a polygon layer's boundary; measured in metres in the UTM zone under the area
+    - New: Label Bag, on the KGA Layer toolbar: the labels of the selected layer (field, font, size, colour, buffer, placement) in a small floating bag that minimizes into a bubble with the other bags
+    - New: Layer Bag, leading a new KGA Layer toolbar (Ctrl+Alt+L): a small floating panel that follows the selected layer - its attribute table (loads as you scroll, sorts, filters, All / Selected in step with the map), fields with + New field, background statistics of a field, labels (Off / All / Selected features only), and the Layer Colors wheel to recolour it live; a bag-style window that minimizes into a bubble on the map
+    - Changed: Quick Labeling and Quick Symbology moved from the KGA Editor toolbar, and the Bags drop-down from the KGA Toolbox toolbar, to the new KGA Layer toolbar
+    - New: Satellite Imagery Archive (in the Imagery Downloader drop-down): search Sentinel-2, Landsat, OpenAerialMap and any STAC catalog by date and cloud cover, download only your area
+    - New: DEM / DSM Inspector: tells a bare-earth DEM from a surface model, with a confidence score, a block map of objects and an HTML/PDF report
+    - New: Point to Geometry Converter (Geometry Utilities): build lines, individual segments or polygons (with an optional boundary line layer) from an ordered point layer, ordered by a field or expression and grouped by a field, validated and repaired, in the background with a full report
+    - New: Sliver and Spike Cleaner (Geometry Utilities): cleans the spikes, wedges, narrow strips and tiny parts left after splitting polygons with lines, to a new layer with check fields and a layer of what was removed
+    - New: Multipart Line Repair (Irrigation tools): finds multipart canal and drain lines, explains the cause and repairs them into single lines in place or to a new layer
+    - New: Zoom to Location (toolbar, next to Clip Basemap): go to a continent, country, province, district, commune or village from open data, or to a typed latitude and longitude; optionally clip the basemap and add the place to the map
+    - New: Smooth navigation (Settings > Appearance): animated wheel zoom, kinetic pan glide, smooth arrow-key pan and Page Up / Page Down zoom, and right-button drag zoom with the Pan tool, as in ArcGIS Pro. On by default; turn off in Settings
+    - New: Quick Labeling and Quick Symbology (KGA Layer toolbar): label a layer with one click, or restyle it (single symbol, unique values, one class) in a small window
+    - New: Symbol Bag and Layer Colors (KGA Layer toolbar, Bags drop-down): a floating library of point, line, polygon and raster styles to apply in one click, and a live colour tool for the selected layer (point size, line and outline widths, smart Size / Outline / Fill chips, outline-only polygons can be filled); the three bubbles sit together in one column on the map, and Settings > Bubbles offers a Genie or Classic open / minimize animation
+    - New: Tool Bag (KGA Layer toolbar, Bags drop-down): a floating bag of your favourite tools from any toolbar, menu or Processing; minimize it to a bubble on the map and click the bubble to open it again; list or grid layout in up to three columns, nine designs
+    - New: Panels and Toolbars Manager: a visual, searchable switcher for every panel and toolbar, with saved layouts
+    - New: Modify Features gains Points On Line and Points On Polygon Boundary (32 tools); tools can be shown as a grid or a list
+    - New: Data Explorer Copy, Cut, Paste, drag-and-drop move and Delete of datasets, converting between shapefile, GeoPackage and geodatabase
+    - New: Data Explorer Rename tab: rename datasets in place or as copies, keeping project layers connected
+    - New: Sketch toolbar for Create Features: a floating bar over the map with line, arc, trace and construction segment types (right angle, intersection, distance-distance, along and offset), as in ArcGIS Pro
+    - New: Go To XY (KGA Toolbox toolbar): a bar over the map to type coordinates in decimal degrees, degrees minutes seconds, MGRS / US National Grid or the map's own units and go there, with an optional temporary point
+    - New: Vertices and Nodes view and a map Grid (status bar and map right-click menu): show vertex and node markers on the visible layers, and a Pro-style map grid with its own spacing and rotation; both display only
+    - New: Map Cursor (KGA Toolbox menu): choose a custom cursor for the map tools
+    - New: Hold C and drag with the left button to pan while digitizing (Settings > Appearance)
+    - New: Toolbar magnify (Settings): KGA toolbar and sketch toolbar buttons grow under the mouse, like a dock
+    - New: when a project closes, offer to save its scratch (memory) layers into the project GeoPackage
+    - Improved: dragging layers in the Layers panel shows a compact badge; Paste layer(s) to map, or drop them on a map tab
+    - Improved: tool windows open out of their toolbar button (Genie or Classic, Settings > Bubbles)
+    - Improved: faster with large data and long sessions (animation objects no longer pile up, attribute scans no longer freeze QGIS)
+    - Changed: Map tabs are on by default (turn off in Settings > Appearance)
+    - Improved: Add Grid to Layout has Create New Grid and Edit Grid tabs; right-click a grid in the layout Contents panel and choose Edit
+    - Improved: Data Explorer Export drop-down cuts by a drawn rectangle or polygon, the layer extent or a polygon layer
+    - Improved: Map tabs: a duplicated map gets its own layer copies, layout frames follow style changes, new Refresh Layout button
+    - Improved: faster Pro-style selection while panning, and a faster Editable Layers list when many layers are added
+    - Fixed: Callout Label Studio no longer labels a layer just because you chose it
+    - Fixed (QGIS 4): the KGA start page shows again (QGIS 4 replaced its welcome page), tool outputs default to the project GeoPackage and folder again, a date can be edited in Open Feature Attribute, and a right-click with the Pan tool opens the map menu when smooth navigation is on, and Imagery Downloader no longer waits about 30 seconds before building the image
     1.0.0
     - First stable release
     - New: KGA Editor toolbar with Modify Features, Catalog panel, workspaces, project packages (Share Workspace / Import Project Package), Convert Project to Workspace

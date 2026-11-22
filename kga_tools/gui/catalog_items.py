@@ -175,7 +175,7 @@ def fill_project(root, workspace, live=False):
         return _finish(root)
 
     maps = _collection(root, 'Maps', PATH_MAPS, KEY_PROJECT,
-                       _kga_icon('mapTab.png'), '0')
+                       _kga_icon('mapping/mapTab.png'), '0')
     fill_maps(maps)
     _add(root, _finish(maps), live)
 
@@ -235,7 +235,7 @@ def fill_maps(node, workspace=None, live=False):
               if map_tabs.is_map(g)}
     for mid, name, is_open in map_tabs.list_maps():
         item = _collection(node, name, PATH_MAP_PREFIX + mid, KEY_PROJECT,
-                           _kga_icon('mapTab.png'))
+                           _kga_icon('mapping/mapTab.png'))
         item.setToolTip('{}{}'.format(
             name, '' if is_open else ' (closed) - double-click to open'))
         group = groups.get(mid)

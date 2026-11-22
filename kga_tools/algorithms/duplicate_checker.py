@@ -5,6 +5,7 @@ from qgis.PyQt.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QComboBox,
 from qgis.core import (QgsProcessingAlgorithm, QgsProject, QgsMapLayerProxyModel,
                        QgsCategorizedSymbolRenderer, QgsRendererCategory, QgsSymbol)
 from qgis.gui import QgsMapLayerComboBox, QgsFieldComboBox
+from ..gui.window_reveal import revealed_preview
 from ..branding import docs_url, help_button
 from ..core.compat import T_STRING, make_field, no_threading
 # `qgis.PyQt.sip` is the name that works both where sip is a
@@ -18,6 +19,7 @@ except ImportError:
 
 DIALOG_INSTANCE = None
 
+@revealed_preview
 class DuplicateCheckerDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)

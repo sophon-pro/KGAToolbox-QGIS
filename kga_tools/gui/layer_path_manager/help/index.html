@@ -1,0 +1,71 @@
+<h2>Layer Path Manager &mdash; Help</h2>
+<p>This tool reconnects layers to their data when files have moved, and keeps project paths tidy.
+It never moves, changes or deletes your original files. It only changes where layers point to
+(and, with <b>Copy / Move To...</b>, copies or moves data into a folder), always after you confirm.</p>
+
+<h3>Fix a project whose data moved</h3>
+<ol>
+<li>The banner at the top says how many layers can't find their data.</li>
+<li>Click <b>Find Missing Data...</b> and choose the folder where the data is now. Sub-folders are
+searched too.</li>
+<li>Check the matches: the old folder is in <span style="color:#cf222e"><s>red</s></span>, the new
+folder in <span style="color:#1e8c3c"><b>green</b></span>. Rows that need a decision are left
+unticked. Double-click one to pick the right file.</li>
+<li>Click <b>Apply</b>, then <b>Save Project</b>.</li>
+</ol>
+
+<h3>Where is my data?</h3>
+<p>The <b>Folders</b> panel lists every folder that holds layer data, with the number of layers,
+how many are OK or broken, and the size. Click a folder to list its layers. Double-click it to tick
+them. Right-click it to copy or move them.</p>
+
+<h3>Put layers in one folder</h3>
+<ol>
+<li>Select the layers: tick them, select rows, or right-click a folder. Select nothing for all
+layers.</li>
+<li>Click <b>Copy / Move To...</b> and choose the new folder.</li>
+<li>Choose <b>Copy</b> (originals stay) or <b>Move</b> (originals deleted after checking), then
+click the button. Done.</li>
+</ol>
+<p>Nothing is overwritten. A different file with the same name is saved as e.g. <i>rivers_2.shp</i>.
+A move can't be undone; a copy can.</p>
+
+<h3>Which button?</h3>
+<ul>
+<li><b>Find Missing Data...</b> &mdash; layers lost their files (shown only then): pick the folder
+where the data is now.</li>
+<li><b>Replace File...</b> &mdash; one layer should use a different file.</li>
+<li><b>Copy / Move To...</b> &mdash; put the selected layers' data into a folder.</li>
+</ul>
+
+<h3>Change one layer's file</h3>
+<p>Double-click the layer, or select it and click <b>Replace File</b>. With several layers selected,
+use <b>Change &rsaquo; Use one file for all selected rows</b>, for example for several layers of the
+same GeoPackage. Each keeps its own layer name.</p>
+
+<h3>Where are the other functions?</h3>
+<ul>
+<li><b>Problems</b> shows only layers with a problem. <b>Filters</b> adds status, type and provider
+filters and lets you show more columns.</li>
+<li><b>More</b>: check that sources open, relative/absolute paths, health report, prepare for
+moving, export change log, selection helpers and settings.</li>
+<li><b>Undo</b> appears after a change and puts layers back as they were (until QGIS closes).</li>
+<li><b>Details</b> (bottom left) shows activity messages, the change log and a summary.</li>
+<li>For match options (search sub-folders, ignore case, similar names, same sub-folders), open
+<b>Options</b> in the folder dialog.</li>
+</ul>
+
+<h3>Status values</h3>
+<ul>
+<li><b style="color:#2ea043">Valid</b> / <b style="color:#2ea043">Repaired</b> &mdash; the data
+opens.</li>
+<li><b style="color:#cf222e">Broken</b> &mdash; the reason is in the <i>Problem</i> column (file
+missing, unreadable, layer missing inside a GeoPackage, database can't connect).</li>
+<li><b style="color:#1f6feb">Remote</b> &mdash; web services (WMS, XYZ, WFS...).</li>
+<li><b style="color:#828282">Unsupported</b> &mdash; memory and virtual layers without a file.</li>
+</ul>
+
+<h3>Safety</h3>
+<p>Every new file is test-opened read-only before use. Styles, labels, joins and layer IDs are kept.
+If a layer doesn't open after a change, the old path is restored automatically. Database and web
+layers are never changed by this tool; fix them in Layer Properties &rsaquo; Source.</p>

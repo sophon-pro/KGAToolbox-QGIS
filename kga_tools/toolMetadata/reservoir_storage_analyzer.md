@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:reservoir_storage_analyzer` |
 | **Group** | KGA Irrigation Tools |
 | **Source** | `kga_tools/algorithms/reservoir_storage_analyzer_alg.py` (window in `kga_tools/gui/reservoir_storage_dialog.py`, calculations in `kga_tools/core/reservoir_storage.py`) |
-| **Icon** | `icons/storageCapacityCurve.png` |
+| **Icon** | `icons/terrain_water/storageCapacityCurve.png` |
 | **Type** | Interactive dialog — modeless, needs the QGIS window |
 | **Replaces** | *Storage Capacity Curve* (`kga:storage_capacity_curve`) |
 

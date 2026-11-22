@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:buffer_features` |
 | **Group** | KGA Editing Tools |
 | **Source** | `kga_tools/algorithms/buffer_features.py` (base dialog in `kga_tools/gui/modify_dialog.py`) |
-| **Icon** | `icons/bufferFeature.png` |
+| **Icon** | `icons/editing/bufferFeature.png` |
 | **Type** | Interactive dialog — modeless, owns a map tool, needs the QGIS canvas |
 
 ## Overview

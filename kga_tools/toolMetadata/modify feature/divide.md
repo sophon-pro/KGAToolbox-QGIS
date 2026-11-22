@@ -5,7 +5,7 @@
 | **Category** | Modify Features > Divide |
 | **Type** | Map tool in the Modify Features pane (not a Processing algorithm) |
 | **Source** | `kga_tools/editor/modify/divide.py` (DivideTool) |
-| **Icon** | `kga_tools/icons/divideFeatures.png` |
+| **Icon** | `kga_tools/icons/editing/divideFeatures.png` |
 | **Also as a window** | [divide_features](../divide_features.md) (`kga:divide_features`) |
 
 ## Overview

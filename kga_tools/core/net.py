@@ -158,6 +158,24 @@ def get(url):
     return bytes(content)
 
 
+def final_url(url):
+    """Follow the redirects of ``url`` and return the address it ends at.
+
+    Short links (maps.app.goo.gl) are only a redirect; where they lead has the
+    place in it. Blocking, like :func:`get`."""
+    fetcher = QgsBlockingNetworkRequest()
+    try:
+        fetcher.setTimeout(TIMEOUT * 1000)
+    except AttributeError:                  # pragma: no cover - older QGIS
+        pass
+    code = fetcher.get(_request(url), False)
+    reply = fetcher.reply()
+    if code != QgsBlockingNetworkRequest.ErrorCode.NoError:
+        raise NetError(_describe_error(
+            reply, 'The request to the data source failed.'))
+    return reply.request().url().toString()
+
+
 def fetch_body(url):
     """GET one URL and return ``(status, bytes)`` whatever the status was.
 

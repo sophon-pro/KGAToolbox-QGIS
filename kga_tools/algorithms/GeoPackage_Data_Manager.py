@@ -19,6 +19,7 @@ from qgis.PyQt.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
 from qgis.core import (QgsProcessingAlgorithm, QgsMimeDataUtils, QgsProject,
                        QgsVectorLayer, QgsVectorFileWriter, QgsWkbTypes,
                        QgsMapLayer)
+from ..gui.window_reveal import revealed
 from ..branding import docs_url, help_button
 from ..core import output_defaults as od
 
@@ -524,6 +525,7 @@ class LayerPickerDialog(QDialog):
 
 
 # ----------------------------------------------------------------- the dialog
+@revealed
 class SpatialDataManagerDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)

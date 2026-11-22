@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:generate_field_mapping` |
 | **Group** | KGA Schema Tools |
 | **Source** | `kga_tools/algorithms/append_with_mapping.py` |
-| **Icon** | `icons/alg_mapping.png` |
+| **Icon** | `icons/schema/alg_mapping.png` |
 | **Type** | Batch algorithm |
 
 ## Overview

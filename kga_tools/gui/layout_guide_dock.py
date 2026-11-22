@@ -16,7 +16,7 @@ from qgis.PyQt.QtWidgets import (
     QHBoxLayout, QLabel, QMainWindow, QLineEdit, QPushButton, QRadioButton, QSpinBox,
     QVBoxLayout, QWidget,
 )
-from qgis.core import QgsSettings
+from qgis.core import QgsLayoutItemMap, QgsSettings
 
 try:  # Qt6 moved QAction to QtGui
     from qgis.PyQt.QtGui import QAction
@@ -30,10 +30,12 @@ from qgis.PyQt.QtWidgets import QSizePolicy
 from .. import branding
 from ..core.layout_guides import bridge as qb
 from ..core.layout_guides import engine as eng
+from . import map_tabs
 from . import north_arrow_dock as na
+from .panel_bubble import ToolbarReveal, attach_reveal, detach_reveal
 
 SETTINGS_KEY = "KGA/layout_guides/"
-ICON = os.path.join(os.path.dirname(os.path.dirname(__file__)), "icons", "layoutGuides.png")
+ICON = os.path.join(os.path.dirname(os.path.dirname(__file__)), "icons", "mapping/layoutGuides.png")
 UNDO_MERGE_ID = 0x4753  # consecutive live edits = one Ctrl+Z
 
 CSS = """
@@ -136,7 +138,7 @@ class MiniPage(QWidget):
         p.end()
 
 
-class GuideStudioDock(QDockWidget):
+class GuideStudioDock(ToolbarReveal, QDockWidget):
 
     def __init__(self, designer, parent=None):
         super().__init__("Guides", parent)
@@ -625,7 +627,7 @@ class LayoutGuideManager(object):
         designer.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
 
         action = dock.toggleViewAction()
-        action.setIcon(QIcon(ICON))
+        action.setIcon(branding.themed_icon(ICON))
         action.setText("Layout Guides")
         action.setToolTip("Layout Guides - guides from page edges, divided into parts")
         action.triggered.connect(self._remember_visibility)
@@ -642,12 +644,18 @@ class LayoutGuideManager(object):
                     "Add Grid to Layout")
                 grid.setToolTip("Add Grid to Layout - coordinate grid on the selected map")
                 grid.triggered.connect(self._add_grid)
+        if toolbar is not None:
+            refresh = toolbar.addAction(
+                QIcon(":/images/themes/default/mActionRefresh.svg"), "Refresh Layout")
+            refresh.setToolTip("Refresh Layout - redraw the map frames and the layer panels "
+                               "with the latest layer symbology")
+            refresh.triggered.connect(lambda *_: self._refresh_layout(designer))
         if self.arrow_catalog and toolbar is not None:
             arrows = na.NorthArrowDock(designer, self.arrow_catalog, window)
             designer.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, arrows)
             arrows.hide()
             arrow_action = arrows.toggleViewAction()
-            arrow_action.setIcon(branding.icon("northArrows.png"))
+            arrow_action.setIcon(branding.icon("mapping/northArrows.png"))
             arrow_action.setText("Khmer North Arrows")
             arrow_action.setToolTip("Khmer North Arrows - insert a Khmer-style north arrow")
             toolbar.addAction(arrow_action)
@@ -659,6 +667,10 @@ class LayoutGuideManager(object):
         dock.setVisible(show)
         if show:
             dock.raise_()
+        if isinstance(window, QMainWindow):         # the docks open out of their buttons in the designer
+            attach_reveal(dock, action, 'layout_guides', window=window)
+            if self.arrow_docks.get(key) is not None:
+                attach_reveal(self.arrow_docks[key], arrow_action, 'north_arrows', window=window)
         self.docks[key] = (designer, dock, action, toolbar)
 
     def designer_closing(self, designer):
@@ -666,6 +678,8 @@ class LayoutGuideManager(object):
         if not entry:
             return
         _, dock, action, toolbar = entry
+        detach_reveal(dock)
+        detach_reveal(self.arrow_docks.get(id(designer)))
         dock.cleanup()
         arrows = self.arrow_docks.pop(id(designer), None)
         if arrows is not None:
@@ -681,6 +695,18 @@ class LayoutGuideManager(object):
         with suppress(Exception):
             designer.removeDockWidget(dock)
         dock.deleteLater()
+
+    @staticmethod
+    def _refresh_layout(designer):
+        tabs = map_tabs.active()
+        if tabs is not None:
+            tabs.refresh_layouts()
+        layout = designer.layout()
+        if layout is not None:
+            for item in layout.items():
+                if isinstance(item, QgsLayoutItemMap):
+                    item.invalidateCache()
+                    item.refresh()
 
     def _add_grid(self, *_):
         self.run_algorithm("kga:add_grid")

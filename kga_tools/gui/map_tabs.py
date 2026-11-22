@@ -30,6 +30,7 @@ the plugin still works: you just see one group per map.
 import json
 import os
 import uuid
+from functools import partial
 from contextlib import suppress
 
 from qgis.PyQt import sip
@@ -67,9 +68,11 @@ from qgis.core import (
     QgsCoordinateTransform,
     QgsLayerTree,
     QgsLayerTreeGroup,
+    QgsLayerTreeLayer,
     QgsLayerTreeRegistryBridge,
     QgsLayoutItemLegend,
     QgsLayoutItemMap,
+    QgsMapLayerStyle,
     QgsMapThemeCollection,
     QgsPrintLayout,
     QgsProject,
@@ -93,6 +96,7 @@ except ImportError:  # Qt5 / QGIS 3
 
 # Custom properties stored on each map group (saved in the project file)
 PROP_MAP = "maptabs/is_map"
+_WATCHED = "kga_maptabs_watched"    # layer property: style signals already followed
 PROP_ID = "maptabs/id"
 PROP_EXTENT = "maptabs/extent"
 PROP_CRS = "maptabs/crs"
@@ -147,7 +151,7 @@ QTabBar::close-button {{ image: url({close}); subcontrol-position: right;
     width: 12px; height: 12px; }}
 QTabBar::close-button:selected {{ image: url({close_white}); }}
 """.format(strip=strip, idle=idle, hover=hover, text=text, accent=ACCENT,
-           close=_url("pro_tab_close.svg"), close_white=_url("pro_tab_close_white.svg"))
+           close=_url("interface/pro_tab_close.svg"), close_white=_url("interface/pro_tab_close_white.svg"))
 
 
 # --------------------------------------------------------------------------
@@ -223,6 +227,23 @@ def active_map_layer_ids():
     return {node.layer().id() for node in group.findLayers() if node.layer() is not None}
 
 
+def other_map_layer_ids():
+    """The ids of the layers that belong to a map other than the active one, or None while Map Tabs is off.
+
+    A layer in no map at all (loose in the tree root) is not in this set, so it stays available everywhere.
+    """
+    tabs = active()
+    group = tabs._active_group() if tabs is not None else None
+    if group is None:
+        return None
+    mine = {node.layer().id() for node in group.findLayers() if node.layer() is not None}
+    others = set()
+    for other in tabs._map_groups():
+        if other is not group:
+            others.update(n.layer().id() for n in other.findLayers() if n.layer() is not None)
+    return others - mine
+
+
 def add_listener(callback):
     if callback not in _LISTENERS:
         _LISTENERS.append(callback)
@@ -249,6 +270,11 @@ def _notify():
     for callback in list(_LISTENERS):
         with suppress(Exception):   # a listener must not break the tabs
             callback()
+
+
+#: Toolbars, panels and the menu bar of a window are its direct children. Looking for them among all its
+#: descendants wrapped every object inside the window (10 ms and more per call, several calls per tab switch).
+_DIRECT = Qt.FindChildOption.FindDirectChildrenOnly
 
 
 def make_timer(msec, slot):
@@ -307,6 +333,50 @@ class _ReleaseFilter(QObject):
         return False
 
 
+LAYER_TREE_MIME = "application/qgis.layertreemodeldata"
+
+
+def _event_pos(event):
+    """Drag/drop position as a QPoint on Qt5 and Qt6."""
+    if hasattr(event, "position"):
+        return event.position().toPoint()
+    return event.pos()
+
+
+class _LayerDropFilter(QObject):
+    """Lets layers dragged from the Layers panel be dropped on a map tab.
+
+    `accepts(pos, source)` says whether the tab under the cursor takes the drop;
+    `dropped(pos)` copies the dragged layers there. The drop is answered as a
+    copy, so the Layers panel never removes the dragged rows itself.
+    """
+
+    def __init__(self, accepts, dropped, parent=None):
+        super().__init__(parent)
+        self._accepts = accepts
+        self._dropped = dropped
+
+    def eventFilter(self, obj, event):  # noqa: N802 (Qt API name)
+        kind = event.type()
+        if kind not in (QEvent.Type.DragEnter, QEvent.Type.DragMove, QEvent.Type.Drop):
+            return False
+        mime = event.mimeData()
+        if mime is None or not mime.hasFormat(LAYER_TREE_MIME):
+            return False
+        pos = _event_pos(event)
+        if not self._accepts(pos, event.source()):
+            if kind == QEvent.Type.DragEnter:
+                event.accept()          # keep receiving moves: another tab may take it
+            else:
+                event.ignore()
+            return True
+        event.setDropAction(Qt.DropAction.CopyAction)
+        event.accept()
+        if kind == QEvent.Type.Drop:
+            QTimer.singleShot(0, lambda: self._dropped(pos))
+        return True
+
+
 class _ContextFilter(QObject):
     """Hands right-clicks on the main window's toolbar area to a callback."""
 
@@ -332,6 +402,70 @@ class _NoUnderlineStyle(QProxyStyle):
         return super().styleHint(hint, option, widget, returnData)
 
 
+class _TopDockGuard(QObject):
+    """Keeps the top dock area for the Map Tabs strip alone.
+
+    Every other dock widget loses the Top area from its allowed areas, so Qt refuses a drop above
+    the strip (or onto it as a tab). A dock that is already up there (an old saved layout, or one
+    restored by a window-layout manager) is moved to a side. Docks created later are caught
+    when they are added to the main window.
+    """
+    SIDES = (Qt.DockWidgetArea.LeftDockWidgetArea, Qt.DockWidgetArea.RightDockWidgetArea,
+             Qt.DockWidgetArea.BottomDockWidgetArea)
+
+    def __init__(self, main_window, own_dock):
+        super().__init__(main_window)
+        self._mw = main_window
+        self._own = own_dock
+        self._seen = set()
+        self._timer = make_timer(0, self.enforce)
+        main_window.installEventFilter(self)
+        self.enforce()
+
+    def eventFilter(self, obj, event):  # noqa: N802 (Qt API name)
+        # Only a widget can be a dock. The main window also gets a child for every animation, timer,
+        # action and menu made on it, and looking at the docks again for each of those cost tens of
+        # milliseconds every time one of the plugin's animations started.
+        if event.type() == QEvent.Type.ChildAdded and obj is self._mw:
+            child = event.child()
+            if child is not None and child.isWidgetType():
+                self._timer.start()
+        return False
+
+    def stop(self):
+        self._timer.stop()
+        with suppress(RuntimeError):
+            self._mw.removeEventFilter(self)
+
+    def _side_for(self, dock):
+        allowed = dock.allowedAreas()
+        for area in self.SIDES:
+            if allowed & area:
+                return area
+        return Qt.DockWidgetArea.LeftDockWidgetArea
+
+    def enforce(self, *args):
+        mw = self._mw
+        own = ptr(self._own) if alive(self._own) else None
+        top = Qt.DockWidgetArea.TopDockWidgetArea
+        # the docks of the main window are its direct children: a recursive search would wrap every
+        # object of QGIS on the way (and take longer the more layers and panels there are)
+        for dock in mw.findChildren(QDockWidget, options=_DIRECT):
+            parent = dock.parentWidget()
+            if ptr(dock) == own or parent is None or ptr(parent) != ptr(mw):
+                continue
+            allowed = dock.allowedAreas()
+            if allowed & top:
+                rest = allowed & ~top
+                if rest:
+                    dock.setAllowedAreas(rest)
+            if ptr(dock) not in self._seen:
+                self._seen.add(ptr(dock))
+                dock.dockLocationChanged.connect(lambda *_a: self._timer.start())
+            if not dock.isFloating() and mw.dockWidgetArea(dock) == top:
+                mw.addDockWidget(self._side_for(dock), dock)
+
+
 class MapTabs:
     """Map and layout tabs above the map canvas."""
 
@@ -348,6 +482,8 @@ class MapTabs:
         self._release_filter = None
         self._close_filter = None
         self._context_filter = None
+        self._drop_filter = None
+        self._dock_guard = None
         self._installed = False
         self.last_notes = []
 
@@ -381,6 +517,8 @@ class MapTabs:
         self._rows_timer = make_timer(0, self._refresh_rows)
         self._theme_timer = make_timer(400, self._sync_themes)
         self._view_timer = make_timer(300, self._save_active_view)
+        self._canvas_held = False   # the map canvas is frozen while a layout tab hides it
+        self._thaw_timer = make_timer(150, self._thaw_canvas)    # ... and drawn once when the window has settled
 
     # ------------------------------------------------------------------ GUI
     @property
@@ -414,6 +552,7 @@ class MapTabs:
         _ACTIVE[:] = [self]
         mw = self.iface.mainWindow()
         self._build_dock()
+        self._dock_guard = _TopDockGuard(mw, self.dock)
 
         root = self.project.layerTreeRoot()
         self._connect(self.iface.projectRead, self.reload)
@@ -426,6 +565,8 @@ class MapTabs:
                        root.nameChanged):
             self._connect(signal, self._refresh_contents)
         self._connect(self.iface.mapCanvas().extentsChanged, self._on_extent_changed)
+        self._connect(self.project.layersAdded, self._watch_layers)
+        self._watch_layers(self.project.mapLayers().values())
 
         model = self.iface.layerTreeView().model()
         self._connect(model.modelReset, self._schedule_rows)
@@ -435,6 +576,8 @@ class MapTabs:
         self._connect(self.iface.layoutDesignerOpened, self._on_designer_opened)
         self._connect(self.iface.layoutDesignerClosed, self._on_designer_closed)
         self._connect(self.project.layoutManager().layoutRenamed, self._schedule_tabs)
+        self._connect(self.iface.layerTreeView().contextMenuAboutToShow,
+                      self._extend_layer_menu)
 
         stack = self._find_stack()
         if stack is not None:
@@ -478,6 +621,10 @@ class MapTabs:
         self.tabbar.customContextMenuRequested.connect(self._show_tab_menu)
         self._release_filter = _ReleaseFilter(self._apply_tab_order, self.tabbar)
         self.tabbar.installEventFilter(self._release_filter)
+        self.tabbar.setAcceptDrops(True)
+        self._drop_filter = _LayerDropFilter(self._drop_accepted, self._drop_on_tab,
+                                             self.tabbar)
+        self.tabbar.installEventFilter(self._drop_filter)
 
         self.add_btn = QToolButton()
         self.add_btn.setText("+")
@@ -526,6 +673,8 @@ class MapTabs:
         for timer in (self._structure_timer, self._tabs_timer, self._rows_timer,
                       self._theme_timer, self._view_timer):
             timer.stop()
+        self._thaw_timer.stop()
+        self._thaw_canvas()         # never leave the map frozen behind
         for signal, slot in self._connections:
             try:
                 signal.disconnect(slot)
@@ -533,6 +682,10 @@ class MapTabs:
                 pass
         self._connections = []
 
+        if self._dock_guard is not None:
+            self._dock_guard.stop()
+            self._dock_guard.deleteLater()
+            self._dock_guard = None
         if self._close_filter is not None:
             self.iface.mainWindow().removeEventFilter(self._close_filter)
             self._close_filter = None
@@ -671,7 +824,7 @@ class MapTabs:
             all_maps[0].removeCustomProperty(PROP_OPEN)     # never leave no tab
         maps = [g for g in all_maps if is_open(g)]
         active_found = any(map_id(g) == self._active_id for g in maps)
-        map_icon = branding_icon("mapTab.png")
+        map_icon = branding_icon("mapping/mapTab.png")
         layout_icon = QgsApplication.getThemeIcon("/mIconLayout.svg")
 
         self._busy = True
@@ -770,6 +923,7 @@ class MapTabs:
             if restore_view:
                 self._restore_view(group)
             self._refresh_rows()
+            _notify()
 
             view = self.iface.layerTreeView()
             index = view.node2index(group)
@@ -885,6 +1039,41 @@ class MapTabs:
         if group is not None:
             self._dirty_maps.add(map_id(group))
         self._theme_timer.start()
+
+    def _watch_layers(self, layers):
+        """Follow styling changes of every layer, so layout frames never go stale."""
+        for layer in layers:
+            if layer.property(_WATCHED) or not alive(layer):
+                continue
+            layer.setProperty(_WATCHED, True)
+            callback = partial(self._on_layer_styled, layer.id())
+            for name in ("styleChanged", "repaintRequested", "rendererChanged",
+                         "labelingChanged"):
+                signal = getattr(layer, name, None)
+                if signal is not None:
+                    signal.connect(callback)
+
+    def _on_layer_styled(self, layer_id, *args):
+        if not self._installed:
+            return
+        for group in self._map_groups():
+            if group.findLayer(layer_id) is not None:
+                self._dirty_maps.add(map_id(group))
+        if self._dirty_maps:
+            self._theme_timer.start()   # debounced: redraws the frames that show it
+
+    def refresh_layouts(self):
+        """Redraw every layout map frame and the layout side panels from scratch."""
+        self._dirty_maps = {map_id(g) for g in self._map_groups()}
+        self._sync_themes()
+        for layout in self.project.layoutManager().printLayouts():
+            for item in layout.items():
+                if isinstance(item, QgsLayoutItemMap):
+                    item.invalidateCache()
+                    item.refresh()
+        self._refresh_rows()
+        if self._contents is not None and alive(self._contents):
+            self._contents.schedule()
 
     def _refresh_frames(self, group):
         """Redraw the layout map frames that show this map (its theme just changed)."""
@@ -1226,6 +1415,7 @@ class MapTabs:
         clone.removeCustomProperty(PROP_THEME)
         clone.removeCustomProperty(PROP_OPEN)       # the copy opens its own tab
         clone.setItemVisibilityChecked(False)
+        self._detach_layers(clone)
 
         root = self._root()
         position = len(root.children())
@@ -1243,8 +1433,179 @@ class MapTabs:
         self._sync_tabs()
         self._activate(clone, restore_view=True)
 
+    def _detach_layers(self, group):
+        """Give a duplicated map its own copy of every layer (like Pro).
+
+        A cloned group still points at the original project layers, so a
+        symbology or label change in the copy would change the original too.
+        Each layer node is swapped for a node on an independent clone; the
+        data source stays shared, the styling and settings do not.
+        """
+        for node in list(group.findLayers()):
+            layer = node.layer()
+            parent = node.parent()
+            if layer is None or parent is None:
+                continue
+            new_layer = layer.clone()
+            if new_layer is None:
+                continue
+            style = QgsMapLayerStyle()
+            style.readFromLayer(layer)
+            style.writeToLayer(new_layer)
+            new_layer.setName(layer.name())
+            self.project.addMapLayer(new_layer, False)
+            new_node = QgsLayerTreeLayer(new_layer)
+            new_node.setItemVisibilityChecked(node.itemVisibilityChecked())
+            new_node.setExpanded(node.isExpanded())
+            if node.customProperty("nodeHidden") is not None:
+                new_node.setCustomProperty("nodeHidden", node.customProperty("nodeHidden"))
+            for key in node.customProperties():
+                if key != "nodeHidden":
+                    new_node.setCustomProperty(key, node.customProperty(key))
+            if node.name() != layer.name():
+                new_node.setName(node.name())
+            position = parent.children().index(node)
+            parent.insertChildNode(position, new_node)
+            parent.removeChildNode(node)
+
     def delete_map(self, index):
         self.delete_group(self._group_at(index))
+
+    # ------------------------------------------- copy layers between maps
+    @staticmethod
+    def _map_of(node):
+        while node is not None and not is_map(node):
+            node = node.parent()
+        return node
+
+    def _selected_layer_nodes(self):
+        """The selected Layers panel nodes worth copying: layers and plain groups,
+        never a map itself, and never a node whose parent is already selected."""
+        view = self.iface.layerTreeView()
+        if view is None:
+            return []
+        nodes = [n for n in view.selectedNodes(True) if not is_map(n)
+                 and (QgsLayerTree.isLayer(n) or QgsLayerTree.isGroup(n))]
+        if not nodes:
+            current = view.currentNode()
+            if current is not None and not is_map(current) and current.parent() is not None:
+                nodes = [current]
+        chosen = {ptr(n) for n in nodes}
+
+        def inside_chosen(node):
+            parent = node.parent()
+            while parent is not None:
+                if ptr(parent) in chosen:
+                    return True
+                parent = parent.parent()
+            return False
+        return [n for n in nodes if not inside_chosen(n)]
+
+    def paste_to_map(self, nodes, target):
+        """Copy layer tree nodes into a map, on top of its layers.
+
+        Like Pro's copy and paste between maps, the copies are independent
+        layers (own symbology and labels) on the same data source.
+        Returns the number of layers copied.
+        """
+        nodes = [n for n in nodes if n is not None and not is_map(n)]
+        if target is None or not nodes:
+            return 0
+        holder = QgsLayerTreeGroup("paste")
+        for node in nodes:
+            holder.addChildNode(node.clone())
+        self._detach_layers(holder)
+        count = len(holder.findLayers())
+        self._busy = True
+        try:
+            for i, node in enumerate(holder.children()):
+                target.insertChildNode(i, node.clone())
+        finally:
+            self._busy = False
+        self._dirty_maps.add(map_id(target))
+        self._theme_timer.start()
+        self._schedule_tabs()   # the tab tooltip counts the layers
+        return count
+
+    def _paste_selected(self, target):
+        if target is None:
+            return
+        nodes = self._selected_layer_nodes()
+        count = self.paste_to_map(nodes, target)
+        if nodes:
+            self.iface.messageBar().pushSuccess(
+                "Paste layer(s) to map",
+                f"{count} layer(s) pasted to the map \u201c{target.name()}\u201d.")
+
+    def _paste_to_new_map(self):
+        name = self._ask_name("Paste to New Map", self._unique_name("Map"))
+        if not name:
+            return
+        if self._shown.startswith(MAP_KEY):
+            self._save_view(self._active_group())
+        group = self._new_group_node(name)
+        group.setItemVisibilityChecked(False)
+        self._busy = True
+        try:
+            self._root().addChildNode(group)
+        finally:
+            self._busy = False
+        self._save_view(group)  # a new map starts from the current view
+        self._paste_selected(group)
+        self._sync_tabs()
+
+    def _extend_layer_menu(self, menu):
+        """Layers panel right-click: Paste layer(s) to map > (other maps) / New Map..."""
+        if not self._installed or not self._map_groups():
+            return
+        nodes = self._selected_layer_nodes()
+        if not nodes:
+            return
+        sources = {map_id(m) for m in (self._map_of(n) for n in nodes) if m is not None}
+        sub = QMenu("Paste layer(s) to map", menu)
+        sub.setIcon(branding_icon("mapping/mapTab.png"))
+        for group in self._map_groups():
+            if map_id(group) in sources:
+                continue
+            sub.addAction(group.name(), lambda g=group: self._paste_selected(g))
+        if sub.actions():
+            sub.addSeparator()
+        sub.addAction(QgsApplication.getThemeIcon("/mActionAdd.svg"), "New Map\u2026",
+                      self._paste_to_new_map)
+        actions = menu.actions()
+        anchor = None
+        found = False
+        for i, action in enumerate(actions):
+            if action.text().replace("&", "").startswith("Copy Layer"):
+                found = True
+                anchor = actions[i + 1] if i + 1 < len(actions) else None
+                break
+        if anchor is not None:
+            menu.insertMenu(anchor, sub)
+        else:
+            if not found:
+                menu.addSeparator()
+            menu.addMenu(sub)
+
+    def _drop_target(self, pos):
+        """The map a drag over the tab bar would paste into (None: no drop)."""
+        group = self._group_at(self.tabbar.tabAt(pos))
+        if group is None:
+            return None
+        nodes = self._selected_layer_nodes()
+        if not nodes:
+            return None
+        sources = {map_id(m) for m in (self._map_of(n) for n in nodes) if m is not None}
+        return None if map_id(group) in sources else group
+
+    def _drop_accepted(self, pos, source):
+        view = self.iface.layerTreeView()
+        if source is None or view is None or source not in (view, view.viewport()):
+            return False        # only drags out of this window's Layers panel
+        return self._drop_target(pos) is not None
+
+    def _drop_on_tab(self, pos):
+        self._paste_selected(self._drop_target(pos))
 
     def group_by_id(self, mid):
         return self._group_by_id(mid)
@@ -1381,9 +1742,18 @@ class MapTabs:
                         self._contents.set_layout(self._layout_of(designer))
                     self._prepare_designer_panels(key[len(LAYOUT_KEY):], designer.window())
                 else:
-                    self._return_chrome()
-                    stack.setCurrentWidget(self._canvas_page)
-                    self._leave_layout_workspace()
+                    # Coming back from a layout the map is laid out again in steps (toolbars, panels,
+                    # status bar), and it drew itself once per step - twice per switch, at sizes nobody
+                    # sees. Hold it still until the window has settled, then draw it once.
+                    # (The map is already held still since the layout tab was opened, see
+                    # _enter_layout_workspace: behind a layout it used to redraw all the same.)
+                    try:
+                        self._return_chrome()
+                        stack.setCurrentWidget(self._canvas_page)
+                        self._leave_layout_workspace()
+                    finally:
+                        if self._canvas_held:
+                            self._thaw_timer.start()
             finally:
                 self._busy = False
         self._update_shortcuts()
@@ -1392,6 +1762,24 @@ class MapTabs:
             self.tabbar.blockSignals(True)
             self.tabbar.setCurrentIndex(index)
             self.tabbar.blockSignals(False)
+
+    def _hold_canvas(self):
+        """A layout tab is going on screen: the map behind it stops drawing until it is shown again."""
+        self._thaw_timer.stop()
+        with suppress(Exception):
+            canvas = self.iface.mapCanvas()
+            if not self._canvas_held and not canvas.isFrozen():
+                canvas.freeze(True)
+                self._canvas_held = True
+
+    def _thaw_canvas(self):
+        if not self._canvas_held:
+            return
+        self._canvas_held = False
+        with suppress(Exception):
+            canvas = self.iface.mapCanvas()
+            canvas.freeze(False)
+            canvas.refresh()
 
     def _on_stack_changed(self, index):
         """QGIS itself switched the central page (e.g. back to the canvas)."""
@@ -1640,7 +2028,7 @@ class MapTabs:
                      if bar is not None}
         bars = []
         for cls in (QToolBar, QDockWidget):
-            for widget in mw.findChildren(cls):
+            for widget in mw.findChildren(cls, options=_DIRECT):
                 parent = widget.parentWidget()
                 if parent is not None and ptr(parent) == main and ptr(widget) != own \
                         and ptr(widget) not in lent:
@@ -1658,6 +2046,7 @@ class MapTabs:
         keep = set(layout_panels()) - {"Layers"}   # the Contents panel replaces it
         for bar in self._main_bars():
             bar.setVisible(bar.objectName() in keep)
+        self._hold_canvas()
         self._show_contents(True)
         mw.menuBar().hide()      # the designer has its own menu bar
         mw.statusBar().hide()    # ...and its own status bar (x / y in mm, page)
@@ -1684,6 +2073,8 @@ class MapTabs:
         if alive(self.dock):
             self.dock.show()
         self._mode = "map"
+        if self._canvas_held:
+            self._thaw_timer.start()
 
     def _lend_chrome(self, window):
         """Show the layout's menu bar and toolbars at the very top of the main window.
@@ -1698,10 +2089,10 @@ class MapTabs:
         mw = self.iface.mainWindow()
         win = ptr(window)
         top = Qt.ToolBarArea.TopToolBarArea
-        bars = [(bar, window.toolBarBreak(bar)) for bar in window.findChildren(QToolBar)
+        bars = [(bar, window.toolBarBreak(bar)) for bar in window.findChildren(QToolBar, options=_DIRECT)
                 if bar.parentWidget() is not None and ptr(bar.parentWidget()) == win
                 and window.toolBarArea(bar) == top]
-        menubar = next((m for m in window.findChildren(QMenuBar)
+        menubar = next((m for m in window.findChildren(QMenuBar, options=_DIRECT)
                         if m.parentWidget() is not None and ptr(m.parentWidget()) == win), None)
 
         holder = None
@@ -1788,10 +2179,10 @@ class MapTabs:
             if self._contents is None or not alive(self._contents):
                 self._contents = LayoutContents(
                     mw, self._map_choices, self._link_frame, self._frame_map_changed,
-                    self._show_item_properties, self._focus_layers)
+                    self._show_item_properties, self._focus_layers, self.open_map)
             # place both panels afresh every time: after the map workspace was restored
             # Qt may keep an empty column for docks it no longer knows where to put
-            layers = next((d for d in mw.findChildren(QDockWidget)
+            layers = next((d for d in mw.findChildren(QDockWidget, options=_DIRECT)
                            if d.objectName() == "Layers" and d.parentWidget() is not None
                            and ptr(d.parentWidget()) == ptr(mw)), None)
             left = Qt.DockWidgetArea.LeftDockWidgetArea
@@ -1853,7 +2244,7 @@ class MapTabs:
         if window is None or not alive(window):
             return
         win = ptr(window)
-        for dock in window.findChildren(QDockWidget):
+        for dock in window.findChildren(QDockWidget, options=_DIRECT):
             if dock.objectName() == "ItemDock" and dock.parentWidget() is not None \
                     and ptr(dock.parentWidget()) == win:
                 dock.show()
@@ -1988,7 +2379,7 @@ class MapTabs:
         for bar in chrome["bars"]:
             if alive(bar):
                 menu.addAction(bar.toggleViewAction())
-        docks = [d for d in window.findChildren(QDockWidget)
+        docks = [d for d in window.findChildren(QDockWidget, options=_DIRECT)
                  if d.parentWidget() is not None and ptr(d.parentWidget()) == ptr(window)]
         if docks:
             menu.addSeparator()
@@ -2070,7 +2461,7 @@ class MapTabs:
         if not alive(window) or not alive(dock) or dock.isFloating():
             return
         win = ptr(window)
-        props = next((d for d in window.findChildren(QDockWidget)
+        props = next((d for d in window.findChildren(QDockWidget, options=_DIRECT)
                       if d.objectName() == "ItemDock" and d.parentWidget() is not None
                       and ptr(d.parentWidget()) == win), None)
         if props is None or ptr(props) == ptr(dock):
@@ -2089,12 +2480,12 @@ class MapTabs:
         self._arrange_panels(window)
         win = ptr(window)
         self._stack_with_properties(window, [
-            d for d in window.findChildren(QDockWidget)
+            d for d in window.findChildren(QDockWidget, options=_DIRECT)
             if d.parentWidget() is not None and ptr(d.parentWidget()) == win])
 
     def _arrange_panels(self, window):
         win = ptr(window)
-        docks = [d for d in window.findChildren(QDockWidget)
+        docks = [d for d in window.findChildren(QDockWidget, options=_DIRECT)
                  if d.parentWidget() is not None and ptr(d.parentWidget()) == win]
         for dock in docks:
             if dock.isFloating():

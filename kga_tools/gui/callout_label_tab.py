@@ -9,6 +9,8 @@ uses it only as a signal: it declines to add a tab, and once the dialog exists
 `LabelsPageHook` adds the mode to the Labels page's own combo box and shows the
 studio in place of that page's stack.
 """
+import weakref
+from contextlib import suppress
 from functools import partial
 
 from qgis.PyQt.QtCore import QObject, QTimer
@@ -28,6 +30,20 @@ LOG_TAG = "KGA Toolbox"
 
 
 HOOKED = "kga_callout_hooked"
+
+_DOCK_HOOKS = weakref.WeakSet()           # the live Layer Styling hooks, so other tools can reach their panel
+
+
+def labels_removed_elsewhere(layer):
+    """Another tool (the Quick Labeling button) is about to switch `layer`'s labels off on purpose.
+
+    Call this BEFORE switching them off: an open studio panel for that layer would otherwise treat the
+    change as QGIS's own apply and put the studio style back."""
+    for hook in list(_DOCK_HOOKS):
+        with suppress(RuntimeError, AttributeError):
+            panel = hook.panel
+            if panel is not None and panel._layer is not None and panel._layer.id() == layer.id():
+                panel.mark_labels_removed()
 
 
 def _class_name(widget):
@@ -121,6 +137,7 @@ class DockLabelsHook(QObject):
 
     def __init__(self, iface, styling, page):
         super().__init__(page)
+        _DOCK_HOOKS.add(self)
         self.iface = iface
         self.page = page
         self.panel = None

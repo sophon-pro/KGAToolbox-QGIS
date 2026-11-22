@@ -93,10 +93,11 @@ class LayoutContents(QDockWidget):
     """The tree of a layout's items (with map contents under the map frames)."""
 
     def __init__(self, parent, maps, link_map, map_changed, show_properties=None,
-                 map_focused=None):
+                 map_focused=None, open_map=None):
         """maps() -> [(map group, its theme name)]; link_map(frame, group) shows a
         map in a frame; map_changed(group, frame) refreshes a frame after its
-        map's layers were switched; show_properties() brings up Item Properties."""
+        map's layers were switched; show_properties() brings up Item Properties;
+        open_map(group) opens that map's tab."""
         super().__init__("Contents", parent)
         self.setObjectName("KgaLayoutContents")
         self._maps = maps
@@ -104,6 +105,7 @@ class LayoutContents(QDockWidget):
         self._map_changed = map_changed
         self._show_properties = show_properties
         self._map_focused = map_focused
+        self._open_map = open_map
         self._layout = None
         self._nodes = {}            # int -> layer tree node (this build only)
         self._guard = False
@@ -189,8 +191,7 @@ class LayoutContents(QDockWidget):
         try:
             expanded = self._expanded()
             self._open = expanded
-            selected = {i.data(0, ROLE_KEY) for i in tree.selectedItems()
-                        if i.data(0, ROLE_KIND) == "item"}
+            selected = {self._identity(i) for i in tree.selectedItems()}
             tree.clear()
             self._nodes = {}
             if self._alive():
@@ -202,10 +203,16 @@ class LayoutContents(QDockWidget):
                 for item in items:
                     self._add_item(tree.invisibleRootItem(), item, expanded)
             for row in self._rows():
-                if row.data(0, ROLE_KIND) == "item" and row.data(0, ROLE_KEY) in selected:
+                if self._identity(row) in selected:
                     row.setSelected(True)
         finally:
             self._guard = False
+
+    @staticmethod
+    def _identity(row):
+        """What names a row across a rebuild: a clicked grid or layer stays highlighted."""
+        return (row.data(0, ROLE_KIND), row.data(0, ROLE_KEY), row.data(0, ROLE_MAP),
+                row.data(0, ROLE_INDEX), row.text(0))
 
     def _rows(self, parent=None):
         parent = parent or self.tree.invisibleRootItem()
@@ -469,12 +476,22 @@ class LayoutContents(QDockWidget):
 
     def _on_menu(self, pos):
         row = self.tree.itemAt(pos)
+        if row is not None and row.data(0, ROLE_KIND) in ("grid", "gridgroup"):
+            self._grid_menu(row, pos)
+            return
         if row is None or row.data(0, ROLE_KIND) != "item":
             return
         item = self._item(row.data(0, ROLE_KEY))
         if item is None:
             return
         menu = QMenu(self)
+        if isinstance(item, QgsLayoutItemMap) and self._open_map is not None:
+            linked = self._group_of(item)
+            action = menu.addAction(_icon("/mActionShowAllLayers.svg"), "Open map",
+                                    lambda: self._open_map(linked))
+            action.setEnabled(linked is not None)
+            if linked is None:
+                action.setToolTip("This frame is not linked to a map")
         menu.addAction("Rename…", lambda: self._rename(item))
         menu.addAction("Unlock" if item.isLocked() else "Lock",
                        lambda: (item.setLocked(not item.isLocked()), self.schedule()))
@@ -495,6 +512,25 @@ class LayoutContents(QDockWidget):
         menu.addAction("Delete", lambda: self._delete(item))
         menu.exec(self.tree.viewport().mapToGlobal(pos))
         menu.deleteLater()
+
+    def _grid_menu(self, row, pos):
+        """Right-click on a grid (or the Grids group): Edit opens the Add Grid tool."""
+        frame = self._item(row.data(0, ROLE_MAP))
+        if not isinstance(frame, QgsLayoutItemMap):
+            return
+        grids = frame.grids().asList()
+        index = row.data(0, ROLE_INDEX) if row.data(0, ROLE_KIND) == "grid" else 0
+        if index is None or not 0 <= index < len(grids):
+            return
+        grid_id = grids[index].id()
+        menu = QMenu(self)
+        menu.addAction("Edit…", lambda: self._edit_grid(frame, grid_id))
+        menu.exec(self.tree.viewport().mapToGlobal(pos))
+        menu.deleteLater()
+
+    def _edit_grid(self, frame, grid_id):
+        from ..algorithms.add_grid_alg import edit_grid
+        edit_grid(self._layout, frame, grid_id)
 
     def _delete(self, item):
         if self._alive() and not sip.isdeleted(item):

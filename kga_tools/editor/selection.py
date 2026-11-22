@@ -146,6 +146,18 @@ class SelectTool(QgsMapTool):
         except Exception:
             self.setCursor(QCursor(Qt.CursorShape.ArrowCursor))
 
+    def right_click_menu_allowed(self):
+        return True
+
+    kga_right_drag_zoom = True      # Smooth Navigation: hold right button + drag up/down zooms, as in Pan
+
+    def flags(self):
+        """Right-click gives QGIS's map menu (Copy Coordinate, Select Feature ...) plus the KGA entries
+        (Attribute, Filter Selected Features), like the Pan tool does."""
+        flags_type = getattr(QgsMapTool, "Flags", None)         # Qt5 QFlags; Qt6 uses the enum itself
+        flag = QgsMapTool.Flag.ShowContextMenu if self.right_click_menu_allowed() else QgsMapTool.Flag(0)
+        return flags_type(flag) if flags_type is not None else flag
+
     def dispose(self):
         self.switcher.dispose()
         self.band.reset(GEOM_POLYGON)
@@ -257,23 +269,57 @@ class SelectTool(QgsMapTool):
                 result[layer] = ids
         return result
 
+    def _hold_map(self, layers):
+        """Freeze the canvas for a selection change that cannot alter the map image, and say whether it
+        was frozen. With the Pro-style selection the map ignores what is selected (the outline is an
+        overlay), so the full redraw QGIS starts after every selection change - 200-300 ms of the GUI
+        thread per click in a big project - shows nothing new. A layer whose style asks what is selected
+        is redrawn as usual."""
+        from ..gui import pro_selection
+        canvas = self.canvas()
+        with suppress(Exception):
+            if (pro_selection.map_ignores_selection(canvas) and not canvas.isFrozen()
+                    and not any(pro_selection.style_uses_selection(layer) for layer in layers)):
+                canvas.freeze(True)
+                return True
+        return False
+
+    def _release_map(self):
+        from ..gui import pro_selection
+        canvas = self.canvas()
+        canvas.freeze(False)
+        if not pro_selection.map_ignores_selection(canvas):
+            canvas.refresh()            # the change itself switched QGIS's selection paint back on (a huge selection)
+
     def apply(self, per_layer, behavior):
         """Apply {layer: [fid]} to the selection of all selectable layers."""
         layers = self._layers()
         if behavior == SELECT_SET:
-            for layer in all_vector_layers():          # a new selection replaces the old one everywhere
-                if layer.selectedFeatureCount():
-                    layer.removeSelection()
-            for layer, ids in per_layer.items():
-                if ids:
-                    layer.selectByIds(ids, SELECT_ADD)
+            changing = [lyr for lyr in all_vector_layers() if lyr.selectedFeatureCount()]
+            changing += [lyr for lyr, ids in per_layer.items() if ids and lyr not in changing]
         elif behavior == SELECT_INTERSECT:
-            for layer in layers:
-                layer.selectByIds(per_layer.get(layer, []), SELECT_INTERSECT)
+            changing = layers
         else:
-            for layer, ids in per_layer.items():
-                if ids:
-                    layer.selectByIds(ids, behavior)
+            changing = [lyr for lyr, ids in per_layer.items() if ids]
+        held = self._hold_map(changing)
+        try:
+            if behavior == SELECT_SET:
+                for layer in all_vector_layers():          # a new selection replaces the old one everywhere
+                    if layer.selectedFeatureCount():
+                        layer.removeSelection()
+                for layer, ids in per_layer.items():
+                    if ids:
+                        layer.selectByIds(ids, SELECT_ADD)
+            elif behavior == SELECT_INTERSECT:
+                for layer in layers:
+                    layer.selectByIds(per_layer.get(layer, []), SELECT_INTERSECT)
+            else:
+                for layer, ids in per_layer.items():
+                    if ids:
+                        layer.selectByIds(ids, behavior)
+        finally:
+            if held:
+                self._release_map()
 
     def select_click(self, map_point, behavior, pixel=None):
         hits = self.hits_at(map_point)
@@ -313,6 +359,8 @@ class SelectTool(QgsMapTool):
         if not 0 <= index < len(self._candidates):
             return
         self.switcher._busy = True              # our own selection changes must not dismiss the button
+        held = self._hold_map([lyr for lyr, _fid in (self._candidates[self._cand_index], self._candidates[index])
+                               if not sip.isdeleted(lyr)])
         try:
             layer, fid = self._candidates[self._cand_index]
             if not sip.isdeleted(layer):
@@ -322,6 +370,8 @@ class SelectTool(QgsMapTool):
             layer.select(fid)
         finally:
             self.switcher._busy = False
+            if held:
+                self._release_map()
         self.switcher.set_current(index)
         self._follow(layer)
         self._report(len(self._candidates))

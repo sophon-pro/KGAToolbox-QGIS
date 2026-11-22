@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:domain_manager` |
 | **Group** | KGA Schema Tools |
 | **Source** | `kga_tools/algorithms/domain_manager_alg.py` (dialog in `kga_tools/gui/domain_manager.py`) |
-| **Icon** | `icons/domain.png` |
+| **Icon** | `icons/schema/domain.png` |
 | **Type** | Interactive dialog — modeless, needs the QGIS window |
 
 ## Overview
@@ -78,18 +78,18 @@ controls below are the window's.
    GeoPackage is loaded for you. Close the Processing window once the pane
    appears.
 2. If it opened on nothing, drag a `.gpkg` onto the path box from the Browser
-   panel or use **Browseâ€¦**. A large container takes a moment to read.
+   panel or use **Browse…**. A large container takes a moment to read.
 3. On **Domains**, press **New** and fill in the definition: name, domain type,
-   field type, then the coded values, range or glob. **Paste listâ€¦** takes a
+   field type, then the coded values, range or glob. **Paste list…** takes a
    list off the clipboard, which is the quickest way to build a coded domain.
    Press **Save domain**.
 4. On **Assignment**, find a field and set its *Domain* cell. Then press **Apply
    to all matching field names** to give every same-named field across the
    container the same domain. Press **Apply assignments** to write them.
-5. On **Library**, press **Export libraryâ€¦** to save the whole set as JSON you
+5. On **Library**, press **Export library…** to save the whole set as JSON you
    can version and reuse. To bring one in, choose the **Mode**, press **Preview
-   a libraryâ€¦** first to see what would change, then **Import a libraryâ€¦**.
-6. Run **[Validate Against Domains](validate_against_domains.md)** afterwards â€”
+   a library…** first to see what would change, then **Import a library…**.
+6. Run **[Validate Against Domains](validate_against_domains.md)** afterwards —
    the data already in the container was never checked against the new rules.
 
 ## Outputs

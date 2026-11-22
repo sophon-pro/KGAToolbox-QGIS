@@ -38,6 +38,7 @@ from ...algorithms.copy_paste_feature import (
 )
 from ...branding import LOG_TAG
 from ..selection import all_vector_layers, map_layers
+from ..manager import edit_blocked
 from .page import DoneStrip, SelectedTree, button, project_layer, selection_banner
 from .reshape import PickTool
 from .split import TABS_QSS
@@ -296,6 +297,9 @@ class CopyPasteTool(PickTool):
         if layer is None:
             self._last_paste = None
             self.tell("That target layer is no longer in the project - choose a new one and press Paste.", ok=False)
+            return None
+        if edit_blocked(layer):
+            self.tell(f'Editing is switched off for "{layer.name()}" (List By Editing).', ok=False)
             return None
         if not layer.isEditable() and not layer.startEditing():
             self.tell(f'"{layer.name()}" could not be put into edit mode.', ok=False)

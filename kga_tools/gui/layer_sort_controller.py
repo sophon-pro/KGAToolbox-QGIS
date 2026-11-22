@@ -44,7 +44,7 @@ class LayerSortController:
     def initGui(self):
         win = self.iface.mainWindow()
 
-        self.sort_action = QAction(_icon('sortLayer.png'),
+        self.sort_action = QAction(_icon('data_management/sortLayer.png'),
                                    'Sort Layers by Type', win)
         self.sort_action.setToolTip(
             'Sort Layers by Type - points > lines > polygons > rasters')

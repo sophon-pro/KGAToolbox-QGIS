@@ -14,6 +14,7 @@ from qgis.PyQt.QtWidgets import (QDialog, QFileDialog, QHBoxLayout, QLabel,
 
 from ..branding import help_button
 from ..core import output_defaults as od
+from .window_reveal import revealed
 
 try:
     from qgis.utils import iface
@@ -34,6 +35,7 @@ def tr(text):
     return text
 
 
+@revealed
 class PackageWindow(QDialog):
     """Subclasses set TITLE, ALG_NAME and RUN_TEXT and implement `run`."""
 
@@ -143,7 +145,7 @@ class PackageWindow(QDialog):
             window.follow_project()
         window.refresh_state()
         window.setWindowModality(Qt.WindowModality.NonModal)
-        window.show()
+        window.show()                           # grows out of its toolbar button (window_reveal)
         window.raise_()
         window.activateWindow()
         return window

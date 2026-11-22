@@ -5,7 +5,7 @@
 | **Category** | Modify Features > Divide |
 | **Type** | Map tool in the Modify Features pane (not a Processing algorithm) |
 | **Source** | `kga_tools/editor/modify/planarize.py` (PlanarizeTool) |
-| **Icon** | `kga_tools/icons/planarizeTool.png` |
+| **Icon** | `kga_tools/icons/editing/planarizeTool.png` |
 | **Also as a window** | [planarizelines](../planarizelines.md) (`kga:planarizelines`) |
 
 ## Overview

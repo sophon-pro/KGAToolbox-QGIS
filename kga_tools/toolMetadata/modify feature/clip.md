@@ -5,7 +5,7 @@
 | **Category** | Modify Features > Divide |
 | **Type** | Map tool in the Modify Features pane (not a Processing algorithm) |
 | **Source** | `kga_tools/editor/modify/clip.py` (ClipTool) |
-| **Icon** | `kga_tools/icons/clipFeatures.png` |
+| **Icon** | `kga_tools/icons/editing/clipFeatures.png` |
 | **Also as a window** | [clip_features](../clip_features.md) (`kga:clip_features`) |
 
 ## Overview

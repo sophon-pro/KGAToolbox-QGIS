@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:raster_format_converter` |
 | **Group** | KGA Data Conversion |
 | **Source** | `kga_tools/algorithms/raster_format_converter.py` |
-| **Icon** | `icons/rasterFormatConverter.png` |
+| **Icon** | `icons/conversion/rasterFormatConverter.png` |
 | **Type** | Batch algorithm |
 
 ## Overview

@@ -23,7 +23,7 @@ import zipfile
 SRC = 'kga_tools'
 OUT = 'kga_tools.zip'
 SKIP_DIRS = {'__pycache__', '.git'}
-SKIP_EXT = {'.pyc', '.pyo'}
+SKIP_EXT = {'.pyc', '.pyo', '.db'}
 
 
 def collect():

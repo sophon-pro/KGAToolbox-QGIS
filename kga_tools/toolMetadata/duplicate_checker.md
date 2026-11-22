@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:duplicate_checker` |
 | **Group** | KGA Geometry Utilities |
 | **Source** | `kga_tools/algorithms/duplicate_checker.py` |
-| **Icon** | `icons/checkDuplicate.png` |
+| **Icon** | `icons/quality_control/checkDuplicate.png` |
 | **Type** | Interactive dialog — modeless, needs the QGIS window |
 
 ## Overview
@@ -38,7 +38,7 @@ controls below are the window's.
 3. Choose the **Mode**: compare one field's values, or compare the geometries.
 4. In field mode, pick the **Field** to compare.
 5. Leave **Highlight Action** on `Select Duplicate Features` unless you
-   deliberately want the layer restyled â€” the symbolize option writes a field
+   deliberately want the layer restyled — the symbolize option writes a field
    and replaces your symbology.
 6. Press **Detect and Highlight Duplicates**. A message box gives the count.
 7. Open the attribute table filtered to the selection to see which records

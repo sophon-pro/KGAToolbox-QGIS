@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:spatialdatamanager` |
 | **Group** | KGA Data Management |
 | **Source** | `kga_tools/algorithms/GeoPackage_Data_Manager.py` |
-| **Icon** | `icons/spatialDataManager.png` |
+| **Icon** | `icons/data_management/spatialDataManager.png` |
 | **Type** | Interactive dialog — modeless, needs the QGIS window |
 
 ## Overview
@@ -80,13 +80,13 @@ window. The controls below are the window's.
 2. Set the **Target Database**: drag a `.gpkg`, `.gdb`, `.sqlite` or a shapefile
    folder onto the box from the Browser panel, or use **Browse Target**.
 3. Pick the tab for the job:
-   - **1. Delete Data** â€” filter the list, tick the layers, press **Delete
+   - **1. Delete Data** — filter the list, tick the layers, press **Delete
      Selected**. Copy the container first; this cannot be undone.
-   - **2. Rename Data** â€” type the new names into the second column and press
+   - **2. Rename Data** — type the new names into the second column and press
      **Apply Renames**.
-   - **3. Import Data** â€” drag layers or datasets onto the queue, or use **Add
+   - **3. Import Data** — drag layers or datasets onto the queue, or use **Add
      Data to Import List**, edit the *Import As* names, then **Run Import**.
-   - **4. Export Layers** â€” tick the project layers, leave **Export the styles
+   - **4. Export Layers** — tick the project layers, leave **Export the styles
      too** on, then **Export Checked Layers**.
 4. Read the summary box after each import or export before moving on.
 

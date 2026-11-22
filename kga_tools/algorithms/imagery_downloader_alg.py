@@ -95,9 +95,10 @@ def close_imagery_downloader():
     """Stop any running job and close the window on plugin unload."""
     global DIALOG_INSTANCE
     dialog, DIALOG_INSTANCE = DIALOG_INSTANCE, None
-    if dialog is None:
-        return
-    try:
-        dialog.shutdown()
-    except RuntimeError:                    # already destroyed by Qt
-        pass
+    if dialog is not None:
+        try:
+            dialog.shutdown()
+        except RuntimeError:                # already destroyed by Qt
+            pass
+    from ..core.imagery import job
+    job.shutdown_pools()

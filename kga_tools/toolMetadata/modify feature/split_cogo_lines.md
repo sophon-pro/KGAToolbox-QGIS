@@ -5,7 +5,7 @@
 | **Category** | Modify Features > COGO |
 | **Type** | Map tool in the Modify Features pane (not a Processing algorithm) |
 | **Source** | `kga_tools/editor/modify/split_cogo.py` (SplitCogoTool) |
-| **Icon** | `kga_tools/icons/splitCogoLines.png` |
+| **Icon** | `kga_tools/icons/editing/splitCogoLines.png` |
 | **Also as a window** | [split_into_cogo_lines](../split_into_cogo_lines.md) (`kga:split_into_cogo_lines`) |
 
 ## Overview

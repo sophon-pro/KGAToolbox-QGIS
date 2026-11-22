@@ -11,8 +11,10 @@ the pane only picks (layer, template, tool).
 import os
 import re
 from contextlib import suppress
+from functools import partial
 
 from qgis.core import QgsProject, QgsSettings, QgsSymbolLayerUtils
+from ...gui.panel_bubble import ToolbarReveal
 from qgis.gui import QgsDockWidget
 from qgis.PyQt import sip
 from qgis.PyQt.QtCore import QSize, Qt, QTimer, pyqtSignal
@@ -120,7 +122,7 @@ class TemplateRow(QFrame):
     propertiesRequested = pyqtSignal(object)
     menuRequested = pyqtSignal(object, object)  # row, global position
 
-    def __init__(self, layer, tmpl, parent=None):
+    def __init__(self, layer, tmpl, parent=None, pixmap=None):
         super().__init__(parent)
         self.layer = layer
         self.tmpl = tmpl
@@ -139,7 +141,7 @@ class TemplateRow(QFrame):
         top = QHBoxLayout()
         top.setSpacing(8)
         self.swatch = QLabel(self)
-        self.swatch.setPixmap(symbol_pixmap(tmpl.symbol))
+        self.swatch.setPixmap(pixmap if pixmap is not None else symbol_pixmap(tmpl.symbol))
         self.swatch.setFixedSize(SWATCH + 2, SWATCH + 2)
         self.label = QLabel(tmpl.title, self)
         self.label.setToolTip(self._tip())
@@ -288,7 +290,7 @@ class TemplateList(QScrollArea):
             if collapsed:
                 continue
             for layer, tmpl in items:
-                row = TemplateRow(layer, tmpl, self.body)
+                row = TemplateRow(layer, tmpl, self.body, self.panel.swatch(tmpl))
                 row.picked.connect(self.panel.row_picked)
                 row.toolChosen.connect(self.panel.row_tool_chosen)
                 row.propertiesRequested.connect(self.panel.row_properties)
@@ -298,7 +300,7 @@ class TemplateList(QScrollArea):
         self.vbox.addStretch(1)
 
 
-class CreateFeaturesPanel(QgsDockWidget):
+class CreateFeaturesPanel(ToolbarReveal, QgsDockWidget):
 
     templateActivated = pyqtSignal(object, object, str)    # layer, template, tool id
     templateReleased = pyqtSignal()                        # the picked template went away
@@ -315,6 +317,14 @@ class CreateFeaturesPanel(QgsDockWidget):
         self.favorites = set(load_favorites())
         self._watched = set()
         self._templates = {}                         # key -> (layer, template), of the last rebuild
+        # Rebuilding the list draws one swatch per template and builds one row per template; in a big
+        # project that is a few hundred milliseconds, and it used to run on every layer added, renamed,
+        # restyled or switched on / off - with the pane closed too. So: a closed pane only notes that it
+        # is out of date (_stale) and rebuilds when it is shown, and the swatches are kept (_swatches)
+        # until their layer's symbology changes.
+        self._stale = False
+        self._swatches = {}                          # template key -> (symbol fingerprint, QPixmap)
+        self._forgetters = {}                        # layer id -> the slot connected to its style signals
         settings = QgsSettings()
         self.group_by = settings.value(SETTINGS + "group_by", "layer")
         self.show_filter = settings.value(SETTINGS + "show", "all")
@@ -325,7 +335,7 @@ class CreateFeaturesPanel(QgsDockWidget):
         self._timer = QTimer(self)
         self._timer.setSingleShot(True)
         self._timer.setInterval(80)
-        self._timer.timeout.connect(self.refresh)
+        self._timer.timeout.connect(self._scheduled_refresh)
 
         self._build_ui()
         project = QgsProject.instance()
@@ -467,11 +477,49 @@ class CreateFeaturesPanel(QgsDockWidget):
     def _schedule(self, *_args):
         self._timer.start()
 
+    def _scheduled_refresh(self):
+        """The project changed. A pane nobody is looking at is not rebuilt now (see __init__)."""
+        if not self.isHidden():                            # open (or its window is not up yet)
+            self.refresh()
+            return
+        self._stale = True
+        if self.picked_key is not None:                    # a template in use must still let go when it is gone
+            self._templates = {t.key: (layer, t) for layer, t in self._all_templates()}
+            if self.picked_key not in self._templates and not self._project_has(self.picked_key):
+                self._release_if_gone(self.picked_key)
+
+    def showEvent(self, event):  # noqa: N802 - Qt virtual
+        if self._stale:
+            self.refresh()                                 # before the first paint (and before an opening animation)
+        super().showEvent(event)
+
+    def swatch(self, tmpl):
+        """The picture of a template's symbol, drawn once and kept until the symbology changes."""
+        symbol = tmpl.symbol
+        mark = ""
+        with suppress(Exception):
+            mark = symbol.dump() if symbol is not None else ""
+        kept = self._swatches.get(tmpl.key)
+        if kept is not None and kept[0] == mark:
+            return kept[1]
+        pixmap = symbol_pixmap(symbol)
+        self._swatches[tmpl.key] = (mark, pixmap)
+        return pixmap
+
+    def _forget_swatches(self, layer_id, *_args):
+        prefix = layer_id + "::"
+        for key in [k for k in self._swatches if k == layer_id or k.startswith(prefix)]:
+            del self._swatches[key]
+
     def _layers_removed(self, layer_ids):
         self._watched.difference_update(layer_ids)
+        for layer_id in layer_ids:
+            self._forget_swatches(layer_id)
+            self._forgetters.pop(layer_id, None)
         self._schedule()
 
     def _project_cleared(self):
+        self._swatches = {}
         self.favorites = set()
         self._release_if_gone(None)
         self._schedule()
@@ -489,6 +537,9 @@ class CreateFeaturesPanel(QgsDockWidget):
         self._watched.add(layer.id())
         for signal in (layer.rendererChanged, layer.nameChanged, layer.editingStopped):
             signal.connect(self._schedule)
+        forget = self._forgetters[layer.id()] = partial(self._forget_swatches, layer.id())
+        for signal in (layer.rendererChanged, layer.styleChanged, layer.repaintRequested):
+            signal.connect(forget)                         # any of these may mean a new symbol
 
     @staticmethod
     def _layer_visible(layer, root=None):
@@ -554,6 +605,7 @@ class CreateFeaturesPanel(QgsDockWidget):
     def refresh(self):
         if self.stack.currentIndex() == 1 and self.properties.editing:
             return                                         # do not pull the page away under the user
+        self._stale = False
         everything = self._all_templates()
         self._templates = {t.key: (layer, t) for layer, t in everything}
         favorites_tab = self.tabs.currentIndex() == 1
@@ -700,5 +752,11 @@ class CreateFeaturesPanel(QgsDockWidget):
                 for signal in (layer.rendererChanged, layer.nameChanged, layer.editingStopped):
                     with suppress(TypeError, RuntimeError):
                         signal.disconnect(self._schedule)
+                forget = self._forgetters.get(layer_id)
+                if forget is not None:
+                    for signal in (layer.rendererChanged, layer.styleChanged, layer.repaintRequested):
+                        with suppress(TypeError, RuntimeError):
+                            signal.disconnect(forget)
+        self._forgetters = {}
         self._watched = set()
         self._timer.stop()

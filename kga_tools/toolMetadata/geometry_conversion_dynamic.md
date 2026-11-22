@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:geometry_conversion_dynamic` |
 | **Group** | KGA Geometry Utilities |
 | **Source** | `kga_tools/algorithms/geometry_conversion.py` |
-| **Icon** | `icons/alg_geometry.png` |
+| **Icon** | `icons/conversion/alg_geometry.png` |
 | **Type** | Interactive dialog — modeless, needs the QGIS window |
 
 ## Overview
@@ -33,7 +33,7 @@ controls below are the window's; the option rows shown change with the mode.
 | **Selected features only** | Checkbox | unticked | Convert just the current selection. |
 | **Remove duplicate geometries** | Checkbox | unticked | Drops repeats — useful for boundary segments shared by two parcels, which otherwise come out twice. |
 | **Add geometry fields (XY/LatLon or Length)** | Checkbox | **ticked** | Adds coordinate fields to point output, and `length_m` to line output. |
-| **Store Output In** | Combo box | `Temporary layer` | `Temporary layer` (in memory, nothing on disk), `Folder (ESRI Shapefile)`, `GeoPackage (.gpkg)`, `File Geodatabase (.gdb)`. |
+| **Store Output In** | Combo box | `Temporary layer` | `Temporary layer` (in memory, nothing on disk), `Folder (ESRI Shapefile)`, `GeoPackage (.gpkg)`, `File Geodatabase (.gdb)`, `Append to existing layer`. Appending adds the result to a point layer (or a line layer for *Polygon → Two-Point Lines*) you choose in **Append To Layer**. Values go into fields with the same name; fields the layer lacks are skipped and listed afterwards. Geometry is converted to the layer's CRS, and the layer's own ID is assigned by the layer. |
 | **Folder / Database** | File widget | empty | The folder or container. Not used for a temporary layer. |
 | **Output Name** | Text | derived from the input | The shapefile base name, or the layer name inside the container. |
 | **Run Conversion** | Button | — | Runs it. A progress bar reports the pass. |
@@ -44,7 +44,7 @@ controls below are the window's; the option rows shown change with the mode.
    window once the pane appears.
 2. Pick the **Input Layer** and the **Conversion Mode**. The option rows below
    change to match the mode.
-3. Set the options that matter for that mode â€” **Include holes** for the polygon
+3. Set the options that matter for that mode — **Include holes** for the polygon
    modes, **Point Method** for central points, **Remove duplicate geometries**
    when neighbouring polygons share boundaries.
 4. Choose **Store Output In**. Start with `Temporary layer` to check the result;

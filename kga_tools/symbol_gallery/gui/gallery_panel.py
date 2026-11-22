@@ -9,7 +9,7 @@ from contextlib import suppress
 import os
 from collections import Counter
 
-from qgis.PyQt.QtCore import Qt, QSize, QTimer, QUrl, QItemSelectionModel
+from qgis.PyQt.QtCore import Qt, QSize, QTimer, QUrl, QItemSelectionModel, pyqtSignal
 from qgis.PyQt.QtGui import QDesktopServices, QColor
 from qgis.PyQt.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QComboBox,
@@ -129,16 +129,18 @@ class GalleryPanel(QWidget):
 
     *layer* pins the panel to one layer (Layer Properties / Layer Styling tab): it then
     ignores the Layers panel selection and shows its messages in a status line.
-    *live*: a pinned panel that applies at once (Layer Styling panel).
+    A pinned panel defers: its host's Apply / OK buttons apply (`changed` tells the
+    host something is waiting).
     """
 
-    def __init__(self, iface, parent=None, layer=None, live=False):
+    changed = pyqtSignal()      # a pick or an edit is waiting for the host's Apply
+
+    def __init__(self, iface, parent=None, layer=None):
         super().__init__(parent)
         self.iface = iface
         self._pinned = layer is not None
-        # Layer Properties: edits wait for the dialog's Apply / OK (the Layer Styling
-        # panel is *live*: it keeps the gallery's own Apply button and live edits)
-        self._deferred = self._pinned and not live
+        # Layer Properties / Layer Styling: edits wait for the host's Apply / OK
+        self._deferred = self._pinned
         self._pin_layer = layer
         self._picked = False
         self.settings = QgsSettings()
@@ -773,6 +775,9 @@ class GalleryPanel(QWidget):
     def _on_current_changed(self):
         e = self.current_entry()
         has = e is not None
+        # the info card appears once a symbol is selected (and compact layout is off)
+        compact = hasattr(self, "act_compact") and self.act_compact.isChecked()
+        self.card.setVisible(has and not compact)
         self.save_btn.setEnabled(has)
         self.act_copy.setEnabled(has and not e.is_ramp)
         self.act_save_vis.setEnabled(bool(self.model.rowCount()))
@@ -1295,6 +1300,11 @@ class GalleryPanel(QWidget):
 
     def _mark_picked(self):
         self._picked = True
+        self.notify_pending()
+
+    def notify_pending(self):
+        if self._deferred:
+            self.changed.emit()
 
     def _on_clicked(self, index):
         if self.auto_apply.isChecked() and index.isValid():
@@ -1317,6 +1327,7 @@ class GalleryPanel(QWidget):
         if self._deferred and (not e.is_ramp or dem):
             # Layer Properties: adjust first; its Apply / OK button applies the result
             self._open_page(e, layer, dem, dirty=True)
+            self.notify_pending()
             return
         if not e.is_ramp:
             self._apply_symbol_flow(e, layer, quiet)
@@ -1496,7 +1507,7 @@ class GalleryPanel(QWidget):
     def _set_compact(self, on):
         """Compact layout: the info card is hidden, thumbnails get all the room."""
         self.settings.setValue(SETTINGS + "compact", bool(on))
-        self.card.setVisible(not on)
+        self.card.setVisible(not on and self.current_entry() is not None)
 
     def dem_mode(self):
         m = self.settings.value(SETTINGS + "dem_popup", "after")

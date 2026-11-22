@@ -1,6 +1,8 @@
 # KGA Editor
 
 The second KGA toolbar: **Edit Session**, **Create Features**, **Modify Features** and **Open Feature Attribute** in one place.
+**Quick Labeling** and **Quick Symbology** (below; their code still lives here) moved to the **KGA Layer** toolbar in
+1.1.0 (`gui/layer_toolbar.py`), beside the Layer Bag and the Bags.
 Needs QGIS 3.44 or newer; on older QGIS the rest of KGA Toolbox works and this toolbar is
 simply not added (the reason is written to the KGA Toolbox log).
 
@@ -76,7 +78,7 @@ the same tab group as the Processing Toolbox and Catalog.
   on the map. Click another tool to switch (an unfinished sketch is discarded). The pane does not
   change the active layer: it draws on the template's layer.
 * **Tools**: Point | Line, Right Angle Line, Freehand Line | Polygon, Rectangle, Right Angle Polygon,
-  Circle, Ellipse, Freehand Polygon. Rectangle and Circle take two clicks, Ellipse three (centre, end
+  Circle, Ellipse, Freehand Polygon. Rectangle has Horizontal / Grid Aligned (two clicks, default) and Square toggles; with Horizontal off it takes a side then its width. Circle takes two clicks, Ellipse three (centre, end
   of the major axis, minor axis); they finish by themselves. Right Angle makes every segment after
   the first turn exactly 90 degrees. Freehand: press, drag, release.
 * **Right-click on the map** keeps the construction menu: Parallel, Perpendicular, Perpendicular to
@@ -85,6 +87,18 @@ the same tab group as the Processing Toolbox and Catalog.
   Enter or F2 finishes; Backspace undoes a vertex; Esc clears a constraint or deletes the sketch.
   Rectangle, Circle and Ellipse offer Absolute X,Y, Delta X,Y and Direction/Distance (Circle also
   Distance for an exact radius).
+* **Sketch toolbar**: while a template's tool is armed, a dark toolbar floats over the map at the
+  centre of the bottom edge (the gear at its corner moves it to the top, left or right edge; the
+  choice is remembered). Lines and polygons: **Straight Segment** | **construction** list (Right
+  Angle, Intersection, Line-Circle, Circle-Circle, Midpoint) | **curve** list (Bezier, Tangent Curve, End Point Arc, Three-Point
+  Arc) | **Trace** button | **Pointer** (add vertices, drag one to move it) and **Move Sketch**
+  (drag the whole sketch) | **Finish** and **Cancel**. A button with a small arrow opens its list; the
+  method you pick becomes the button's face. Points get Point and the constructions only; Rectangle,
+  Ellipse get Finish and Cancel only; Circle adds two buttons, Centre and Radius (default) and Three-Point Circle. Intersection takes two lines (click an edge, or click a point and move to aim the line; the blue dot
+  previews the vertex), Line-Circle a line and a circle (click its centre, move to set the radius), Circle-Circle two circles; the vertex goes at the hit nearest the cursor. Midpoint: click the two ends of a segment (a dashed line and a blue dot follow the cursor) and the vertex goes at its middle. Bezier: press at the next vertex and drag to pull its handle (the next curve leaves along
+  it). Three-Point Arc: click a point on the arc, then the end - or press at the end point and drag to bow the curve. End Point Arc: click the end, then move to set the bow and click; R types a radius. Trace follows the
+  edges of the lines and polygons on the map. Esc or a right-click drops a construction or arc that is
+  waiting for its next click.
 * **Green strip** "Create <layer> completed" after each new feature; the X dismisses it.
 * **Search, filter, view** (top row): search by template, layer, description or tag; the funnel
   shows all templates or one geometry type; the view button groups by
@@ -112,13 +126,13 @@ Details
 ## Modify Features
 
 A docked pane in the style of ArcGIS Pro's Modify Features: a search box, **All Tools** and **Favorites**
-tabs, and collapsible categories of icon tiles. The button follows the Edit Session switch like Create
+tabs, and collapsible categories of icon tiles (a grid, or a list with the buttons at the right of the tabs). The button follows the Edit Session switch like Create
 Features, and the pane opens in the same tab group on the right.
 
-* **30 tools** in six categories: Alignment (Move, Rotate, Scale, Move To), Reshape (Edit Vertices, Reshape,
+* **32 tools** in six categories: Alignment (Move, Rotate, Scale, Move To), Reshape (Edit Vertices, Reshape,
   Replace Geometry, Extend or Trim, Fillet, Generalize, Line Intersection, Reverse Direction, Change Line
   Length), Divide (Split, Divide, Clip, Explode, Planarize), Construct (Merge, Buffer, Copy Parallel,
-  Construct Polygons, Offset, Copy Paste), Attributes (Sequential Numbering, Transfer Attributes) and COGO
+  Construct Polygons, Offset, Points On Line, Points On Polygon Boundary, Copy Paste), Attributes (Sequential Numbering, Transfer Attributes) and COGO
   (Traverse, Update COGO, Cul-de-sac, Split Into COGO Lines).
 * **Click a tile** to open the tool inside the pane (options, buttons, a back arrow) and arm its map tool.
   Pages that act on a selection show a **Change the selection.** banner and the list of selected features.
@@ -159,6 +173,104 @@ Create Features. It does not depend on the Edit Session switch.
 
 _Not affiliated with or endorsed by Esri. ArcGIS is a trademark of Esri._
 
+## Quick Labeling
+
+One button on the KGA Layer toolbar, right after Layer Bag, that labels the active layer with a single field.
+
+* **Click** to switch it on: the active layer is labelled with a random field (a text field when there
+  is one) using the font, size and colour you used last.
+* **Layer list.** The window opens with a **Layer** checkbox and list above Field (untick the checkbox to hide the
+  list; the window still follows the Layers panel, and the choice is remembered). With Map Tabs on, the list holds only the layers of the map you are on, not those of the
+  other maps. It follows the layer selected in the
+  Layers panel (a layer that has no label yet is shown greyed out; selecting a layer never labels it by itself).
+  Pick another layer in the list to quick-label it without selecting it in the panel; the window then edits
+  that layer. A layer whose labels come from Layer Properties or Callout Label Studio is not replaced: its
+  settings stay greyed out until you turn those labels off.
+* **The button is a switch for the layer's labels, whoever set them.** It is pressed whenever the active
+  layer shows labels - from this button, from Layer Properties > Labels (or the Layer Styling panel) or from
+  Callout Label Studio - and it follows them when they are switched on or off there. **Click while it is
+  pressed** to turn the labels off: a quick label gives back the labels the layer had before; labels from
+  Layer Properties or Callout Label Studio are only switched off and their settings stay on the layer, so
+  you can turn them on again in the Labels tab. A Callout Label Studio panel that is open is told the
+  labels were removed on purpose and does not put them back. Click once more for a quick label.
+* **Right-click, only while a quick label is on**, opens a small window: the **field** (or the ε button to write an
+  expression), **font**, **style** (default Regular), **size** and **colour**, and a **Halo** row (tick the box, then
+  choose the halo size and colour; white, 1 pt by default; off until you tick it), then a **Position**
+  drop-down whose choices follow the layer's geometry: points (Around point, Above, Below, Left, Right,
+  Over point, Cartographic), lines (Parallel, Above line, Below line, On line, Curved, Horizontal) and
+  polygons (Around centroid, Over centroid, Horizontal, Free (angled), Along perimeter, Outside polygon).
+  Below it, **Offset** (in points) pushes the label away from the feature; it is greyed out for positions
+  with nothing to offset (Over point, On line, Horizontal, Free, Over centroid).
+  Point layers also get **Offset X** and **Y** (points; X right, Y up) to shift a label placed Above, Below,
+  Left, Right or Over the point; they add to the Offset and are greyed out for Around point and Cartographic.
+  A **Drop shadow** box at the bottom adds a soft black text shadow (1.5 pt, blur 1.5 pt, 70 % opacity, 135°)
+  for any geometry; it is remembered (`kga_editor/quick_label_shadow`).
+  The last choice is remembered separately for points, lines and polygons. Every change applies to
+  the layer as you make it; there is no OK button.
+* **Numbers.** When the chosen field is numeric, four boxes appear under it: **Round to 2 decimals**,
+  **Thousand separator** (commas: 9999.00 becomes 9,999.00; the decimals are fixed at 2 when Round is also
+  ticked, otherwise the number keeps its own),
+  **Add length unit** (drop-down: m by default, km, ft, mi) and **Add area unit** (m² by default, km², ha,
+  ft², yd², ac, mi²). Each drop-down is enabled only while its box is ticked, and the two exclude each other. The boxes also
+  follow the layer: a line layer greys out the area unit, a polygon layer greys out the length unit, a point
+  layer greys out both (a box that is already ticked stays enabled so it can be unticked).
+  The number is converted to the unit first, taking the field to be in metres (length) or square metres (area),
+  as Shape_Length / Shape_Area are; e.g. km shows value x 0.001. Tick any of them and
+  the label expression is written into the **Field box** for you - for example
+  `round("Shape_Area",2)||'m'||char(178)` - so the expression button opens with it and there is nothing to
+  type. Untick everything and the plain field comes back. An empty value shows no label, not a lone unit. If
+  you edit the expression yourself in the expression builder, the boxes let go (they untick) and your
+  expression is kept. The boxes are hidden for text fields; picking another numeric field applies the same
+  ticks to it. Reopening the window shows the expression and the ticks.
+  The superscript 2 is `char(178)` (the character ²). Use a Unicode font for the label: a legacy-encoded
+  Khmer font such as Khmer MEF1 draws its own symbol for that character, so the label shows a stray letter
+  instead of the 2.
+* The button follows the active layer, so each layer keeps its own state, and the window follows you to
+  the next layer that has a quick label. Right-clicking while the labels are not a quick label only explains
+  how to get one.
+* It works whether Edit Session is On or Off, and never edits data. Layers without attributes (and tables
+  or rasters) cannot be labelled, so the button is greyed out for them.
+* It is an ordinary single-label setting, so Layer Properties > Labels shows and can refine it. A layer
+  saved in a project reopens with the button pressed; switching off then simply turns its labels off.
+
+## Quick Symbology
+
+A button right after Quick Labeling (palette icon) that restyles the layer selected in the Layers panel
+in a small window. Changes apply as you make them; there is no OK button. Click the button again to close
+the window, which follows the active layer.
+
+* **Layer list** at the top, like Quick Labeling's: it follows the layer selected in the Layers panel, and picking
+  another layer there restyles that layer without selecting it in the panel. Untick the **Layer** checkbox to hide
+  the list (the window still follows the panel; the choice is remembered).
+  With Map Tabs on it lists only the layers of the current map.
+* **Single symbol** (the layer's normal state): **Fill Color**, **Outline Color**, **Outline width** (in
+  points) and a **Preview** of the symbol. Line layers show just Color and Width.
+* **Unique Value symbol** switch: turns the layer into one class per value of a field. The window shows the
+  **Field** (or the ε button to write an expression), a **Color Scheme**, and the classes as Class | Value |
+  Label. Switching it off gives back the single symbol the layer had.
+  * The green **+** opens **Select values to add**: the values that are not classes yet, each with the colour
+    it would get. Pick some (Ctrl or Shift for several) and press **Add**: they become classes and the window returns to
+    the class list. The back arrow returns without adding anything. **Options** can select all, clear the
+    selection, or add every value.
+  * The blue **down** and **up** arrows move the selected classes. **All other values** is always last and
+    cannot be moved or removed. Delete (or the right-click menu) removes the selected classes.
+  * Double-click a label to rename it, or a swatch to edit that class's symbol.
+* **Editing one class**: when the layer already uses unique values and you select one of its classes in the
+  Layers panel, the button opens the window straight on that class's symbol (fill, outline, width, preview);
+  the back arrow returns to the class list.
+* **Drop shadow** checkbox (under the preview, and under the class list): draws a soft shadow under the whole
+  layer's shapes, the same effect as Layer Properties > Symbology > Draw effects. It keeps working when you
+  switch between single symbol and unique values or change the field. A drop shadow you already set up in Layer
+  Properties keeps its settings. It is not shown while editing one class or choosing values to add.
+* **Symbol Bag** button (right of the colour buttons on the single-symbol page): opens the Symbol Bag and
+  hands it this window's layer, or the class being edited. Double-click a symbol in the bag and it is applied there
+  (not to whatever is selected in the Layers panel) and shown here at once. Closing this window releases the bag.
+* Up to 100 classes are made automatically; if the field has more values, the rest are added with +.
+* A layer drawn with another renderer (graduated, rule-based ...) is not changed until you either turn
+  Unique Value symbol on or press **Use a single symbol**. Symbols built from layers other than simple
+  fill, marker or line only take a fill colour here; use Layer Properties for the rest.
+* It works whether Edit Session is On or Off, and never edits data.
+
 ## Stand-alone plugins
 
 If the stand-alone **Edit Session** or **Construction Sketch** plugin is installed, KGA Toolbox
@@ -171,10 +283,13 @@ bar. Uninstall the stand-alone plugin(s) to use the KGA Editor.
   dialogs), `manager.py` (edit-mode bookkeeping, no UI), `selection.py`, `edit_tools.py`,
   `follow.py` (layer under the mouse), `advanced.py` (drop-down groups), `sketch/` (the construction map
   tool), `modify/` (Modify Features: `controller.py` button and pane docking, `panel.py` tiles, `tools.py` the tool list, `favorites.py`, one module per tool family), `overlap_switcher.py` (the switch-selection popup),
-  `create/` (Create Features: `controller.py` button and docking, `panel.py` pane, `templates.py`
+  `create/` (Create Features: `controller.py` button and docking, `sketch_toolbar.py` floating sketch toolbar, `panel.py` pane, `templates.py`
   templates from the symbology + saved edits, `tools.py` tool list, `properties.py` template
   properties page), `attributes/`
-  (Open Feature Attribute: `panel.py` pane, `fields.py` model/editors, `geometry.py`, `select_tool.py`).
+  (Open Feature Attribute: `panel.py` pane, `fields.py` model/editors, `geometry.py`, `select_tool.py`),
+  `quicksymbol/` (Quick Symbology: `engine.py` renderer logic, `dialog.py` the window and its three pages,
+  `widgets.py` switch and preview, `controller.py` the button),
+  `quicklabel/` (Quick Labeling: `engine.py` labeling logic, `dialog.py` the small window, `controller.py` the button).
 * Loaded by `kga_plugin.py: init_editor`, wrapped so a failure never stops the rest of KGA Toolbox.
 * QSettings group `kga_editor/`; layer custom properties `edit_session/editable` and
   `edit_session/selectable` keep the stand-alone plugin's names on purpose. Create Features stores

@@ -18,9 +18,10 @@ import os
 from contextlib import suppress
 
 from qgis.PyQt.QtCore import Qt, QTimer
-from qgis.PyQt.QtGui import QIcon
+from ...branding import themed_icon
 from qgis.PyQt.QtWidgets import QDockWidget
 
+from ...gui import panel_bubble
 from .buffer import TOOL_CLASSES as BUFFER_TOOLS
 from .clip import TOOL_CLASSES as CLIP_TOOLS
 from .cogo import COMMAND_PAGES as COGO_COMMAND_PAGES
@@ -40,7 +41,9 @@ from .reshape import COMMAND_PAGES as RESHAPE_COMMAND_PAGES
 from .reshape import TOOL_CLASSES as RESHAPE_TOOLS
 from .split import TOOL_CLASSES as SPLIT_TOOLS
 from .split_cogo import TOOL_CLASSES as SPLITCOGO_TOOLS
+from .along_line import TOOL_CLASSES as ALONGLINE_TOOLS
 from .culdesac import TOOL_CLASSES as CULDESAC_TOOLS
+from .polygon_points import TOOL_CLASSES as POLYGONPOINTS_TOOLS
 from .traverse import TOOL_CLASSES as TRAVERSE_TOOLS
 from .update_cogo import TOOL_CLASSES as UPDATECOGO_TOOLS
 from .tools import all_tools
@@ -52,7 +55,8 @@ TOOL_CLASSES = {**ALIGNMENT_TOOLS, **RESHAPE_TOOLS, **TRANSFER_TOOLS, **COGO_TOO
                 **PLANARIZE_TOOLS, **MERGE_TOOLS, **BUFFER_TOOLS,
                 **PARALLEL_TOOLS, **POLYGON_TOOLS, **OFFSET_TOOLS, **COPYPASTE_TOOLS,
                 **NUMBERING_TOOLS, **SPLITCOGO_TOOLS,
-                **TRAVERSE_TOOLS, **UPDATECOGO_TOOLS, **CULDESAC_TOOLS}
+                **TRAVERSE_TOOLS, **UPDATECOGO_TOOLS, **CULDESAC_TOOLS,
+                **ALONGLINE_TOOLS, **POLYGONPOINTS_TOOLS}
 COMMAND_PAGES = {**RESHAPE_COMMAND_PAGES, **COGO_COMMAND_PAGES}
 
 #: tile id -> (module in kga_tools.algorithms, the window class that algorithm opens)
@@ -60,7 +64,7 @@ EMBEDDED = {
 }
 PACKAGE = __package__.rsplit(".", 2)[0]         # kga_tools
 
-ICON = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "icons", "modifyFeature.png"))
+ICON = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "icons", "editing/modifyFeature.png"))
 
 
 class ModifyFeaturesController:
@@ -93,11 +97,13 @@ class ModifyFeaturesController:
 
         self.action = self.panel.toggleViewAction()
         self.action.setObjectName("mActionKgaModifyFeatures")
-        self.action.setIcon(QIcon(ICON))
+        self.action.setIcon(themed_icon(ICON))
         self.action.setText(TITLE)
         self.action.setToolTip("Modify Features (needs Edit Session: On) - move, reshape, split, merge ... "
                                "existing features")
         self.action.triggered.connect(self._toggled)
+        panel_bubble.attach_reveal(self.panel, self.action, 'modify_features', 'Modify Features – click to open',
+                                   panel_bubble.file_glyph('bubble/modify_features.png'))
         self.panel.toolRequested.connect(self._run_tool)
         self.panel.backRequested.connect(self.back)
         self.panel.closed.connect(self._pane_closed)

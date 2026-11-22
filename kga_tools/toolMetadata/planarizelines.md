@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:planarizelines` |
 | **Group** | KGA Editing Tools |
 | **Source** | `kga_tools/algorithms/planarize_line.py` |
-| **Icon** | `icons/planarizeTool.png` |
+| **Icon** | `icons/editing/planarizeTool.png` |
 | **Type** | Batch algorithm (runs on the GUI thread — the in-place branch writes into a project layer) |
 
 ## Overview

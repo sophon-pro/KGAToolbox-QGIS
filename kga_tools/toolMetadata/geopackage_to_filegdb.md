@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:geopackage_to_filegdb` |
 | **Group** | KGA Data Conversion |
 | **Source** | `kga_tools/algorithms/gdb_gpkg.py` (engine in `kga_tools/core/gdb_convert.py`) |
-| **Icon** | `icons/alg_gpkg_to_gdb.png` |
+| **Icon** | `icons/conversion/alg_gpkg_to_gdb.png` |
 | **Type** | Batch algorithm |
 
 ## Overview

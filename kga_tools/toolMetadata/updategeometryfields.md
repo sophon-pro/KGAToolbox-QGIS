@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:updategeometryfields` |
 | **Group** | KGA Geometry Utilities |
 | **Source** | `kga_tools/algorithms/update_geometry_tool.py` |
-| **Icon** | `icons/updateGeomFields.png` |
+| **Icon** | `icons/data_management/updateGeomFields.png` |
 | **Type** | Batch algorithm with **no parameters** — acts on the active layer |
 
 ## Overview

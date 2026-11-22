@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:callout_label_studio` |
 | **Group** | KGA Mapping |
 | **Source** | `kga_tools/algorithms/callout_label_studio_alg.py` (window in `kga_tools/gui/callout_label_dialog.py`, engine in `kga_tools/core/callout_studio/`) |
-| **Icon** | `icons/calloutLabelStudio.png` |
+| **Icon** | `icons/mapping/calloutLabelStudio.png` |
 | **Type** | Interactive dialog — modeless, needs the QGIS window |
 
 ## Overview

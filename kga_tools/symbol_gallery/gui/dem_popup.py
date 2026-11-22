@@ -213,6 +213,7 @@ class DemQuickPopup(QWidget):
         hs.save(self._read())
         self.dock.act_hillshade.setChecked(self.hillshade.isChecked())
         self.dirty = True
+        self.dock.notify_pending()
         if self.mode == "after":
             self._timer.start()
 

@@ -138,13 +138,23 @@ class GeometryWidget(QWidget):
         return text
 
     # ------------------------------------------------------------------ target
-    def set_target(self, layer, fids):
+    def set_target(self, layer, fids, build=True):
+        """Show the geometry of one feature. With build=False the page only remembers the feature
+        and fills its table when `ensure_built()` is called (the tab is opened)."""
         self._pending.clear()
         self.clear_marker()
         self.layer = layer
         self.copy_button.setEnabled(False)
         self.fid = fids[0] if len(fids) == 1 else None
         self._geometry = None
+        self._unbuilt = False
+        if not build and layer is not None and self.fid is not None and layer.isSpatial():
+            self._building = True
+            self.tree.clear()
+            self._building = False
+            self.summary.setText("")
+            self._unbuilt = True
+            return
         self._building = True
         self.tree.clear()
         self._building = False
@@ -165,10 +175,15 @@ class GeometryWidget(QWidget):
         self._decimals = 8 if layer.crs().isGeographic() else 3
         self._rebuild()
 
+    def ensure_built(self):
+        """Fill the table now if `set_target(..., build=False)` left it for later."""
+        if getattr(self, '_unbuilt', False) and self.layer is not None and not sip.isdeleted(self.layer):
+            self.set_target(self.layer, [self.fid])
+
     def refresh_from_layer(self):
         """The feature changed underneath us (undo, other tool): read it again."""
         if self.layer is not None and self.fid is not None and not sip.isdeleted(self.layer):
-            self.set_target(self.layer, [self.fid])
+            self.set_target(self.layer, [self.fid], build=not getattr(self, '_unbuilt', False))
 
     # ------------------------------------------------------------------ tree
     def _rebuild(self):

@@ -44,6 +44,7 @@ from qgis.PyQt.QtWidgets import (
     QWidget,
 )
 
+from .window_reveal import revealed_preview
 from ..branding import LOG_TAG
 from ..core import data_paste as dp
 from ..core import project_analysis as pa
@@ -80,6 +81,7 @@ def default_author():
     return os.environ.get('USERNAME') or os.environ.get('USER') or ''
 
 
+@revealed_preview
 class ShareWorkspaceDialog(QDialog):
 
     def __init__(self, project, project_file, workspace, parent=None, extent=None,

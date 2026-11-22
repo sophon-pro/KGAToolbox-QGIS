@@ -11,12 +11,38 @@ It adds the things QGIS leaves out:
   WorldCover) straight into the project, showing publisher, licence and size
   first. Imagery Downloader stitches web-map tiles for an area into one
   georeferenced GeoTIFF, JPEG, PNG or JPEG 2000 and resumes after an
-  interruption. Generate Contour for ROI and Generate River or Stream for ROI (see
+  interruption. Satellite Imagery Archive (in the same toolbar
+  drop-down) searches free Sentinel-2, Landsat, OpenAerialMap and STAC archives by
+  date and cloud cover and downloads only your area. Generate Contour for ROI and Generate River or Stream for ROI (see
   Irrigation) download the free Copernicus DEM the same way. For Cambodia, a
   **KGA Database** source adds province, district, commune and village boundaries and
   centres from a private KGA data release. Clip Basemap by Boundary shows a
-  basemap only inside a boundary. These tools, Check for Update and the
+  basemap only inside a boundary, and Zoom to Location takes the map to a
+  continent, country, province, district, commune or village (or typed
+  coordinates). These tools, the two Detect tools, Check for Update and the
   KGA Database are the only ones that use the network, and only when asked.
+- **Layer Bag** - a small floating panel that follows the layer selected in the Layers panel: its
+  attribute table (loads as you scroll, sorts and filters, in step with the map selection), fields with
+  + New field, statistics of a field, labels, and the Layer Colors wheel to recolour it live. It leads the
+  **KGA Layer** toolbar, which also holds Quick Labeling, Quick Symbology and the four bags, one button each (Ctrl+Alt+L).
+- **Vertices and Nodes** - ArcGIS Pro's vertex and node display for the map: grey squares on vertices, magenta circles on
+  nodes where features connect or cross, optional midpoints. Switch it from the status bar (left of the coordinates), the map's
+  right-click menu or Settings > Editor; it is computed in a background thread so the map stays smooth.
+- **Grid** - ArcGIS Pro's map grid: lines at a chosen spacing (m, ft or map units) and rotation, in the status bar
+  (left of the coordinates) and on the map's right-click menu. The button toggles it; its arrow opens the spacing / rotation panel, whose **Grid Settings...**
+  opens Settings > Editor. The spacing scales itself by 10 when the lines would crowd.
+- **Label Bag** - the Layer Bag's labels on their own: a small floating bag that labels the layer
+  selected in the Layers panel (field, font, size, colour, buffer, placement), on the KGA Layer toolbar; it
+  minimizes into a bubble in the bags' column.
+- **Tool Bag** - a floating bag of your favourite QGIS tools (from any toolbar, menu or Processing)
+  that shrinks into a bubble on the map and opens back out when you click it. List or grid
+  layout in up to three columns, nine designs, on the KGA Layer toolbar.
+- **Symbol Bag and Layer Colors** - a floating library of point, line, polygon and raster styles you apply
+  in one click, and a live colour tool for the selected layer. Their bubbles sit in one column with the
+  Tool Bag's, and all three can open and close with a Genie animation (Settings > Appearance).
+- **Cursor Style Manager** - clearer map cursors for digitizing, editing, selecting and measuring: 12 presets,
+  a live preview, your own saved styles, and a choice of which kinds of tool use them. In the KGA Toolbox
+  menu under Map Cursor (no toolbar button); QGIS's own cursors stay until you pick a style.
 - **Data Explorer** - a Premiere Pro style media browser dock (Ctrl+Alt+I) to
   browse, search, preview and ingest geodata, with proxies for big rasters.
 - **Conversion** — a two-way converter between an ArcGIS File Geodatabase and a
@@ -32,9 +58,12 @@ It adds the things QGIS leaves out:
   with Field Mapping, and a safe attribute round-trip to Excel.
 - **Topology** — line and point checks with an Error Inspector that lists the
   errors a check wrote, zooms to each one and re-runs the check. Planarize
-  Lines, Duplicate Checker, Update Geometry Fields and Update X/Y or Lat/Lon
-  Fields.
-- **Editing** — the ArcGIS Pro *Modify Features* pane for QGIS: 30 tools in six
+  Lines, Duplicate Checker, Sliver and Spike Cleaner (clears the spikes and narrow
+  strips left after splitting polygons), Point to Geometry Converter (lines,
+  segments or polygons from an ordered point layer), Strip Lines and Point Grid
+  (equal or varying strips and point grids over an area), Update Geometry Fields and Update X/Y or
+  Lat/Lon Fields.
+- **Editing** — the ArcGIS Pro *Modify Features* pane for QGIS: 32 tools in six
   categories (Alignment, Reshape, Divide, Construct, Attributes, COGO), docked on the
   KGA Editor toolbar with favorites. The KGA tools behind it (Copy Parallel, Buffer,
   Split into COGO Lines, Merge, Divide, Clip, Construct Polygon, Sequential Numbering and
@@ -48,6 +77,11 @@ It adds the things QGIS leaves out:
   for ROI does the same for the drainage network: pick how much stream you want,
   and every segment comes back graded for confidence, optionally checked against
   OpenStreetMap or your own stream layer.
+  DEM / DSM Inspector tells you whether an elevation raster is a bare-earth
+  DEM or a surface model (DSM) before you trust it, with a confidence score,
+  a block map of where the objects are, and an HTML/PDF report. Multipart Line
+  Repair finds canal and drain lines that were cut into several parts, says why,
+  and joins them back into single lines (or splits the ones that are truly apart).
 - **Mapping** — Add Grid to Layout, which puts a coordinate grid on a print
   layout map from one window instead of five panels, works the interval out
   from the map's own extent, and edits the grids a map already has. It also
@@ -69,7 +103,10 @@ It adds the things QGIS leaves out:
   construction tools and a right-click construction menu (parallel,
   perpendicular, direction, distance, absolute and delta X,Y). *Modify
   Features* (above) holds the editing tools. *Open Feature Attribute* is a pane
-  to select features and type into their attributes. Edit Session starts Off
+  to select features and type into their attributes. (*Quick Labeling* - one-click
+  labels with a right-click window for field, font, size and colour - and *Quick
+  Symbology* - one symbol, unique values or one class in a small window - are now on
+  the KGA Layer toolbar.) Edit Session starts Off
   and changes nothing until you turn it on. See `kga_tools/editor/README.md`.
 
 - **Layer Auto-Sort** — ArcGIS Pro's order for the Layers panel: points on
@@ -146,8 +183,10 @@ It adds the things QGIS leaves out:
   project, Save / Save As choice, and an Appearance page: ArcGIS Pro style
   selection (cyan outline) and Layers panel, a start page with recent-project
   cards and templates, light/dark theme to match the computer, remembered
-  toolbars and panels, and optional **Map tabs** (several maps and print layouts
-  as tabs, with a Contents panel on layouts).
+  toolbars and panels, **Map tabs** on by default (several maps and print layouts
+  as tabs, with a Contents panel on layouts), optional **smooth navigation**
+  (animated wheel zoom, kinetic pan, right-drag zoom) and a Panels and
+  Toolbars Manager that switches any panel or toolbar from visual cards.
 - **Also** — Duplicate to New Layer, Quick Template (an empty layer with standard
   fields), Shape_Length / Shape_Area kept up to date on project database layers,
   and Check for Update.
@@ -155,8 +194,8 @@ It adds the things QGIS leaves out:
 Distances and areas are honest on a layer stored in degrees: the work is done in
 the matching UTM zone and brought back.
 
-Requires QGIS 3.28 or newer (the KGA Editor toolbar needs 3.44 or newer and
-is left out on older versions).
+Requires QGIS 3.28 or newer (the KGA Editor toolbar, Quick Labeling and Quick
+Symbology need 3.44 or newer and are left out on older versions).
 
 ## Install
 
@@ -228,7 +267,39 @@ GROUP_ICONS in branding.py to control button order and icons.
 
 ### Icons
 
-Icons live in `icons/` and are wired up in branding.py, not in the algorithm:
+Icons live in `icons/`, sorted into one subfolder per category, and are
+referenced by their path inside `icons/` (e.g. `'editing/mergeFeatures.png'`):
+
+| Folder | Holds |
+|---|---|
+| `branding/` | KGA logos |
+| `toolbox_groups/` | toolbar group buttons (`GROUP_ICONS`) |
+| `conversion/` | format and table conversion tools |
+| `data_management/` | add data, packages, layer paths, Browser copy/paste, field updates |
+| `schema/` | domains and field mapping |
+| `quality_control/` | topology, error, duplicate and geometry-repair checks |
+| `editing/` | Create/Modify Features and editing tools |
+| `terrain_water/` | DEM, contour, stream and reservoir tools |
+| `imagery_basemaps/` | imagery downloaders and basemaps |
+| `geoai/` | Icons of the GeoAI tools (Detect Roads, Detect Paddy Field Plots), frozen and not shipped in this release |
+| `mapping/` | labels, symbols, layouts, grids, map tabs |
+| `navigation/` | zoom, Go To XY, location pin, Cursor Style Manager |
+| `workspace/` | Catalog, workspaces and project packages |
+| `interface/` | Tool Bag, Layer Bag, update check, Pro-style tree/tab glyphs |
+| `bubble/` | white 128 px glyphs for the map bubbles, one per panel (`catalog.png`, `create_features.png`, …); remake them from the toolbar icons with `dev_tools/make_bubble_glyphs.py` |
+| `dark/` | dark-theme copies, same sub-paths as above (`dark/editing/createFeature.png`); see below |
+
+**Light and dark themes.** Many icons are drawn in dark navy, which sinks into
+a dark QGIS theme. `dev_tools/make_dark_icons.py` writes a copy into
+`icons/dark/` of every icon that is dark enough to need one, with only the
+too-dark colours lifted (navy becomes a brighter blue, black becomes grey;
+orange accents stay). Load icons with `branding.icon('<category>/<file>')`,
+or `branding.themed_icon(path)` for a full path: the icon draws the dark copy
+whenever the QGIS theme is dark, and switches live when the theme changes.
+Code that needs a file rather than a QIcon uses `branding.icon_path()`.
+Re-run the script after adding or changing an icon.
+
+They are wired up in branding.py, not in the algorithm:
 
 - `GROUP_ICONS` maps a group name to the icon on its toolbar button.
 - `ALG_ICONS` maps `alg.name()` to a per-algorithm icon, and can stay sparse:

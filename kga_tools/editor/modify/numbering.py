@@ -29,7 +29,8 @@ from qgis.core import (
 from qgis.gui import QgsRubberBand, QgsVertexMarker
 from qgis.PyQt import sip
 from qgis.PyQt.QtCore import QSize, Qt
-from qgis.PyQt.QtGui import QColor, QIcon
+from qgis.PyQt.QtGui import QColor
+from ...branding import themed_icon
 from qgis.PyQt.QtWidgets import QComboBox, QLabel, QLineEdit, QSizePolicy, QSpinBox, QToolButton
 
 from ...algorithms.sequential_numbering_dialog import SequentialNumberingMapTool, classify_field
@@ -39,7 +40,7 @@ from .reshape import PickTool
 from ...core.compat import enum_value
 
 SETTINGS = "kga_editor/modify_"
-KGA_ICON = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "icons", "seqNumbering.png"))
+KGA_ICON = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "icons", "editing/seqNumbering.png"))
 LINE = Qgis.GeometryType.Line
 POLYGON = Qgis.GeometryType.Polygon
 MARKER_BOX = enum_value((Qgis, 'VertexMarkerType.Box'), (QgsVertexMarker, 'IconType.ICON_BOX'))  # QGIS >= 3.40 / 4
@@ -174,7 +175,7 @@ class NumberingTool(PickTool):
         tile.setObjectName("KgaModifyToolTile")
         tile.setCheckable(True)
         tile.setChecked(True)
-        tile.setIcon(QIcon(KGA_ICON))
+        tile.setIcon(themed_icon(KGA_ICON))
         tile.setIconSize(QSize(26, 26))
         tile.setText("Sequential Numbering")
         tile.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)

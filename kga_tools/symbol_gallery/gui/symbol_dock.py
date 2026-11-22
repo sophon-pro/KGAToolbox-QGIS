@@ -4,7 +4,7 @@ toolbar right beside "Open Layer Styling Panel" and tabbed with that panel."""
 import os
 
 from qgis.PyQt.QtCore import Qt
-from qgis.PyQt.QtGui import QIcon
+from ...branding import themed_icon
 from qgis.PyQt.QtWidgets import QDockWidget, QToolBar
 try:  # Qt6 / QGIS 4: QAction lives in QtGui
     from qgis.PyQt.QtGui import QAction
@@ -12,13 +12,14 @@ except ImportError:  # Qt5 / QGIS 3
     from qgis.PyQt.QtWidgets import QAction
 from qgis.gui import QgsDockWidget
 
+from ...gui.panel_bubble import ToolbarReveal, attach_reveal, file_glyph
 from .gallery_panel import GalleryPanel
 
-ICON = os.path.join(os.path.dirname(__file__), "..", "..", "icons", "kgaLayerSymbol.png")
+ICON = os.path.join(os.path.dirname(__file__), "..", "..", "icons", "mapping/kgaLayerSymbol.png")
 TITLE = "KGA Layer Symbol"
 
 
-class SymbolDock(QgsDockWidget):
+class SymbolDock(ToolbarReveal, QgsDockWidget):
     def __init__(self, iface, parent=None):
         super().__init__(TITLE, parent)
         self.setObjectName("KGALayerSymbolDock")
@@ -40,7 +41,7 @@ class SymbolDockController:
 
     # ------------------------------------------------------------- install
     def install(self):
-        self.action = QAction(QIcon(ICON), "Open KGA Layer Symbol Panel",
+        self.action = QAction(themed_icon(ICON), "Open KGA Layer Symbol Panel",
                               self.iface.mainWindow())
         self.action.setObjectName("KGALayerSymbolDockAction")
         self.action.setToolTip("Open KGA Layer Symbol Panel")
@@ -86,6 +87,9 @@ class SymbolDockController:
         styling = self._styling_dock()
         if styling is not None:
             win.tabifyDockWidget(styling, self.dock)
+        self.dock.hide()               # placed hidden, so the first open animates too
+        attach_reveal(self.dock, self.action, 'layer_symbol', 'KGA Layer Symbol – click to open',
+                      file_glyph('bubble/layer_symbol.png'))
 
     def _toggle(self, on):
         if on and self.dock is None:

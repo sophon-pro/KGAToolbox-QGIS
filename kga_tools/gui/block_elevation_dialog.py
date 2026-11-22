@@ -23,6 +23,7 @@ from qgis.PyQt.QtWidgets import (
     QWidget,
 )
 
+from .window_reveal import revealed_preview
 from ..branding import open_docs
 from ..core import output_defaults as od
 from ..core.block_elevation import (
@@ -34,6 +35,7 @@ from ..core.modify_features import layer_filter
 from .gravity_command_page import GravityCommandPage
 
 
+@revealed_preview
 class BlockElevationDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)

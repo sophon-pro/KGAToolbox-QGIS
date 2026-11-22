@@ -16,6 +16,7 @@ from qgis.PyQt.QtWidgets import (
     QComboBox, QDialog, QFormLayout, QHBoxLayout, QLabel,
     QPushButton, QSizePolicy, QVBoxLayout)
 
+from .window_reveal import revealed
 from ..branding import LOG_TAG
 from ..core import clip_basemap as CB
 from ..core import data_sources as DS
@@ -44,6 +45,7 @@ def tr(text):
     return text
 
 
+@revealed
 class ClipBasemapDialog(QDialog):
 
     def __init__(self, parent=None):

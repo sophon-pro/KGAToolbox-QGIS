@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:highest_point_per_block` |
 | **Group** | KGA Irrigation Tools |
 | **Source** | `kga_tools/algorithms/highest_point_per_block_alg.py` (window in `kga_tools/gui/block_elevation_dialog.py`; step 1 engine `kga_tools/core/block_elevation.py`, step 2 window `kga_tools/gui/gravity_command_page.py` and engine `kga_tools/core/gravity_command.py`) |
-| **Icon** | `icons/highestPoint.png` |
+| **Icon** | `icons/terrain_water/highestPoint.png` |
 | **Type** | Interactive dialog — modeless, needs the QGIS window |
 
 ## Two steps in one window

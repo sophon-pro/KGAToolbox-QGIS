@@ -86,6 +86,33 @@ except AttributeError:                              # QGIS < 3.36
 #: hold a reference or the object is collected before the layer loads.
 _LIVE_POST_PROCESSORS = []
 
+try:
+    from qgis.utils import iface
+except ImportError:                                 # pragma: no cover - head-less
+    iface = None
+
+#: The window, kept alive between opens so it is not garbage collected.
+DIALOG_INSTANCE = None
+
+
+def _alive(dialog):
+    try:
+        return dialog is not None and not dialog._torn_down
+    except RuntimeError:                            # the Qt object is already gone
+        return False
+
+
+def close_create_points():
+    """Stop any running job and close the window on plugin unload."""
+    global DIALOG_INSTANCE
+    dialog, DIALOG_INSTANCE = DIALOG_INSTANCE, None
+    if dialog is None:
+        return
+    try:
+        dialog.shutdown()
+    except RuntimeError:                            # already destroyed by Qt
+        pass
+
 
 # ------------------------------------------------------------- Number parsing
 
@@ -453,6 +480,21 @@ class CreatePointsFromTable(QgsProcessingAlgorithm):
             "check the result first, or write straight to GeoPackage or "
             "Shapefile. Shapefile truncates field names to 10 characters "
             "and cannot hold more than 255 columns.")
+
+    def createCustomParametersWidget(self, parent=None):
+        """Open the Create Points From Table window instead of the plain form.
+
+        The parameters above stay, so scripts (`processing.run`), the modeller
+        and batch still work; only the Toolbox dialog is replaced.
+        """
+        global DIALOG_INSTANCE
+        if iface is None:
+            return None
+        from ..gui.create_points_dialog import CreatePointsDialog
+
+        if not _alive(DIALOG_INSTANCE):
+            DIALOG_INSTANCE = CreatePointsDialog(iface.mainWindow())
+        return DIALOG_INSTANCE
 
     def checkParameterValues(self, parameters, context):
         ok, msg = super().checkParameterValues(parameters, context)

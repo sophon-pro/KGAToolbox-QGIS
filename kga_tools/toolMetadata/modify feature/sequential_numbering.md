@@ -5,7 +5,7 @@
 | **Category** | Modify Features > Attributes |
 | **Type** | Map tool in the Modify Features pane (not a Processing algorithm) |
 | **Source** | `kga_tools/editor/modify/numbering.py` (NumberingTool) |
-| **Icon** | `kga_tools/icons/seqNumbering.png` |
+| **Icon** | `kga_tools/icons/editing/seqNumbering.png` |
 | **Also as a window** | [sequential_numbering](../sequential_numbering.md) (`kga:sequential_numbering`) |
 
 ## Overview

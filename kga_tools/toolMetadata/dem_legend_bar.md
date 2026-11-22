@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:dem_legend_bar` |
 | **Group** | KGA Mapping |
 | **Source** | `kga_tools/algorithms/HypsometricMap.py` |
-| **Icon** | group icon (`icons/Mapping.png`) |
+| **Icon** | group icon (`icons/toolbox_groups/Mapping.png`) |
 | **Type** | Batch algorithm |
 
 ## Overview

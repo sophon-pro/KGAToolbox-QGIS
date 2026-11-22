@@ -10,6 +10,7 @@ from qgis.core import (QgsCoordinateTransform, QgsGeometry,
                        QgsVectorLayer)
 from qgis.utils import iface
 import processing
+from ..gui.window_reveal import revealed
 from ..branding import docs_url, help_button
 
 # `qgis.PyQt.sip` is the name that works both where sip is a
@@ -19,6 +20,7 @@ from ..gui.modify_base import is_deleted as _is_deleted
 #: The one open window, so a second run raises it instead of stacking windows.
 DIALOG_INSTANCE = None
 
+@revealed
 class ErrorInspectorDialog(QDialog):
     """Modeless window listing the errors on the KGA topology error layers.
 

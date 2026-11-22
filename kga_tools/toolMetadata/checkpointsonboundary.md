@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:checkpointsonboundary` |
 | **Group** | KGA Topology |
 | **Source** | `kga_tools/algorithms/point_on_boundary_check.py` |
-| **Icon** | `icons/pointOnBoundary.png` |
+| **Icon** | `icons/quality_control/pointOnBoundary.png` |
 | **Type** | Batch algorithm |
 
 ## Overview

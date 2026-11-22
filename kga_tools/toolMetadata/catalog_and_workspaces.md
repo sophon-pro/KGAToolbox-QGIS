@@ -5,7 +5,7 @@
 | **Algorithm ID** | none: a dock panel and Project menu items (not a Processing algorithm) |
 | **Group** | KGA Toolbox toolbar > Catalog; Project menu |
 | **Source** | `kga_tools/gui/catalog_*.py`, `kga_tools/core/workspace.py`, `kga_tools/core/output_defaults.py`, `kga_tools/gui/save_guard.py` |
-| **Icon** | `icons/catalog.png` |
+| **Icon** | `icons/workspace/catalog.png` |
 | **Type** | Dock panel. Needs QGIS 3.36 or newer; left out on older versions |
 
 ## Overview
@@ -24,6 +24,12 @@ on whenever you like) and keeps a project's data together in one **workspace** f
 
 Every item is a real QGIS Browser item: drag layers onto the map, double-click to add, and use QGIS's own
 right-click menus plus KGA's Add to Map, Copy and Paste.
+
+To copy data between databases, drag layers (or a whole GeoPackage / File Geodatabase) onto another
+GeoPackage, File Geodatabase or folder - or onto any layer inside the target database. A tip beside the
+pointer names where the copy goes; the copy works like Copy then Paste. Dropping back on the database the
+layers came from does nothing. Layers dragged in from the QGIS Browser or the Data Explorer can be dropped
+the same way.
 
 ## Workspace
 

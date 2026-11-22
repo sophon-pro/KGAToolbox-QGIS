@@ -32,6 +32,7 @@ try:
 except ImportError:                         # pragma: no cover
     from qgis.gui import QgsMimeDataUtils
 
+from .window_reveal import revealed
 from ..branding import LOG_TAG, open_docs
 from ..core import layer_loader as LL
 from ..core import output_defaults as od
@@ -69,6 +70,7 @@ def tr(text):
     return text
 
 
+@revealed
 class QuickTemplateDialog(QDialog):
 
     def __init__(self, parent=None):

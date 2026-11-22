@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:copy_paste_feature` |
 | **Group** | KGA Editing Tools |
 | **Source** | `kga_tools/algorithms/copy_paste_feature.py` |
-| **Icon** | `icons/copyPaste.png` |
+| **Icon** | `icons/editing/copyPaste.png` |
 | **Type** | Interactive dialog — modeless, owns a map tool, needs the QGIS canvas |
 
 ## Overview

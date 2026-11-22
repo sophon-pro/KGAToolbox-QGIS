@@ -12,6 +12,8 @@ backup/
 Symbol_and_Style/
 release_note/
 tests/
+.restore/
+dev_tools/
 
 # --- Python -------------------------------------------------------------
 __pycache__/
@@ -60,6 +62,8 @@ $RECYCLE.BIN/
 *.gpkg-shm
 *.gpkg-wal
 *.sqlite
+*.db
+*.db-journal
 *.shp
 *.shx
 *.dbf

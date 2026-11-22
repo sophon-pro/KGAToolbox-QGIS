@@ -10,14 +10,17 @@ from contextlib import suppress
 import os
 
 from qgis.core import QgsCoordinateReferenceSystem
-from qgis.gui import QgsProjectionSelectionWidget
+from qgis.gui import QgsColorButton, QgsProjectionSelectionWidget
 from qgis.PyQt.QtCore import Qt
+from qgis.PyQt.QtGui import QColor
 from qgis.PyQt.QtWidgets import QCompleter
 from qgis.PyQt.QtWidgets import (
+    QButtonGroup,
     QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
     QFrame,
@@ -28,7 +31,9 @@ from qgis.PyQt.QtWidgets import (
     QListWidget,
     QMessageBox,
     QPushButton,
+    QRadioButton,
     QScrollArea,
+    QSpinBox,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
@@ -37,7 +42,9 @@ from qgis.PyQt.QtWidgets import (
 from ..core import basemaps, country_extents
 from ..core import kga_settings as ks
 from ..core import system_theme, ui_layout
+from .bubble_settings import BubbleControls
 from ..core import workspace as ws
+from .temporary_pan.keys import DEFAULT_KEY, KeyCaptureButton, check_key, key_name
 
 
 def _native(path):
@@ -59,7 +66,7 @@ def background_basemaps():
 
 class SettingsDialog(QDialog):
 
-    def __init__(self, parent=None, layout_hooks=None):
+    def __init__(self, parent=None, layout_hooks=None, page=None):
         super().__init__(parent)
         # (remember, reset) for the toolbar layout. The plugin passes ones that
         # also know about the start page; these work on the main window alone.
@@ -76,6 +83,8 @@ class SettingsDialog(QDialog):
         self._add_page('Projects', self._projects_page())
         self._add_page('Catalog', self._catalog_page())
         self._add_page('Appearance', self._appearance_page())
+        self._add_page('Editor', self._editor_page())
+        self._add_page('Bubbles', self._bubbles_page())
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok
@@ -94,7 +103,8 @@ class SettingsDialog(QDialog):
         layout.addWidget(buttons)
 
         self.load()
-        self.pages.setCurrentRow(0)
+        rows = [self.pages.item(r).text() for r in range(self.pages.count())]
+        self.pages.setCurrentRow(rows.index(page) if page in rows else 0)
 
     # ------------------------------------------------------------------ pages
 
@@ -191,7 +201,29 @@ class SettingsDialog(QDialog):
         save_form.addRow(_note(
             'Applies to a new project, or one that is not in a workspace yet. '
             'A project that already has a file is simply saved.'))
-        return self._page(page, box, save_box)
+        scratch_box = QGroupBox('Closing projects')
+        self.scratch_mode = QComboBox()
+        self.scratch_mode.addItem('Ask me what to do with them', ks.SCRATCH_ASK)
+        self.scratch_mode.addItem('Add them to the project GeoPackage automatically',
+                                  ks.SCRATCH_PROJECT)
+        self.scratch_mode.addItem('Do nothing (they are lost)', ks.SCRATCH_OFF)
+        scratch_form = QFormLayout(scratch_box)
+        scratch_form.addRow('Scratch layers', self.scratch_mode)
+        scratch_form.addRow(_note(
+            'Scratch (memory) layers exist only until the project is closed, '
+            'another one is opened, or QGIS quits. With the first choice you '
+            'can save them to the project GeoPackage or to another one, or '
+            'let them go. A project that is not in a workspace has no project '
+            'GeoPackage, so you are asked where to save instead.'))
+        return self._page(page, box, save_box, scratch_box)
+
+    def _bubbles_page(self):
+        """Every bubble on the map (bags and panels) in one place; see bubble_settings.py."""
+        page = QWidget()
+        self.bubbles = BubbleControls()
+        self.bag_animation = self.bubbles.animation
+        self.window_reveal = self.bubbles.window_reveal
+        return self._page(page, *self.bubbles.boxes)
 
     def _appearance_page(self):
         page = QWidget()
@@ -234,7 +266,10 @@ class SettingsDialog(QDialog):
         self.tabs_sync_themes = QCheckBox(
             'Keep a map theme for each map (for print layouts)')
         self.tabs_auto = QCheckBox('Automatically use map tabs in new projects')
-        for box_ in (self.tabs_dock_layouts, self.tabs_sync_themes, self.tabs_auto):
+        self.tabs_layer_lists = QCheckBox(
+            'Layer drop-down lists show only the layers of the current map')
+        for box_ in (self.tabs_dock_layouts, self.tabs_sync_themes, self.tabs_auto,
+                     self.tabs_layer_lists):
             tabs_lay.addWidget(box_)
             self.map_tabs.toggled.connect(box_.setEnabled)
         tabs_lay.addWidget(_note(
@@ -243,6 +278,7 @@ class SettingsDialog(QDialog):
             'too. Each map is a top-level group in the Layers panel, and the '
             'tab bar offers Organize this project into Map tabs. Turn it off '
             'to go back to the standard QGIS window.'))
+        nav_box = self._navigation_box()
         start_box = QGroupBox('Start page')
         self.start_page = QCheckBox(
             'Show the KGA start page instead of the QGIS welcome page')
@@ -277,7 +313,218 @@ class SettingsDialog(QDialog):
             'remembered one back on, in its old place, and leaves the rest as '
             'it is. "Remember current layout" replaces the memory with what is '
             'on now.'))
-        return self._page(page, box, sel_box, layers_box, tabs_box, start_box, layout_box)
+        return self._page(page, box, sel_box, layers_box, tabs_box, nav_box, start_box, layout_box)
+
+    def _navigation_box(self):
+        box = QGroupBox('Map navigation')
+        self.smooth_nav = QCheckBox(
+            'Smooth navigation: animated zoom and kinetic panning, as in ArcGIS Pro')
+        self.nav_zoom = QCheckBox('Animated mouse-wheel zoom, anchored under the cursor')
+        self.nav_zoom_ms = QSpinBox()
+        self.nav_zoom_ms.setRange(30, 500)
+        self.nav_zoom_ms.setSuffix(' ms')
+        self.nav_zoom_ms.setToolTip('Lower is snappier, higher is floatier.')
+        self.nav_inertia = QCheckBox('Keep gliding after a pan is released')
+        self.nav_glide_ms = QSpinBox()
+        self.nav_glide_ms.setRange(80, 2000)
+        self.nav_glide_ms.setSuffix(' ms')
+        self.nav_glide_ms.setToolTip('How long a flick keeps gliding.')
+        self.nav_keyboard = QCheckBox(
+            'Arrow keys pan continuously, Page Up / Page Down zoom smoothly')
+        self.nav_right_zoom = QCheckBox(
+            'Zoom by holding the right button and dragging, with the Pan tool')
+        self.nav_right_dir = QComboBox()
+        self.nav_right_dir.addItem('Drag up to zoom in, down to zoom out', ks.RIGHT_UP_IN)
+        self.nav_right_dir.addItem('Drag up to zoom out, down to zoom in', ks.RIGHT_UP_OUT)
+        self.nav_underlay = QCheckBox('Fill the edges while zooming out or panning')
+        self.nav_underlay.setToolTip(
+            'Keeps a low-resolution picture of a larger area behind the map, so '
+            'zooming out never shows blank space. It costs some background rendering.')
+        self.temp_pan = QCheckBox(
+            'Temporary pan: hold a key and drag with the left button while digitizing')
+        self.temp_pan_key = KeyCaptureButton(ks.temp_pan_key())
+        self.temp_pan_key.keyCaptured.connect(self._temp_pan_key_captured)
+        self.temp_pan_msg = QLabel()
+        self.temp_pan_msg.setWordWrap(True)
+        form = QFormLayout(box)
+        form.addRow(self.smooth_nav)
+        form.addRow(self.nav_zoom)
+        form.addRow('Zoom smoothness', self.nav_zoom_ms)
+        form.addRow(self.nav_inertia)
+        form.addRow('Glide length', self.nav_glide_ms)
+        form.addRow(self.nav_keyboard)
+        form.addRow(self.nav_right_zoom)
+        form.addRow('Right-drag direction', self.nav_right_dir)
+        form.addRow(self.nav_underlay)
+        form.addRow(_note(
+            'Drag with the Pan tool, or with the middle button in any tool. '
+            'Ctrl, Shift and Alt with the wheel, and the keys of editing tools, '
+            'keep their QGIS behaviour. Turn it off to go back to the standard '
+            'QGIS navigation straight away.'))
+        form.addRow(self.temp_pan)
+        form.addRow('Pan key (hold)', self.temp_pan_key)
+        form.addRow(self.temp_pan_msg)
+        form.addRow(_note(
+            'Start a line or polygon, hold the key and drag with the left button to '
+            'move the map, then let go and carry on clicking: no vertex is added and '
+            'the drawing is not interrupted. The map needs the keyboard focus (click '
+            'it once). Right-clicks are ignored while the key is held. The middle '
+            'button and Space already pan in QGIS.'))
+        self.temp_pan.toggled.connect(self._nav_toggled)
+        self.smooth_nav.toggled.connect(self._nav_toggled)
+        self.nav_zoom.toggled.connect(self._nav_toggled)
+        self.nav_inertia.toggled.connect(self._nav_toggled)
+        self.nav_right_zoom.toggled.connect(self._nav_toggled)
+        return box
+
+    def _temp_pan_key_captured(self, key):
+        ok, msg = check_key(key)
+        if not ok:
+            self.temp_pan_msg.setText(
+                '<span style="color:#cf222e">{} cannot be the pan key: {}. Still using {}.</span>'
+                .format(key_name(key), msg, key_name(self.temp_pan_key.key)))
+            return
+        self.temp_pan_key.set_key(key)
+        self._show_temp_pan_note()
+
+    def _show_temp_pan_note(self):
+        note = check_key(self.temp_pan_key.key)[1]
+        self.temp_pan_msg.setText(
+            '<span style="color:#b26b00">{}</span>'.format(note) if note else '')
+
+    def _nav_toggled(self, _checked=False):
+        self.temp_pan_key.setEnabled(self.temp_pan.isChecked())
+        on = self.smooth_nav.isChecked()
+        for widget in (self.nav_zoom, self.nav_inertia, self.nav_keyboard,
+                       self.nav_right_zoom, self.nav_underlay):
+            widget.setEnabled(on)
+        self.nav_zoom_ms.setEnabled(on and self.nav_zoom.isChecked())
+        self.nav_glide_ms.setEnabled(on and self.nav_inertia.isChecked())
+        self.nav_right_dir.setEnabled(on and self.nav_right_zoom.isChecked())
+
+    def _editor_page(self):
+        """Editing aids: the vertices and nodes view (ArcGIS Pro's "show vertices and nodes")."""
+        page = QWidget()
+        bar_box = self._toolbar_box()
+        box = QGroupBox('Vertices and nodes view')
+        self.node_view = QCheckBox('Show vertices and nodes on the map')
+        self.node_vertices = QCheckBox('Vertices (squares)')
+        self.node_nodes = QCheckBox('Nodes: where features connect or cross (circles)')
+        self.node_midpoints = QCheckBox('Midpoints of segments (diamonds)')
+        self.node_scope = QComboBox()
+        self.node_scope.addItem('All visible line and polygon layers', ks.NODE_SCOPE_VISIBLE)
+        self.node_scope.addItem('Only the layer selected in the Layers panel', ks.NODE_SCOPE_ACTIVE)
+        self.node_scope.addItem('Only layers in edit mode', ks.NODE_SCOPE_EDITABLE)
+        self.node_vertex_size = QSpinBox()
+        self.node_vertex_size.setRange(4, 20)
+        self.node_vertex_size.setSuffix(' px')
+        self.node_node_size = QSpinBox()
+        self.node_node_size.setRange(5, 28)
+        self.node_node_size.setSuffix(' px')
+        self.node_vertex_color = QgsColorButton()
+        self.node_node_color = QgsColorButton()
+        self.node_mid_color = QgsColorButton()
+        for button in (self.node_vertex_color, self.node_node_color, self.node_mid_color):
+            button.setAllowOpacity(False)
+        self.node_max = QSpinBox()
+        self.node_max.setRange(2000, 1000000)
+        self.node_max.setSingleStep(5000)
+        form = QFormLayout(box)
+        form.addRow(self.node_view)
+        form.addRow(_note(
+            'Switch it on and off here, with the Vertices and Nodes button in the status bar beside the '
+            "coordinates, or from the map's right-click menu."))
+        form.addRow(self.node_vertices)
+        form.addRow(self.node_nodes)
+        form.addRow(self.node_midpoints)
+        form.addRow('Layers', self.node_scope)
+        form.addRow('Vertex size', self.node_vertex_size)
+        form.addRow('Node size', self.node_node_size)
+        form.addRow('Vertex colour', self.node_vertex_color)
+        form.addRow('Node colour', self.node_node_color)
+        form.addRow('Midpoint colour', self.node_mid_color)
+        form.addRow('Stop above', self.node_max)
+        form.addRow(_note(
+            'A node is a vertex shared by two features, a line that ends on another feature, a polygon '
+            "corner on a neighbour's edge, or the point where two features cross. When the view holds "
+            'more vertices than the limit above, nothing is drawn until you zoom in, so a zoomed-out '
+            'map never slows down.'))
+        grid_box = QGroupBox('Grid')
+        self.grid_on = QCheckBox('Show a grid on the map')
+        self.grid_spacing = QDoubleSpinBox()
+        self.grid_spacing.setDecimals(4)
+        self.grid_spacing.setRange(0.0001, 10000000.0)
+        self.grid_unit = QComboBox()
+        self.grid_unit.addItem('m', ks.GRID_UNIT_M)
+        self.grid_unit.addItem('ft', ks.GRID_UNIT_FT)
+        self.grid_unit.addItem('map units', ks.GRID_UNIT_MAP)
+        spacing_row = QHBoxLayout()
+        spacing_row.addWidget(self.grid_spacing, 1)
+        spacing_row.addWidget(self.grid_unit)
+        self.grid_rotation = QDoubleSpinBox()
+        self.grid_rotation.setDecimals(2)
+        self.grid_rotation.setRange(-360.0, 360.0)
+        self.grid_rotation.setSuffix(' °')
+        grid_form = QFormLayout(grid_box)
+        grid_form.addRow(self.grid_on)
+        grid_form.addRow('Spacing', spacing_row)
+        grid_form.addRow('Rotation', self.grid_rotation)
+        grid_form.addRow(_note(
+            'Switch the grid on and off with the Grid button in the status bar beside the coordinates or '
+            "from the map's right-click menu; the button's arrow sets the same spacing and rotation. When the lines would be "
+            'closer than a few pixels the spacing is multiplied by 10 until they are not (dynamic scaling). '
+            'Rotation turns the grid counter-clockwise about the map origin.'))
+        return self._page(page, bar_box, box, grid_box)
+
+    def _toolbar_box(self):
+        """The floating editing toolbar over the map (Create Features), as in ArcGIS Pro's Editing options."""
+        box = QGroupBox('Toolbar')
+        self.bar_show = QCheckBox('Show the editing toolbar on the map')
+        self.bar_position = {}
+        self.bar_size = {}
+        position_row, size_row = QHBoxLayout(), QHBoxLayout()
+        for group, store, row, choices in (
+                (QButtonGroup(box), self.bar_position, position_row,
+                 (('left', 'Left'), ('top', 'Top'), ('bottom', 'Bottom'), ('right', 'Right'))),
+                (QButtonGroup(box), self.bar_size, size_row,
+                 (('small', 'Small'), ('medium', 'Medium'), ('large', 'Large')))):
+            for ident, label in choices:
+                radio = QRadioButton(label)
+                group.addButton(radio)
+                store[ident] = radio
+                row.addWidget(radio)
+            row.addStretch(1)
+        self.bar_magnify = QCheckBox('Magnify Toolbar')
+        self.magnify_toolbars = QCheckBox('Magnify the KGA toolbars in the QGIS window '
+                                          '(KGA Toolbox, Editor, Layer and GeoAI)')
+        self.bar_magnify.setToolTip('The button under the cursor grows, and its neighbours a little, like the macOS Dock.')
+        form = QFormLayout(box)
+        form.addRow(self.bar_show)
+        form.addRow('Position', position_row)
+        form.addRow('Size', size_row)
+        form.addRow(self.bar_magnify)
+        form.addRow(self.magnify_toolbars)
+        form.addRow(_note(
+            'The toolbar that floats over the map while a Create Features template is active: segment types, '
+            'sketch tools, Finish and Cancel. Magnify Toolbar makes the button under the cursor swell, and the '
+            'row open up around it, so small buttons are easy to hit. "Magnify Toolbar" is this floating toolbar; '
+            'the last checkbox is the same effect on the KGA toolbars at the top of the QGIS window. Each can be turned off '
+            'on its own.'))
+        self.bar_show.toggled.connect(self._bar_toggled)
+        return box
+
+    def _bar_toggled(self, _checked=False):
+        on = self.bar_show.isChecked()
+        for radio in list(self.bar_position.values()) + list(self.bar_size.values()):
+            radio.setEnabled(on)
+        self.bar_magnify.setEnabled(on)
+
+    def _show_bar(self, shown, position, size, magnify):
+        self.bar_show.setChecked(shown)
+        self.bar_position.get(position, self.bar_position['bottom']).setChecked(True)
+        self.bar_size.get(size, self.bar_size['medium']).setChecked(True)
+        self.bar_magnify.setChecked(magnify)
+        self._bar_toggled()
 
     @staticmethod
     def _page(page, *boxes):
@@ -367,19 +614,59 @@ class SettingsDialog(QDialog):
         self.basemap.setEnabled(self.basemap_on.isChecked())
         self.ask_convert.setChecked(ks.ask_convert())
         self.save_mode.setCurrentIndex(max(self.save_mode.findData(ks.save_mode()), 0))
+        self.scratch_mode.setCurrentIndex(
+            max(self.scratch_mode.findData(ks.scratch_on_close()), 0))
         self.crs.setCrs(QgsCoordinateReferenceSystem(ks.project_crs()))
         self.zoom_on.setChecked(ks.zoom_enabled())
         self._show_country(ks.zoom_country())
         self.country.setEnabled(self.zoom_on.isChecked())
         self.follow_theme.setChecked(ks.follow_system_theme())
+        self.bag_animation.setCurrentIndex(
+            max(self.bag_animation.findData(ks.bag_animation()), 0))
+        self.window_reveal.setChecked(ks.window_reveal())
+        self.bubbles.load()
         self.pro_selection.setChecked(ks.pro_selection())
         self.pro_layers.setChecked(ks.pro_layers())
+        self.magnify_toolbars.setChecked(ks.magnify_toolbars())
+        self._show_bar(ks.sketch_bar_enabled(), ks.sketch_bar_position(), ks.sketch_bar_size(),
+                       ks.sketch_bar_magnify())
+        self.node_view.setChecked(ks.node_view_enabled())
+        self.node_vertices.setChecked(ks.node_view_vertices())
+        self.node_nodes.setChecked(ks.node_view_nodes())
+        self.node_midpoints.setChecked(ks.node_view_midpoints())
+        self.node_scope.setCurrentIndex(max(self.node_scope.findData(ks.node_view_scope()), 0))
+        self.node_vertex_size.setValue(ks.node_view_vertex_size())
+        self.node_node_size.setValue(ks.node_view_node_size())
+        self.node_vertex_color.setColor(QColor(ks.node_view_vertex_color()))
+        self.node_node_color.setColor(QColor(ks.node_view_node_color()))
+        self.node_mid_color.setColor(QColor(ks.node_view_midpoint_color()))
+        self.node_max.setValue(ks.node_view_max_vertices())
+        self.grid_on.setChecked(ks.grid_enabled())
+        self.grid_spacing.setValue(ks.grid_spacing())
+        self.grid_unit.setCurrentIndex(max(self.grid_unit.findData(ks.grid_unit()), 0))
+        self.grid_rotation.setValue(ks.grid_rotation())
         self.map_tabs.setChecked(ks.map_tabs())
         self.tabs_dock_layouts.setChecked(ks.map_tabs_dock_layouts())
         self.tabs_sync_themes.setChecked(ks.map_tabs_sync_themes())
         self.tabs_auto.setChecked(ks.map_tabs_auto_organize())
-        for box_ in (self.tabs_dock_layouts, self.tabs_sync_themes, self.tabs_auto):
+        self.tabs_layer_lists.setChecked(ks.layer_lists_current_map())
+        for box_ in (self.tabs_dock_layouts, self.tabs_sync_themes, self.tabs_auto, self.tabs_layer_lists):
             box_.setEnabled(self.map_tabs.isChecked())
+        self.smooth_nav.setChecked(ks.smooth_nav_enabled())
+        self.nav_zoom.setChecked(ks.smooth_nav_zoom())
+        self.nav_zoom_ms.setValue(ks.smooth_nav_zoom_ms())
+        self.nav_inertia.setChecked(ks.smooth_nav_inertia())
+        self.nav_glide_ms.setValue(ks.smooth_nav_glide_ms())
+        self.nav_keyboard.setChecked(ks.smooth_nav_keyboard())
+        self.nav_right_zoom.setChecked(ks.smooth_nav_right_zoom())
+        self.nav_right_dir.setCurrentIndex(
+            max(self.nav_right_dir.findData(ks.smooth_nav_right_dir()), 0))
+        self.nav_underlay.setChecked(ks.smooth_nav_underlay())
+        self.temp_pan.setChecked(ks.temp_pan_enabled())
+        key = ks.temp_pan_key()
+        self.temp_pan_key.set_key(key if check_key(key)[0] else DEFAULT_KEY)
+        self._show_temp_pan_note()
+        self._nav_toggled()
         self.start_page.setChecked(ks.start_page_enabled())
         self.start_menu.setChecked(ks.start_page_hide_menu())
         self._was_remembering = ks.remember_layout()
@@ -398,16 +685,55 @@ class SettingsDialog(QDialog):
         self.ask_convert.setChecked(d[ks.KEY_ASK_CONVERT])
         self.save_mode.setCurrentIndex(
             max(self.save_mode.findData(d[ks.KEY_SAVE_MODE]), 0))
+        self.scratch_mode.setCurrentIndex(
+            max(self.scratch_mode.findData(d[ks.KEY_SCRATCH_ON_CLOSE]), 0))
         self.crs.setCrs(QgsCoordinateReferenceSystem(d[ks.KEY_PROJECT_CRS]))
         self.zoom_on.setChecked(d[ks.KEY_ZOOM_ENABLED])
         self._show_country(d[ks.KEY_ZOOM_COUNTRY])
         self.follow_theme.setChecked(d[ks.KEY_FOLLOW_SYSTEM_THEME])
+        self.bag_animation.setCurrentIndex(
+            max(self.bag_animation.findData(d[ks.KEY_BAG_ANIMATION]), 0))
+        self.window_reveal.setChecked(d[ks.KEY_WINDOW_REVEAL])
+        self.bubbles.defaults()
         self.pro_selection.setChecked(d[ks.KEY_PRO_SELECTION])
         self.pro_layers.setChecked(d[ks.KEY_PRO_LAYERS])
+        self.magnify_toolbars.setChecked(d[ks.KEY_MAGNIFY_TOOLBARS])
+        self._show_bar(d[ks.KEY_SKETCH_BAR], d[ks.KEY_SKETCH_BAR_POSITION], d[ks.KEY_SKETCH_BAR_SIZE],
+                       d[ks.KEY_SKETCH_BAR_MAGNIFY])
+        self.node_view.setChecked(d[ks.KEY_NODE_VIEW])
+        self.node_vertices.setChecked(d[ks.KEY_NODE_VERTICES])
+        self.node_nodes.setChecked(d[ks.KEY_NODE_NODES])
+        self.node_midpoints.setChecked(d[ks.KEY_NODE_MIDPOINTS])
+        self.node_scope.setCurrentIndex(max(self.node_scope.findData(d[ks.KEY_NODE_SCOPE]), 0))
+        self.node_vertex_size.setValue(d[ks.KEY_NODE_VERTEX_SIZE])
+        self.node_node_size.setValue(d[ks.KEY_NODE_NODE_SIZE])
+        self.node_vertex_color.setColor(QColor(d[ks.KEY_NODE_VERTEX_COLOR]))
+        self.node_node_color.setColor(QColor(d[ks.KEY_NODE_NODE_COLOR]))
+        self.node_mid_color.setColor(QColor(d[ks.KEY_NODE_MID_COLOR]))
+        self.node_max.setValue(d[ks.KEY_NODE_MAX])
+        self.grid_on.setChecked(d[ks.KEY_GRID])
+        self.grid_spacing.setValue(d[ks.KEY_GRID_SPACING])
+        self.grid_unit.setCurrentIndex(max(self.grid_unit.findData(d[ks.KEY_GRID_UNIT]), 0))
+        self.grid_rotation.setValue(d[ks.KEY_GRID_ROTATION])
         self.map_tabs.setChecked(d[ks.KEY_MAP_TABS])
         self.tabs_dock_layouts.setChecked(d[ks.KEY_MAP_TABS_DOCK_LAYOUTS])
         self.tabs_sync_themes.setChecked(d[ks.KEY_MAP_TABS_SYNC_THEMES])
         self.tabs_auto.setChecked(d[ks.KEY_MAP_TABS_AUTO_ORGANIZE])
+        self.tabs_layer_lists.setChecked(d[ks.KEY_LAYER_LISTS_CURRENT_MAP])
+        self.smooth_nav.setChecked(d[ks.KEY_SMOOTH_NAV])
+        self.nav_zoom.setChecked(d[ks.KEY_SMOOTH_NAV_ZOOM])
+        self.nav_zoom_ms.setValue(d[ks.KEY_SMOOTH_NAV_ZOOM_MS])
+        self.nav_inertia.setChecked(d[ks.KEY_SMOOTH_NAV_INERTIA])
+        self.nav_glide_ms.setValue(d[ks.KEY_SMOOTH_NAV_GLIDE_MS])
+        self.nav_keyboard.setChecked(d[ks.KEY_SMOOTH_NAV_KEYBOARD])
+        self.nav_right_zoom.setChecked(d[ks.KEY_SMOOTH_NAV_RIGHT_ZOOM])
+        self.nav_right_dir.setCurrentIndex(
+            max(self.nav_right_dir.findData(d[ks.KEY_SMOOTH_NAV_RIGHT_DIR]), 0))
+        self.nav_underlay.setChecked(d[ks.KEY_SMOOTH_NAV_UNDERLAY])
+        self.temp_pan.setChecked(d[ks.KEY_TEMP_PAN])
+        self.temp_pan_key.set_key(d[ks.KEY_TEMP_PAN_KEY])
+        self._show_temp_pan_note()
+        self._nav_toggled()
         self.start_page.setChecked(d[ks.KEY_START_PAGE])
         self.start_menu.setChecked(d[ks.KEY_START_HIDE_MENU])
         self.remember_ui.setChecked(d[ks.KEY_REMEMBER_LAYOUT])
@@ -430,18 +756,57 @@ class SettingsDialog(QDialog):
                      self.basemap.currentData() or ks.DEFAULT_BASEMAP)
         ks.set_value(ks.KEY_ASK_CONVERT, self.ask_convert.isChecked())
         ks.set_value(ks.KEY_SAVE_MODE, self.save_mode.currentData() or ks.SAVE_ASK)
+        ks.set_value(ks.KEY_SCRATCH_ON_CLOSE,
+                     self.scratch_mode.currentData() or ks.SCRATCH_ASK)
         ks.set_value(ks.KEY_PROJECT_CRS,
                      self.crs.crs().authid() or ks.DEFAULT_CRS)
         ks.set_value(ks.KEY_ZOOM_ENABLED, self.zoom_on.isChecked())
         ks.set_value(ks.KEY_ZOOM_COUNTRY,
                      self.country.currentData() or ks.DEFAULT_COUNTRY)
         ks.set_value(ks.KEY_FOLLOW_SYSTEM_THEME, self.follow_theme.isChecked())
+        ks.set_value(ks.KEY_BAG_ANIMATION, self.bag_animation.currentData())
+        self.bubbles.apply()
+        ks.set_value(ks.KEY_WINDOW_REVEAL, self.window_reveal.isChecked())
         ks.set_value(ks.KEY_PRO_SELECTION, self.pro_selection.isChecked())
         ks.set_value(ks.KEY_PRO_LAYERS, self.pro_layers.isChecked())
+        ks.set_value(ks.KEY_MAGNIFY_TOOLBARS, self.magnify_toolbars.isChecked())
+        ks.set_value(ks.KEY_SKETCH_BAR, self.bar_show.isChecked())
+        ks.set_value(ks.KEY_SKETCH_BAR_POSITION,
+                     next((k for k, r in self.bar_position.items() if r.isChecked()), 'bottom'))
+        ks.set_value(ks.KEY_SKETCH_BAR_SIZE, next((k for k, r in self.bar_size.items() if r.isChecked()), 'medium'))
+        ks.set_value(ks.KEY_SKETCH_BAR_MAGNIFY, self.bar_magnify.isChecked())
+        ks.set_value(ks.KEY_NODE_VIEW, self.node_view.isChecked())
+        ks.set_value(ks.KEY_NODE_VERTICES, self.node_vertices.isChecked())
+        ks.set_value(ks.KEY_NODE_NODES, self.node_nodes.isChecked())
+        ks.set_value(ks.KEY_NODE_MIDPOINTS, self.node_midpoints.isChecked())
+        ks.set_value(ks.KEY_NODE_SCOPE, self.node_scope.currentData() or ks.NODE_SCOPE_VISIBLE)
+        ks.set_value(ks.KEY_NODE_VERTEX_SIZE, self.node_vertex_size.value())
+        ks.set_value(ks.KEY_NODE_NODE_SIZE, self.node_node_size.value())
+        ks.set_value(ks.KEY_NODE_VERTEX_COLOR, self.node_vertex_color.color().name())
+        ks.set_value(ks.KEY_NODE_NODE_COLOR, self.node_node_color.color().name())
+        ks.set_value(ks.KEY_NODE_MID_COLOR, self.node_mid_color.color().name())
+        ks.set_value(ks.KEY_NODE_MAX, self.node_max.value())
+        ks.set_value(ks.KEY_GRID, self.grid_on.isChecked())
+        ks.set_value(ks.KEY_GRID_SPACING, self.grid_spacing.value())
+        ks.set_value(ks.KEY_GRID_UNIT, self.grid_unit.currentData() or ks.GRID_UNIT_M)
+        ks.set_value(ks.KEY_GRID_ROTATION, self.grid_rotation.value())
         ks.set_value(ks.KEY_MAP_TABS, self.map_tabs.isChecked())
         ks.set_value(ks.KEY_MAP_TABS_DOCK_LAYOUTS, self.tabs_dock_layouts.isChecked())
         ks.set_value(ks.KEY_MAP_TABS_SYNC_THEMES, self.tabs_sync_themes.isChecked())
         ks.set_value(ks.KEY_MAP_TABS_AUTO_ORGANIZE, self.tabs_auto.isChecked())
+        ks.set_value(ks.KEY_LAYER_LISTS_CURRENT_MAP, self.tabs_layer_lists.isChecked())
+        ks.set_value(ks.KEY_SMOOTH_NAV, self.smooth_nav.isChecked())
+        ks.set_value(ks.KEY_SMOOTH_NAV_ZOOM, self.nav_zoom.isChecked())
+        ks.set_value(ks.KEY_SMOOTH_NAV_ZOOM_MS, self.nav_zoom_ms.value())
+        ks.set_value(ks.KEY_SMOOTH_NAV_INERTIA, self.nav_inertia.isChecked())
+        ks.set_value(ks.KEY_SMOOTH_NAV_GLIDE_MS, self.nav_glide_ms.value())
+        ks.set_value(ks.KEY_SMOOTH_NAV_KEYBOARD, self.nav_keyboard.isChecked())
+        ks.set_value(ks.KEY_SMOOTH_NAV_RIGHT_ZOOM, self.nav_right_zoom.isChecked())
+        ks.set_value(ks.KEY_SMOOTH_NAV_RIGHT_DIR,
+                     self.nav_right_dir.currentData() or ks.RIGHT_UP_IN)
+        ks.set_value(ks.KEY_SMOOTH_NAV_UNDERLAY, self.nav_underlay.isChecked())
+        ks.set_value(ks.KEY_TEMP_PAN, self.temp_pan.isChecked())
+        ks.set_value(ks.KEY_TEMP_PAN_KEY, int(self.temp_pan_key.key))
         ks.set_value(ks.KEY_START_PAGE, self.start_page.isChecked())
         ks.set_value(ks.KEY_START_HIDE_MENU, self.start_menu.isChecked())
         remembering = self.remember_ui.isChecked()

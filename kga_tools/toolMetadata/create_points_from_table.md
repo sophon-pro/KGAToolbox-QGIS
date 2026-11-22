@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:create_points_from_table` |
 | **Group** | KGA Data Management |
 | **Source** | `kga_tools/algorithms/CreatePointsFromTable.py` |
-| **Icon** | `icons/PointFromTable.png` |
+| **Icon** | `icons/conversion/PointFromTable.png` |
 | **Type** | Batch algorithm |
 
 ## Overview

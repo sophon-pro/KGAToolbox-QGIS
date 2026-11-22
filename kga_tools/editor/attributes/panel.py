@@ -9,6 +9,7 @@ switch with Apply / Cancel.
 from contextlib import suppress
 
 from qgis.core import QgsFeatureRequest, QgsProject, QgsSettings, QgsVectorLayer
+from ...gui.panel_bubble import ToolbarReveal
 from qgis.gui import QgsDockWidget, QgsHighlight
 from qgis.PyQt import sip
 from qgis.PyQt.QtCore import Qt, QTimer, pyqtSignal
@@ -39,9 +40,10 @@ import os
 from ...branding import open_docs
 from .fields import AttributeModel, FieldView
 from .geometry import GeometryWidget
-from .layer_browser import LayerBrowser, feature_label
+from .layer_browser import LayerBrowser, feature_label, feature_labeler
 from .style import PANEL_QSS
 from .widgets import ToggleSwitch, make_tab_bar
+from ..manager import edit_blocked
 
 TITLE = "Attributes"
 DOCS_NAME = "open_feature_attribute"        # khmergrs.com/docs/qgis/<name>, like every KGA tool
@@ -72,7 +74,7 @@ def layer_tree_layers():
     return out
 
 
-class AttributesPanel(QgsDockWidget):
+class AttributesPanel(ToolbarReveal, QgsDockWidget):
 
     shapeChanged = pyqtSignal(str)
 
@@ -85,10 +87,14 @@ class AttributesPanel(QgsDockWidget):
         self._highlights = []
         self._geometry_target = None
         self._refreshing = False
+        # A closed pane does not follow the selection: listing the selected features and their
+        # geometry on every click or rectangle select cost from 50 ms to over a second, with nobody
+        # looking. It notes that it is out of date and catches up when it is shown.
+        self._stale = False
         self._timer = QTimer(self)
         self._timer.setSingleShot(True)
         self._timer.setInterval(30)
-        self._timer.timeout.connect(self.refresh)
+        self._timer.timeout.connect(self._scheduled_refresh)
 
         self.model = AttributeModel(self)
         self.model.editingStarted.connect(self._editing_started)
@@ -298,6 +304,12 @@ class AttributesPanel(QgsDockWidget):
         if not self._refreshing:
             self._timer.start()
 
+    def _scheduled_refresh(self):
+        if self.isHidden():                     # closed (a pane whose window is not up yet counts as open)
+            self._stale = True
+            return
+        self.refresh()
+
     def _attribute_changed(self, _fid, _idx, _value):
         self.model.refresh()
         self._relabel()
@@ -328,6 +340,7 @@ class AttributesPanel(QgsDockWidget):
         """Rebuild both trees from the current selection, keeping the current row when it survives."""
         if self._refreshing:
             return
+        self._stale = False
         self._refreshing = True
         try:
             wanted = self._current_key()
@@ -363,11 +376,12 @@ class AttributesPanel(QgsDockWidget):
             ids = sorted(layer.selectedFeatureIds())[:MAX_TREE_FEATURES]
             request = QgsFeatureRequest().setFilterFids(ids)
             features = {f.id(): f for f in layer.getFeatures(request)}
+            name_of = feature_labeler(layer)    # the display expression, prepared once for the layer
             for fid in ids:
                 feature = features.get(fid)
                 if feature is None:
                     continue
-                child = QTreeWidgetItem(node, [feature_label(layer, feature)])
+                child = QTreeWidgetItem(node, [name_of(feature)])
                 child.setData(0, ROLE_KIND, "feature")
                 child.setData(0, ROLE_LAYER, layer.id())
                 child.setData(0, ROLE_FID, fid)
@@ -469,7 +483,10 @@ class AttributesPanel(QgsDockWidget):
             self._update_notice()
             return
         self.model.set_target(layer, fids)
-        self.geometry.set_target(layer, fids if kind == "feature" else [])
+        # the vertex table (one row per vertex, thousands for a district) is only filled when the
+        # Geometry tab is the one on screen; otherwise it waits until the tab is opened
+        self.geometry.set_target(layer, fids if kind == "feature" else [],
+                                 build=self.detail_tabs.currentIndex() == 1)
         self._show_detail_page()
         self._update_notice()
         self.highlight(layer, fids)
@@ -479,6 +496,7 @@ class AttributesPanel(QgsDockWidget):
         if layer is None:
             self.detail_stack.setCurrentWidget(self.empty)
         elif self.detail_tabs.currentIndex() == 1:
+            self.geometry.ensure_built()
             self.detail_stack.setCurrentWidget(self.geometry)
         else:
             self.detail_stack.setCurrentWidget(self.field_view)
@@ -489,6 +507,8 @@ class AttributesPanel(QgsDockWidget):
         if layer is not None and not sip.isdeleted(layer):
             if not layer.isEditable() and not layer.supportsEditing():
                 text = "This layer is read-only; its values cannot be changed."
+            elif edit_blocked(layer):
+                text = "Editing is switched off for this layer (List By Editing); tick it there to change its values."
         self.notice.setText(text)
         self.notice.setVisible(bool(text))
 
@@ -570,6 +590,8 @@ class AttributesPanel(QgsDockWidget):
             self._highlights.append(h)
 
     def showEvent(self, event):
+        if self._stale:
+            self.refresh()                      # the selection changed while the pane was closed
         super().showEvent(event)
         layer, fids, _kind = self.current_target()
         if layer is not None:

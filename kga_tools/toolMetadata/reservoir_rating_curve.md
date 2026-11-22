@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:reservoir_rating_curve` |
 | **Group** | KGA Irrigation Tools |
 | **Source** | `kga_tools/algorithms/ReservoirRatingCurve.py` |
-| **Icon** | group icon (`icons/irrigation.png`) |
+| **Icon** | group icon (`icons/toolbox_groups/irrigation.png`) |
 | **Type** | Batch algorithm |
 
 ## Overview

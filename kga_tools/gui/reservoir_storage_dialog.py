@@ -40,6 +40,7 @@ except ImportError:                                     # older matplotlib
     from matplotlib.backends.backend_qt5agg import (
         FigureCanvasQTAgg as FigureCanvas, NavigationToolbar2QT as NavToolbar)
 
+from .window_reveal import revealed_preview
 from ..branding import help_button
 from ..core import output_defaults as od
 from ..core.reservoir_storage import (
@@ -259,6 +260,7 @@ class LayerRow(QWidget):
 #  Main dialog
 # ─────────────────────────────────────────────────────────────────────────
 
+@revealed_preview
 class ReservoirStorageDialog(QDialog):
 
     def __init__(self, parent=None):

@@ -282,6 +282,7 @@ class SymbolQuickPopup(QWidget):
         self._preview()
         self._sync_quick()
         self.dirty = True
+        self.dock.notify_pending()
         if self.mode == "after":
             self._timer.start()
 
@@ -327,6 +328,7 @@ class SymbolQuickPopup(QWidget):
         if accepted:
             self.symbol = obj.clone()
             self.dirty = True
+            self.dock.notify_pending()
             self._quiet_refresh()
             if self.mode == "after":
                 self._live()
@@ -338,6 +340,7 @@ class SymbolQuickPopup(QWidget):
             return
         self.symbol = self.dock.gallery_symbol(self.entry).clone()
         self.dirty = True
+        self.dock.notify_pending()
         self._quiet_refresh()
         if self.mode == "after":
             self._live()

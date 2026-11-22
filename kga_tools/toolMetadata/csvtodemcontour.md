@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:csvtodemcontour` |
 | **Group** | KGA Irrigation Tools |
 | **Source** | `kga_tools/algorithms/csv_to_dem_contour_qgis.py` |
-| **Icon** | group icon (`icons/irrigation.png`) |
+| **Icon** | group icon (`icons/toolbox_groups/irrigation.png`) |
 | **Type** | Window (Toolbox opens a dedicated dialog); the algorithm is still scriptable and usable in the modeller and batch |
 
 ## Overview

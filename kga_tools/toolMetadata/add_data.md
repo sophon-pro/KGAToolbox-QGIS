@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:add_data` |
 | **Group** | KGA Data Management |
 | **Source** | `kga_tools/algorithms/add_data_alg.py` (dialog in `kga_tools/gui/add_data_dialog.py`, sources in `kga_tools/core/data_sources.py`, `dem_sources.py` and `landcover_sources.py`) |
-| **Icon** | `icons/addData.png` |
+| **Icon** | `icons/data_management/addData.png` |
 | **Type** | Interactive dialog — modeless, needs the QGIS window and an internet connection |
 
 ## Overview

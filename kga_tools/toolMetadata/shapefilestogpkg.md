@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:shapefilestogpkg` |
 | **Group** | KGA Data Management |
 | **Source** | `kga_tools/algorithms/shapefiles_to_gpkg.py` |
-| **Icon** | `icons/gpkg.png` |
+| **Icon** | `icons/conversion/gpkg.png` |
 | **Type** | Batch algorithm |
 
 ## Overview

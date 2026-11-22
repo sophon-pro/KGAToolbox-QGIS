@@ -5,7 +5,7 @@
 | **Category** | Modify Features > Construct |
 | **Type** | Map tool in the Modify Features pane (not a Processing algorithm) |
 | **Source** | `kga_tools/editor/modify/buffer.py` (BufferTool) |
-| **Icon** | `kga_tools/icons/bufferFeature.png` |
+| **Icon** | `kga_tools/icons/editing/bufferFeature.png` |
 | **Also as a window** | [buffer_features](../buffer_features.md) (`kga:buffer_features`) |
 
 ## Overview

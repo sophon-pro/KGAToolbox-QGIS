@@ -11,14 +11,16 @@ import os
 from contextlib import suppress
 
 from qgis.PyQt.QtCore import Qt, QTimer
-from qgis.PyQt.QtGui import QIcon
+from ...branding import themed_icon
 from qgis.PyQt.QtWidgets import QDockWidget
 
+from ...gui import panel_bubble
 from ..sketch.construction_tool import ConstructionSketchTool
 from .panel import TITLE, CreateFeaturesPanel
+from .sketch_toolbar import SketchToolbar
 from .templates import effective_attributes
 
-ICON = os.path.join(os.path.dirname(__file__), "..", "..", "icons", "createFeature.png")
+ICON = os.path.join(os.path.dirname(__file__), "..", "..", "icons", "editing/createFeature.png")
 
 
 class CreateFeaturesController:
@@ -29,6 +31,7 @@ class CreateFeaturesController:
         self.tool = None
         self.action = None
         self.toolbar = None
+        self.sketch_bar = None
 
     def build(self, toolbar, before=None):
         win = self.iface.mainWindow()
@@ -40,18 +43,22 @@ class CreateFeaturesController:
 
         self.action = self.panel.toggleViewAction()
         self.action.setObjectName("mActionKgaCreateFeatures")
-        self.action.setIcon(QIcon(os.path.normpath(ICON)))
+        self.action.setIcon(themed_icon(ICON))
         self.action.setText(TITLE)
         self.action.setToolTip("Create Features (needs Edit Session: On) - pick a template, then draw it with a "
                                "construction tool (point, line, polygon, rectangle, circle ...)")
         self.action.triggered.connect(self._toggled)
+        panel_bubble.attach_reveal(self.panel, self.action, 'create_features', 'Create Features – click to open',
+                                   panel_bubble.file_glyph('bubble/create_features.png'))
 
         self.tool = ConstructionSketchTool(self.iface.mapCanvas())
         self.tool.featureAdded.connect(self._feature_added)
         self.tool.activated.connect(lambda: self._tool_state(True))
         self.tool.deactivated.connect(lambda: self._tool_state(False))
+        self.sketch_bar = SketchToolbar(self.iface.mapCanvas(), self.tool)     # floats over the map while the tool is on
         self.panel.templateActivated.connect(self._activate)
         self.panel.templateReleased.connect(self._release_tool)
+        self.tool.escapePressed.connect(lambda: QTimer.singleShot(0, self._release_tool))
         self.panel.closed.connect(self._pane_closed)
 
         self.toolbar = toolbar
@@ -65,8 +72,10 @@ class CreateFeaturesController:
         if self.action is None:
             return
         self.action.setEnabled(on)
-        if not on and self.panel is not None and not self.panel.isHidden():
-            self.panel.close()
+        if not on:
+            if self.panel is not None and not self.panel.isHidden():
+                self.panel.close()
+            self._release_tool()                      # also when the pane was already hidden: the tool and its bar go too
 
     def tabify_with_toolbox(self):
         """Put the pane in the Processing Toolbox's tab group (skipped if either was pulled out)."""
@@ -80,6 +89,9 @@ class CreateFeaturesController:
 
     def remove(self):
         canvas = self.iface.mapCanvas()
+        if self.sketch_bar is not None:
+            self.sketch_bar.dispose()
+            self.sketch_bar = None
         if self.tool is not None:
             if canvas.mapTool() is self.tool:
                 canvas.unsetMapTool(self.tool)

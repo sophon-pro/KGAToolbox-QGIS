@@ -12,7 +12,8 @@ from contextlib import suppress
 
 from qgis.core import QgsSettings
 from qgis.PyQt.QtCore import QEvent, QMimeData, QObject, QPoint, QRect, Qt, pyqtSignal
-from qgis.PyQt.QtGui import QCursor, QDrag, QIcon
+from qgis.PyQt.QtGui import QCursor, QDrag
+from ...branding import themed_icon
 from qgis.PyQt.QtWidgets import QApplication, QFrame, QMenu
 
 try:  # Qt6 / QGIS 4
@@ -160,7 +161,7 @@ class FavoritesBar(QObject):
         self._separator = self.toolbar.insertSeparator(self.before)
         for tool_id in ids:
             tile = tiles[tool_id]
-            action = QAction(QIcon(tile.icon), tile.label.replace("\n", " "), self.toolbar)
+            action = QAction(themed_icon(tile.icon), tile.label.replace("\n", " "), self.toolbar)
             action.setObjectName(f"mActionKgaFav_{tool_id}")
             action.setToolTip(f"{tile.tip}\nFavorite - drag to reorder, right-click to remove it from the toolbar")
             action.setEnabled(self.enabled)

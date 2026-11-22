@@ -158,12 +158,17 @@ class EditableLayersPanel(QDockWidget):
         self.tree.itemChanged.connect(self._item_changed)
         lay.addWidget(self.tree)
         self.setWidget(body)
+        self._refresh_timer = QTimer(self)
+        self._refresh_timer.setSingleShot(True)
+        self._refresh_timer.setInterval(60)
+        self._refresh_timer.timeout.connect(self._refresh_now)
         self.manager.changed.connect(self.refresh)
         root = QgsProject.instance().layerTreeRoot()
         root.addedChildren.connect(self.refresh)
         root.removedChildren.connect(self.refresh)
         root.visibilityChanged.connect(self._map_switched)       # Map Tabs switches maps by toggling their groups
-        self.refresh()
+        self._stale = False         # the project changed while the panel was closed: rebuild when it is shown
+        self._refresh_now()
 
     def disconnect_all(self):
         try:
@@ -177,11 +182,30 @@ class EditableLayersPanel(QDockWidget):
 
     def _map_switched(self, *args):
         """A group was shown or hidden: when that changed which map is active the list follows it."""
+        if self.isHidden():
+            self._stale = True      # nobody is looking: no walk over every layer for each tick box
+            return
         ids = [layer.id() for layer in self.manager.panel_layers()]
         if ids != self._listed:
-            QTimer.singleShot(0, self.refresh)
+            QTimer.singleShot(0, self._refresh_now)
 
     def refresh(self, *args):
+        """Rebuild the list once the burst of tree changes (adding 40 layers) is over.
+
+        A closed panel is not rebuilt (planning every layer of a big project took tens of milliseconds
+        for each layer added); it rebuilds when it is shown."""
+        if self.isHidden():                 # closed (a panel whose window is not up yet counts as open)
+            self._stale = True
+            return
+        self._refresh_timer.start()
+
+    def showEvent(self, event):  # noqa: N802 - Qt virtual
+        if self._stale:
+            self._refresh_now()
+        super().showEvent(event)
+
+    def _refresh_now(self):
+        self._stale = False
         self._filling = True
         try:
             self.tree.clear()
@@ -189,8 +213,9 @@ class EditableLayersPanel(QDockWidget):
             self.info.setText("Tick the layers you want to edit or select. Right-click for more options." if managed else
                               "This project uses a QGIS transaction mode (Project Properties > Data Sources), "
                               "so QGIS manages editing itself. Set it to 'Local Edit Buffer' to use Edit Session.")
+            plan = self.manager.plan() if managed else None
             for layer in self.manager.panel_layers():
-                item = QTreeWidgetItem([layer.name(), "", self.manager.status(layer)])
+                item = QTreeWidgetItem([layer.name(), "", self.manager.status(layer, plan)])
                 item.setData(0, Qt.ItemDataRole.UserRole, layer.id())
                 flags = Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsUserCheckable
                 if can_edit(layer) and managed:
@@ -245,7 +270,7 @@ class EditableLayersPanel(QDockWidget):
             self.manager.set_all_selectable(on)
         elif self.manager.managed():
             self.manager.set_all_editable(on, ask=self.plugin.ask_turn_off)
-        self.refresh()
+        self._refresh_now()
 
     def _layer(self, item):
         if item is None:
@@ -270,7 +295,7 @@ class EditableLayersPanel(QDockWidget):
                 self.manager.set_selectable(layer, on)
             elif can_edit(layer) and self.manager.managed():
                 self.manager.set_editable(layer, on, ask=self.plugin.ask_turn_off)
-        self.refresh()
+        self._refresh_now()
 
     def _context_menu(self, pos):
         layer = self._layer(self.tree.itemAt(pos))

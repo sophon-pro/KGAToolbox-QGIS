@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:updatexyfields` |
 | **Group** | KGA Geometry Utilities |
 | **Source** | `kga_tools/algorithms/update_xy_fields.py` |
-| **Icon** | `icons/updateXYFields.png` |
+| **Icon** | `icons/data_management/updateXYFields.png` |
 | **Type** | Batch algorithm (runs on the GUI thread — it edits the layer in place) |
 
 ## Overview

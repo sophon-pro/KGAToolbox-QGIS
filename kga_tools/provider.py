@@ -24,10 +24,20 @@ from qgis.core import (
     QgsProcessingAlgorithm,
     QgsProcessingProvider,
 )
-from qgis.PyQt.QtGui import QIcon
+from .branding import icon as branding_icon
 
 PLUGIN_DIR = os.path.dirname(__file__)
 LOG_TAG = 'KGA Toolbox'
+
+
+# Algorithm modules that are built but frozen: not registered, so they get no
+# menu entry, toolbar button or Processing entry (and the KGA GeoAI toolbar,
+# which only exists when it has tools, is not created). The code stays in the
+# repo. To bring a tool back, remove its module name from this set.
+FROZEN_MODULES = frozenset({
+    'detect_roads_imagery_alg',
+    'detect_paddy_plots_imagery_alg',
+})
 
 
 class KgaProvider(QgsProcessingProvider):
@@ -43,16 +53,16 @@ class KgaProvider(QgsProcessingProvider):
         return 'KGA Toolbox'
 
     def icon(self):
-        path = os.path.join(PLUGIN_DIR, 'icons', 'kga.png')
-        if os.path.exists(path):
-            return QIcon(path)
-        return super().icon()
+        found = branding_icon('branding/kga.png')
+        return found if not found.isNull() else super().icon()
 
     def loadAlgorithms(self):
         from . import algorithms as alg_package
 
         package_dir = os.path.dirname(alg_package.__file__)
         for _finder, mod_name, _ispkg in pkgutil.iter_modules([package_dir]):
+            if mod_name in FROZEN_MODULES:
+                continue
             full_name = '{}.{}'.format(alg_package.__name__, mod_name)
             try:
                 if full_name in sys.modules:

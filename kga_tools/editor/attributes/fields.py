@@ -44,6 +44,7 @@ from qgis.PyQt.QtWidgets import (
 from ...core.compat import (INTEGER_TYPES, T_BOOL, T_DATE, T_DATETIME, T_DOUBLE, T_LONGLONG, T_STRING, T_TIME,
                             enum_value)
 from .style import ERROR_BG, ERROR_TEXT, NULL_TEXT, PENDING_TEXT, READONLY_TEXT
+from ..manager import edit_blocked
 
 ROLE_EDITABLE = Qt.ItemDataRole.UserRole + 10
 ROLE_PENDING = Qt.ItemDataRole.UserRole + 11
@@ -173,7 +174,7 @@ def ensure_editing(layer):
     """Put a layer in edit mode if it is not. Returns True when it can take edits now."""
     if layer.isEditable():
         return True
-    if not layer.supportsEditing():
+    if not layer.supportsEditing() or edit_blocked(layer):
         return False
     return bool(layer.startEditing())
 
@@ -250,7 +251,8 @@ class AttributeModel(QAbstractTableModel):
         return self.rows[row]
 
     def layer_is_writable(self):
-        return self.layer is not None and (self.layer.isEditable() or self.layer.supportsEditing())
+        return self.layer is not None and (self.layer.isEditable() or (
+            self.layer.supportsEditing() and not edit_blocked(self.layer)))
 
     def is_multi(self):
         return len(self.fids) > 1
@@ -454,6 +456,8 @@ class AttributeModel(QAbstractTableModel):
             self.before_edit(layer)
         was_editable = layer.isEditable()
         if not ensure_editing(layer):
+            if edit_blocked(layer):
+                return False, "Editing is switched off for this layer (List By Editing)."
             return False, "This layer cannot be edited."
         if not was_editable:
             self.editingStarted.emit(layer)
@@ -573,7 +577,7 @@ class ValueDelegate(QStyledItemDelegate):
             if is_null(value):
                 editor.clear()
             elif isinstance(value, QDate):
-                editor.setDateTime(QDateTime(value))
+                editor.setDateTime(QDateTime(value, QTime(0, 0)))       # Qt 6 has no QDateTime(QDate)
             elif isinstance(value, QTime):
                 editor.setDateTime(QDateTime(QDate.currentDate(), value))
             elif isinstance(value, QDateTime):

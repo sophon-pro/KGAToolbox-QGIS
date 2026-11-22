@@ -37,6 +37,7 @@ from qgis.PyQt import sip
 from qgis.PyQt.QtCore import Qt, pyqtSignal
 from qgis.PyQt.QtGui import QColor, QCursor
 from .templates import category_attributes
+from ..manager import edit_blocked
 from qgis.PyQt.QtWidgets import (
     QComboBox,
     QDialog,
@@ -45,6 +46,14 @@ from qgis.PyQt.QtWidgets import (
     QLineEdit,
     QMenu,
 )
+
+try:
+    from qgis.core import QgsTracer
+except ImportError:                 # older QGIS keeps it in qgis.analysis
+    try:
+        from qgis.analysis import QgsTracer
+    except ImportError:             # no tracer: Trace falls back to straight segments
+        QgsTracer = None
 
 try:  # Qt6 / QGIS 4
     from qgis.PyQt.QtGui import QAction
@@ -56,8 +65,31 @@ WEB_MERCATOR = {"EPSG:3857", "EPSG:900913", "EPSG:3395", "ESRI:102100", "EPSG:10
 CIRCLE_SEGMENTS = 72                # corners of a drawn circle / ellipse
 FREEHAND_SPACING_PX = 4             # freehand adds a vertex after the mouse moved this far
 SHAPE_POINTS = {"rectangle": 2, "circle": 2, "ellipse": 3}    # shape tool -> clicks that define it
+CIRCLE_VARIANTS = ("straight", "circle3")                      # circle: centre and radius | three points on it
 DUPLICATE_TOLERANCE = 1e-6          # working-CRS units; closer clicks are ignored
 PICK_TOLERANCE_PX = 20              # how close (pixels) a click must be to pick an edge
+VERTEX_GRAB_PX = 10                 # the pointer grabs a sketch vertex this close (pixels)
+DRAG_START_PX = 4                   # a press has to move this far before it counts as a drag
+
+# Segment types of the sketch toolbar (the Pro "construction" buttons)
+CONSTRUCT_SEQ = {"intersection": ("line", "line"), "line_circle": ("line", "circle"), "circle_circle": ("circle", "circle")}
+CONSTRUCTIONS = ("intersection", "line_circle", "circle_circle", "midpoint")  # place one point from two references
+LINE_SEGMENTS = ("straight", "right_angle", "arc3", "arc_end", "arc_tangent", "bezier", "trace", "freehand") + CONSTRUCTIONS
+POINT_SEGMENTS = ("straight",) + CONSTRUCTIONS
+SEGMENT_TIPS = {
+    "straight": "Left-click to add vertices; right-click for options.",
+    "right_angle": "Click the first two vertices; every later segment turns exactly 90 degrees.",
+    "freehand": "Press and drag to draw; release to finish.",
+    "arc3": "Click a point on the arc, then its end point - or press at the end point and drag to bow the curve.",
+    "arc_end": "Click the end point, then move to set how far the arc bows and click. R = type a radius.",
+    "bezier": "Press at the next vertex and drag to pull its handle; release to place the curve.",
+    "arc_tangent": "Click the end point: the arc leaves the last segment tangent to it.",
+    "trace": "Click along existing features: the segment follows their edges.",
+    "intersection": "Define two lines (click an edge, or click a point and aim): the vertex goes where they cross.",
+    "line_circle": "Define a line, then a circle (click its centre, move to set the radius): the vertex goes where they meet.",
+    "midpoint": "Click the two ends of a segment (snap to vertices): the vertex goes at its middle.",
+    "circle_circle": "Click a centre and set its radius, then a second centre and radius: the vertex goes where they meet.",
+}
 
 GEOM_POINT = Qgis.GeometryType.Point
 GEOM_LINE = Qgis.GeometryType.Line
@@ -173,12 +205,53 @@ def rectangle_ring(a, b):
     return [(a[0], a[1]), (b[0], a[1]), (b[0], b[1]), (a[0], b[1])]
 
 
+def square_opposite(a, b):
+    """The opposite corner of the axis-aligned square that has corner a and reaches towards b (tuples)."""
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    side = max(abs(dx), abs(dy))
+    return a[0] + (side if dx >= 0 else -side), a[1] + (side if dy >= 0 else -side)
+
+
+def rotated_rectangle_ring(a, b, c=None, square=False):
+    """
+    Corners of the rectangle whose first side runs a -> b. Its width is the distance of c from that side (on c's
+    side); with `square` (or without c) the width equals the side and lies to the left of a -> b (tuples).
+    """
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    length = math.hypot(dx, dy)
+    if length == 0:
+        return [a, b, b, a]
+    nx, ny = -dy / length, dx / length
+    if square:
+        width = length
+    elif c is None:
+        width = 0.0
+    else:
+        width = (c[0] - a[0]) * nx + (c[1] - a[1]) * ny
+    return [a, b, (b[0] + nx * width, b[1] + ny * width), (a[0] + nx * width, a[1] + ny * width)]
+
+
 def circle_ring(center, edge, segments=CIRCLE_SEGMENTS):
     """Points of the circle round center through edge (tuples); the first point is the edge point."""
     r = math.hypot(edge[0] - center[0], edge[1] - center[1])
     a0 = math.atan2(edge[1] - center[1], edge[0] - center[0])
     return [(center[0] + r * math.cos(a0 + 2 * math.pi * i / segments),
              center[1] + r * math.sin(a0 + 2 * math.pi * i / segments)) for i in range(segments)]
+
+
+def circle_through_ring(v, segments=CIRCLE_SEGMENTS):
+    """Circle through three points; with two (or three in a line) the circle that has them as a diameter."""
+    a, b = v[0], v[1]
+    if len(v) >= 3:
+        c = v[2]
+        d = 2.0 * (a[0] * (b[1] - c[1]) + b[0] * (c[1] - a[1]) + c[0] * (a[1] - b[1]))
+        scale = max(abs(a[0] - c[0]), abs(a[1] - c[1]), abs(b[0] - c[0]), abs(b[1] - c[1]), 1e-12)
+        if abs(d) > 1e-9 * scale * scale:
+            a2, b2, c2 = a[0] ** 2 + a[1] ** 2, b[0] ** 2 + b[1] ** 2, c[0] ** 2 + c[1] ** 2
+            ux = (a2 * (b[1] - c[1]) + b2 * (c[1] - a[1]) + c2 * (a[1] - b[1])) / d
+            uy = (a2 * (c[0] - b[0]) + b2 * (a[0] - c[0]) + c2 * (b[0] - a[0])) / d
+            return circle_ring((ux, uy), a, segments)
+    return circle_ring(((a[0] + b[0]) / 2, (a[1] + b[1]) / 2), a, segments)
 
 
 def ellipse_ring(center, major_end, minor_pt, segments=CIRCLE_SEGMENTS):
@@ -195,6 +268,123 @@ def ellipse_ring(center, major_end, minor_pt, segments=CIRCLE_SEGMENTS):
     return [(center[0] + a * math.cos(t) * ux - b * math.sin(t) * uy,
              center[1] + a * math.cos(t) * uy + b * math.sin(t) * ux)
             for t in (2 * math.pi * i / segments for i in range(segments))]
+
+
+def arc_points(a, b, c, max_step_deg=3.0):
+    """Points after a on the circular arc a -> b -> c (tuples), ending exactly on c; [c] if a, b, c are collinear."""
+    d = 2.0 * (a[0] * (b[1] - c[1]) + b[0] * (c[1] - a[1]) + c[0] * (a[1] - b[1]))
+    scale = max(abs(a[0] - c[0]), abs(a[1] - c[1]), abs(b[0] - c[0]), abs(b[1] - c[1]), 1e-12)
+    if abs(d) < 1e-9 * scale * scale:
+        return [c]
+    a2, b2, c2 = a[0] ** 2 + a[1] ** 2, b[0] ** 2 + b[1] ** 2, c[0] ** 2 + c[1] ** 2
+    ux = (a2 * (b[1] - c[1]) + b2 * (c[1] - a[1]) + c2 * (a[1] - b[1])) / d
+    uy = (a2 * (c[0] - b[0]) + b2 * (a[0] - c[0]) + c2 * (b[0] - a[0])) / d
+    radius = math.hypot(a[0] - ux, a[1] - uy)
+    start = math.atan2(a[1] - uy, a[0] - ux)
+    end = math.atan2(c[1] - uy, c[0] - ux)
+    counter_clockwise = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]) > 0
+    sweep = (end - start) % (2 * math.pi) if counter_clockwise else -((start - end) % (2 * math.pi))
+    steps = max(2, math.ceil(abs(sweep) / math.radians(max_step_deg)))
+    pts = [(ux + radius * math.cos(start + sweep * i / steps), uy + radius * math.sin(start + sweep * i / steps))
+           for i in range(1, steps)]
+    return pts + [c]
+
+
+def tangent_arc_points(a, direction, c, max_step_deg=3.0):
+    """Points after a on the arc that leaves a along `direction` (unit vector, tuple) and ends on c; [c] if straight."""
+    nx, ny = -direction[1], direction[0]                       # the normal on the left
+    side = (c[0] - a[0]) * nx + (c[1] - a[1]) * ny
+    chord2 = (c[0] - a[0]) ** 2 + (c[1] - a[1]) ** 2
+    if abs(side) < 1e-9 * max(chord2, 1e-12) ** 0.5:
+        return [c]
+    s = chord2 / (2.0 * side)                                  # signed distance to the centre along the normal
+    ux, uy = a[0] + s * nx, a[1] + s * ny
+    radius = abs(s)
+    start = math.atan2(a[1] - uy, a[0] - ux)
+    end = math.atan2(c[1] - uy, c[0] - ux)
+    sweep = (end - start) % (2 * math.pi) if s > 0 else -((start - end) % (2 * math.pi))
+    steps = max(2, math.ceil(abs(sweep) / math.radians(max_step_deg)))
+    pts = [(ux + radius * math.cos(start + sweep * i / steps), uy + radius * math.sin(start + sweep * i / steps))
+           for i in range(1, steps)]
+    return pts + [c]
+
+
+def endpoint_arc_points(a, c, bulge, radius=None, max_step_deg=3.0):
+    """
+    Points after a on the circular arc from a to c (tuples). `bulge` (the cursor) says which side it bows to and,
+    without a radius, how far from the chord; with a radius the arc is the shorter one of that radius (a half circle
+    if the radius is less than half the chord).
+    """
+    dx, dy = c[0] - a[0], c[1] - a[1]
+    length = math.hypot(dx, dy)
+    if length == 0:
+        return [c]
+    nx, ny = -dy / length, dx / length
+    mx, my = (a[0] + c[0]) / 2.0, (a[1] + c[1]) / 2.0
+    offset = (bulge[0] - mx) * nx + (bulge[1] - my) * ny
+    side = -1.0 if offset < 0 else 1.0
+    if radius is None:
+        sag = abs(offset)
+    else:
+        half = length / 2.0
+        sag = half if radius <= half else radius - math.sqrt(radius * radius - half * half)
+    if sag < 1e-9 * length:
+        return [c]
+    return arc_points(a, (mx + side * sag * nx, my + side * sag * ny), c, max_step_deg)
+
+
+def bezier_points(p0, p1, p2, p3, steps=32):
+    """Points after p0 on the cubic Bezier curve with control points p1 and p2, ending exactly on p3 (tuples)."""
+    pts = []
+    for i in range(1, steps):
+        t = i / steps
+        u = 1.0 - t
+        pts.append((u ** 3 * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t ** 3 * p3[0],
+                    u ** 3 * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t ** 3 * p3[1]))
+    return pts + [p3]
+
+
+def line_intersection(a, b, c, d):
+    """Where the infinite line a-b meets the infinite line c-d (tuples), or None if they are parallel."""
+    r = (b[0] - a[0], b[1] - a[1])
+    s = (d[0] - c[0], d[1] - c[1])
+    denom = r[0] * s[1] - r[1] * s[0]
+    if abs(denom) <= 1e-12 * (math.hypot(*r) * math.hypot(*s) or 1.0):
+        return None
+    t = ((c[0] - a[0]) * s[1] - (c[1] - a[1]) * s[0]) / denom
+    return a[0] + t * r[0], a[1] + t * r[1]
+
+
+def circle_intersections(p1, r1, p2, r2):
+    """The 0, 1 or 2 points (tuples) where the circle round p1 with radius r1 meets the one round p2 with radius r2."""
+    dx, dy = p2[0] - p1[0], p2[1] - p1[1]
+    d = math.hypot(dx, dy)
+    if d == 0 or d > r1 + r2 + 1e-9 * d or d < abs(r1 - r2) - 1e-9 * d:
+        return []
+    along = (r1 * r1 - r2 * r2 + d * d) / (2 * d)
+    h = math.sqrt(max(0.0, r1 * r1 - along * along))
+    mx, my = p1[0] + along * dx / d, p1[1] + along * dy / d
+    if h <= 1e-9 * d:
+        return [(mx, my)]
+    return [(mx + h * dy / d, my - h * dx / d), (mx - h * dy / d, my + h * dx / d)]
+
+
+def line_circle_intersections(p, q, c, r):
+    """Where the infinite line through p and q meets the circle (centre c, radius r): zero, one or two points."""
+    dx, dy = q[0] - p[0], q[1] - p[1]
+    length2 = dx * dx + dy * dy
+    if length2 == 0 or r <= 0:
+        return []
+    t0 = ((c[0] - p[0]) * dx + (c[1] - p[1]) * dy) / length2
+    fx, fy = p[0] + t0 * dx, p[1] + t0 * dy
+    d2 = (c[0] - fx) ** 2 + (c[1] - fy) ** 2
+    if d2 > r * r:
+        return []
+    h = math.sqrt(r * r - d2)
+    if h <= 1e-9 * r:
+        return [(fx, fy)]
+    k = h / math.sqrt(length2)
+    return [(fx + dx * k, fy + dy * k), (fx - dx * k, fy - dy * k)]
 
 
 def closest_point_on_segment(p, a, b):
@@ -263,6 +453,8 @@ def _ask(title, fields, combo=None):
 class ConstructionSketchTool(QgsMapTool):
 
     featureAdded = pyqtSignal(object, object)       # layer, the new QgsFeature
+    escapePressed = pyqtSignal()                    # Esc with nothing being drawn: the user is done with the tool
+    stateChanged = pyqtSignal()                     # sketch, segment type or template changed (the toolbar follows)
 
     def __init__(self, canvas):
         super().__init__(canvas)
@@ -272,6 +464,19 @@ class ConstructionSketchTool(QgsMapTool):
         self.target_attrs = {}      # {field index: value} the template gives every new feature
         self.target_label = ""
         self._freehand_down = False
+        self.segment = "straight"   # segment type: straight / right_angle / arc3 / arc_tangent / trace / freehand / constructions
+        self.rect_aligned = True    # Rectangle: horizontal with the map (two clicks) | off: any angle (side, then width)
+        self.rect_square = False    # Rectangle: make a square
+        self.sketch_mode = "pointer"    # "pointer" (draw, drag a vertex) or "move" (drag the whole sketch)
+        self.construct = {}         # state of a construction waiting for its next click
+        self._arc = []              # the through point of a three-point arc (or the end of an end-point arc) waiting
+        self._arc_radius = None     # radius typed with R for an end-point arc
+        self._arcdrag = None        # three-point arc, drag way: {'end': point, 'px': pixel, 'moved': bool}
+        self._bez = None            # a Bezier vertex being placed: {'p3': point, 'h': handle vector, 'px': pixel}
+        self._h_out = None          # handle the last Bezier vertex leaves with (the next curve starts with it)
+        self._drag = None           # a vertex / sketch drag in progress
+        self._tracer = None
+        self._tracer_sig = None
         self.work_crs = None
         self.geom_type = GEOM_LINE
         self.vertices = []          # QgsPointXY in working CRS
@@ -296,6 +501,8 @@ class ConstructionSketchTool(QgsMapTool):
         self.guide_band = QgsRubberBand(canvas, GEOM_LINE)
         self.ref_band = QgsRubberBand(canvas, GEOM_LINE)
         self.self_snap_band = QgsRubberBand(canvas, GEOM_POINT)
+        self.pick_band = QgsRubberBand(canvas, GEOM_LINE)      # the references already fixed in a construction
+        self.cand_band = QgsRubberBand(canvas, GEOM_POINT)     # where a construction would place its vertex
         self._style_bands()
         self.snap_indicator = QgsSnapIndicator(canvas)
         try:
@@ -321,6 +528,20 @@ class ConstructionSketchTool(QgsMapTool):
         self.self_snap_band.setIcon(ICON_CIRCLE)
         self.self_snap_band.setIconSize(14)
         self.self_snap_band.setWidth(2)
+        self.pick_band.setColor(QColor(0, 200, 255))
+        self.pick_band.setWidth(2)
+        self.pick_band.setLineStyle(Qt.PenStyle.DashLine)
+        self.cand_band.setColor(QColor(0, 90, 255))
+        self.cand_band.setIcon(ICON_CIRCLE)
+        self.cand_band.setIconSize(12)
+
+    def _bands(self):
+        return (self.sketch_band, self.vertex_band, self.guide_band, self.ref_band, self.self_snap_band, self.pick_band,
+                self.cand_band)
+
+    def _notify(self):
+        if not self._disposed:
+            self.stateChanged.emit()
 
     def activate(self):
         super().activate()
@@ -337,6 +558,7 @@ class ConstructionSketchTool(QgsMapTool):
             self._redraw()
         else:
             self._set_layer(layer if not self.fixed or self._layer_alive() else None, announce=True)
+        self._notify()
 
     def deactivate(self):
         """Switching to another tool hides the sketch but keeps it, so you can come back to it."""
@@ -344,6 +566,8 @@ class ConstructionSketchTool(QgsMapTool):
         if not self._disposed:
             self.picking = None
             self._freehand_down = False
+            self._drag = None
+            self._clear_pending()
             self.dir_lock = self.dist_lock = None
             self.preview = None
             self.ref_band.reset(GEOM_LINE)
@@ -354,7 +578,7 @@ class ConstructionSketchTool(QgsMapTool):
         super().deactivate()
 
     def _set_bands_visible(self, visible):
-        for band in (self.sketch_band, self.vertex_band, self.guide_band, self.ref_band, self.self_snap_band):
+        for band in self._bands():
             band.setVisible(visible)
 
     def _connect_signals(self):
@@ -398,12 +622,80 @@ class ConstructionSketchTool(QgsMapTool):
         self._disconnect_signals()
         self._reset()
         scene = self.canvas().scene()
-        for band in (self.sketch_band, self.vertex_band, self.guide_band, self.ref_band, self.self_snap_band):
+        for band in self._bands():
             scene.removeItem(band)
         self.snap_indicator.setMatch(QgsPointLocator.Match())
         self._clear_status()
         self.layer = None
         self._disposed = True
+
+    # ------------------------------------------------------- what the sketch toolbar drives
+    def set_segment(self, kind):
+        """Choose how the next segments are drawn (a toolbar button). Ignored if the layer cannot use it."""
+        allowed = POINT_SEGMENTS if self.geom_type == GEOM_POINT else LINE_SEGMENTS
+        if self.mode == "circle":
+            allowed = CIRCLE_VARIANTS
+        elif self.mode in SHAPE_POINTS:
+            return
+        if kind not in allowed:
+            return
+        if kind != self.segment:
+            self._clear_pending()
+            if self.picking:
+                self._cancel_pick()
+            self._drag = None
+            self._freehand_down = False
+            self._h_out = None
+            if self.mode in SHAPE_POINTS:
+                self._reset()                      # a half-drawn circle does not fit the other way of drawing it
+            self.segment = kind
+            self.preview = None
+            if kind == "trace":
+                with suppress(Exception):
+                    self._get_tracer()
+            self._redraw()
+        self.sketch_mode = "pointer"
+        self._notify()
+
+    def set_rect_option(self, name, on):
+        """Rectangle buttons: name is "aligned" (horizontal with the map) or "square"."""
+        attr = "rect_" + name
+        if self.mode != "rectangle" or attr not in ("rect_aligned", "rect_square") or getattr(self, attr) == bool(on):
+            return
+        if self.vertices:
+            self._reset()                          # a half-drawn rectangle does not fit the other way of drawing it
+        setattr(self, attr, bool(on))
+        self.preview = None
+        self._redraw()
+        self._notify()
+
+    def set_sketch_mode(self, mode):
+        """"pointer" draws and drags a vertex; "move" drags the whole sketch."""
+        if mode in ("pointer", "move") and mode != self.sketch_mode:
+            self._drag = None
+            self.sketch_mode = mode
+            self._notify()
+
+    def can_finish(self):
+        if self.geom_type == GEOM_POINT:
+            return False
+        need = self._shape_clicks() or (3 if self.geom_type == GEOM_POLYGON else 2)
+        return len(self.vertices) >= need and not self._pending()
+
+    def has_sketch(self):
+        return bool(self.vertices) or self._pending()
+
+    def finish_sketch(self):
+        if self.can_finish():
+            self._run(self._finish)
+
+    def cancel_sketch(self):
+        """Throw away the unfinished sketch (the toolbar's cancel button)."""
+        self._clear_pending()
+        self._reset()
+        self._show_status()
+        if not self._disposed:
+            self.canvas().setFocus()
 
     # ------------------------------------------------------- layer handling
     def _layer_alive(self):
@@ -464,6 +756,9 @@ class ConstructionSketchTool(QgsMapTool):
         self.target_label = label
         if not same:
             self._set_layer(layer, announce=False)
+            self.segment = mode if mode in ("right_angle", "freehand") else "straight"
+            self.sketch_mode = "pointer"
+            self._clear_pending()
         self._hint = self._mode_hint(layer, mode)
         self._show_status()
 
@@ -473,13 +768,14 @@ class ConstructionSketchTool(QgsMapTool):
         self.mode = ""
         self.target_attrs = {}
         self.target_label = ""
+        self.segment = "straight"
 
     def _mode_hint(self, layer, mode):
         units = QgsUnitTypes.toString(self.work_crs.mapUnits()) if self.work_crs else ""
         head = f"{self.target_label or layer.name()} - distances in {units}. "
         tips = {
             "point": "Left-click to add a point; right-click for Absolute X,Y, Direction/Distance, Delta X,Y.",
-            "rectangle": "Click one corner, then the opposite corner. Right-click for Delta X,Y.",
+            "rectangle": "Click a corner, then the opposite one (Horizontal off: a side, then its width).",
             "circle": "Click the centre, then a point on the edge. Right-click > Distance sets the radius.",
             "ellipse": "Click the centre, the end of the major axis, then the minor axis.",
             "freehand": "Press and drag to draw; release to finish.",
@@ -515,7 +811,7 @@ class ConstructionSketchTool(QgsMapTool):
             return False
         if layer.isEditable():
             return True
-        if not layer.startEditing():
+        if edit_blocked(layer) or not layer.startEditing():
             iface.messageBar().pushWarning(TITLE, f"Could not start editing '{layer.name()}'.")
             return False
         return True                  # no pop-up here: it would shift the map right after a click
@@ -586,7 +882,7 @@ class ConstructionSketchTool(QgsMapTool):
         """The locked direction, or - for Right Angle - 90 degrees to the last segment."""
         if self.dir_lock is not None:
             return self.dir_lock
-        if self.mode == "right_angle" and len(self.vertices) >= 2:
+        if self.segment == "right_angle" and len(self.vertices) >= 2:
             return (self._last_segment_azimuth() + 90.0) % 360.0
         return None
 
@@ -601,6 +897,27 @@ class ConstructionSketchTool(QgsMapTool):
 
     def _has_constraint(self):
         return self.dir_lock is not None or self.dist_lock is not None or self.picking is not None
+
+    def _pending(self):
+        """True while a construction or a three-point arc waits for its next click."""
+        return bool(self.construct) or bool(self._arc)
+
+    def _clear_pending(self):
+        self.construct = {}
+        self._arc = []
+        self._arc_radius = None
+        self._bez = None
+        self._arcdrag = None
+        if not self._disposed:
+            self.pick_band.reset(GEOM_LINE)
+            self.cand_band.reset(GEOM_POINT)
+            self.self_snap_band.reset(GEOM_POINT)
+
+    def _cancel_pending(self):
+        self._clear_pending()
+        self.ref_band.reset(GEOM_LINE)
+        self.preview = None
+        self._redraw()
 
     def _last_segment_azimuth(self):
         a, b = self.vertices[-2], self.vertices[-1]
@@ -619,7 +936,7 @@ class ConstructionSketchTool(QgsMapTool):
         with suppress(Exception):
             pts = list(self.vertices)
             if self.preview is not None and not self.picking and self.vertices:
-                pts.append(self.preview)
+                pts.extend(self._segment_points(self.preview))
             ring = self._shape_ring(with_preview=True)
             self._set_band(self.sketch_band, pts if ring is None else ring, self.geom_type)
             markers = self.vertices
@@ -632,9 +949,79 @@ class ConstructionSketchTool(QgsMapTool):
                 a = QgsPointXY(*offset_xy(o.x(), o.y(), direction, size))
                 b = QgsPointXY(*offset_xy(o.x(), o.y(), direction, -size))
                 self._set_band(self.guide_band, [b, a], GEOM_LINE)
+            elif self._bez is not None:
+                p3, h = self._bez["p3"], self._bez["h"]
+                self._set_band(self.guide_band, [QgsPointXY(p3.x() - h[0], p3.y() - h[1]),
+                                                 QgsPointXY(p3.x() + h[0], p3.y() + h[1])], GEOM_LINE)
             else:
                 self.guide_band.reset(GEOM_LINE)
         self._show_status()
+
+    def _segment_points(self, end):
+        """Points (working CRS) the next segment adds after the last vertex to reach `end`, for the segment type."""
+        end = QgsPointXY(end)
+        if not self.vertices:
+            return [end]
+        last = self.vertices[-1]
+        a, c = (last.x(), last.y()), (end.x(), end.y())
+        if self.segment == "arc3" and self._arcdrag and self._arcdrag["moved"]:
+            e0 = self._arcdrag["end"]                    # pressed at the end point and dragged: the cursor sets the bow
+            pts = endpoint_arc_points(a, (e0.x(), e0.y()), c)
+        elif self.segment == "arc3" and self._arc:
+            pts = arc_points(a, (self._arc[0].x(), self._arc[0].y()), c)
+        elif self.segment == "arc_end" and self._arc:
+            pts = endpoint_arc_points(a, (self._arc[0].x(), self._arc[0].y()), c, self._arc_radius)
+        elif self.segment == "bezier":
+            h0 = self._h_out or (0.0, 0.0)
+            h3 = self._bez["h"] if self._bez else (0.0, 0.0)
+            pts = bezier_points(a, (a[0] + h0[0], a[1] + h0[1]), (c[0] - h3[0], c[1] - h3[1]), c)
+        elif self.segment == "arc_tangent" and len(self.vertices) >= 2:
+            az = math.radians(self._last_segment_azimuth())
+            pts = tangent_arc_points(a, (math.sin(az), math.cos(az)), c)
+        elif self.segment == "trace":
+            return self._trace_points(last, end)
+        else:
+            return [end]
+        return [QgsPointXY(x, y) for x, y in pts]
+
+    def _get_tracer(self):
+        """The tracer over the lines and polygons on the map (rebuilt only when the layers or the extent change)."""
+        if QgsTracer is None:
+            return None
+        canvas = self.canvas()
+        layers = [lyr for lyr in canvas.layers()
+                  if isinstance(lyr, QgsVectorLayer) and lyr.geometryType() in (GEOM_LINE, GEOM_POLYGON)]
+        crs = self._canvas_crs()
+        signature = (tuple(lyr.id() for lyr in layers), canvas.extent().toString(), crs.authid())
+        if self._tracer is None:
+            self._tracer = QgsTracer()
+        if signature != self._tracer_sig:
+            self._tracer.setLayers(layers)
+            self._tracer.setDestinationCrs(crs, QgsProject.instance().transformContext())
+            self._tracer.setExtent(canvas.extent())
+            self._tracer_sig = signature
+        return self._tracer
+
+    def _trace_points(self, start, end):
+        """The path from start to end along existing features; just `end` when there is none to follow."""
+        try:
+            tracer = self._get_tracer()
+            if tracer is None:
+                return [end]
+            path, _error = tracer.findShortestPath(self._w2c(start), self._w2c(end))
+            if not path or len(path) < 2:
+                return [end]
+            return [self._c2w(p) for p in path[1:]]
+        except Exception:
+            return [end]
+
+    def _shape_clicks(self):
+        """Clicks that define the shape being drawn (0 when it is not a shape tool)."""
+        if self.mode == "circle" and self.segment == "circle3":
+            return 3
+        if self.mode == "rectangle" and not (self.rect_aligned or self.rect_square):
+            return 3                                     # a side, then the width
+        return SHAPE_POINTS.get(self.mode, 0)
 
     def _shape_ring(self, with_preview=False):
         """
@@ -644,20 +1031,45 @@ class ConstructionSketchTool(QgsMapTool):
         if self.mode not in SHAPE_POINTS:
             return None
         v = [(p.x(), p.y()) for p in self.vertices]
-        if with_preview and self.preview is not None and len(v) < SHAPE_POINTS[self.mode]:
+        if with_preview and self.preview is not None and len(v) < self._shape_clicks():
             v.append((self.preview.x(), self.preview.y()))
         if len(v) < 2:
             return []
         if self.mode == "rectangle":
-            pts = rectangle_ring(v[0], v[1])
+            if self.rect_aligned:
+                pts = rectangle_ring(v[0], square_opposite(v[0], v[1]) if self.rect_square else v[1])
+            else:
+                pts = rotated_rectangle_ring(v[0], v[1], v[2] if len(v) > 2 else None, self.rect_square)
+        elif self.mode == "circle" and self.segment == "circle3":
+            pts = circle_through_ring(v)
         elif self.mode == "circle" or len(v) == 2:
             pts = circle_ring(v[0], v[1])
         else:
             pts = ellipse_ring(v[0], v[1], v[2])
         return [QgsPointXY(x, y) for x, y in pts]
 
+    def _pending_hint(self):
+        if self.segment in CONSTRUCT_SEQ:
+            return self._construct_hint() + " Esc = cancel."
+        if self.segment == "midpoint":
+            return ("MIDPOINT: click the other end of the segment." if self.construct
+                    else "MIDPOINT: click the start of the segment.") + " Esc = cancel."
+        if self.segment == "arc_end":
+            return ("END POINT ARC: move to set the bow and click (R = radius)." if self._arc
+                    else "END POINT ARC: click the end point.")
+        if self.segment == "bezier":
+            return "BEZIER: press at the next vertex and drag to pull its handle."
+        if self.segment == "arc3":
+            return "ARC: click the end point of the arc." if self._arc else "ARC: click a point on the arc."
+        if self.segment == "arc_tangent":
+            return "TANGENT ARC: click the end point." if len(self.vertices) >= 2 else "TANGENT ARC: add two vertices first."
+        if self.segment == "trace":
+            return "TRACE: click along existing features."
+        return ""
+
     def _show_status(self):
-        if not self.vertices and not self._has_constraint():
+        self._notify()
+        if not self.vertices and not self._has_constraint() and not self._pending():
             if self._hint and self._layer_alive() and self.canvas().mapTool() is self:
                 iface.mainWindow().statusBar().showMessage(self._hint_text())
                 self._status_shown = True
@@ -673,6 +1085,8 @@ class ConstructionSketchTool(QgsMapTool):
             parts.append(f"[Direction locked {self.dir_lock:.2f}\u00b0]")
         if self.dist_lock is not None:
             parts.append(f"[Distance locked {self.dist_lock:g} {self._units()}]")
+        if self.picking is None and (hint := self._pending_hint()):
+            parts.append(hint)
         if self.picking:
             if getattr(self, "_pick_missed", False):
                 parts.append(f"{self.picking.upper()}: no edge there. Move onto an edge or into a shape "
@@ -694,12 +1108,23 @@ class ConstructionSketchTool(QgsMapTool):
         self.vertices = []
         self.preview = None
         self.dir_lock = self.dist_lock = self.picking = None
+        self.construct = {}
+        self._arc = []
+        self._arc_radius = None
+        self._bez = None
+        self._arcdrag = None
+        self._h_out = None
+        self._drag = None
+        if self.sketch_mode == "move":
+            self.sketch_mode = "pointer"
         if self._disposed:
             return
         for band, gtype in ((self.sketch_band, self.geom_type), (self.vertex_band, GEOM_POINT),
                             (self.guide_band, GEOM_LINE), (self.ref_band, GEOM_LINE),
-                            (self.self_snap_band, GEOM_POINT)):
+                            (self.self_snap_band, GEOM_POINT), (self.pick_band, GEOM_LINE),
+                            (self.cand_band, GEOM_POINT)):
             band.reset(gtype)
+        self._notify()
 
     # ------------------------------------------------------- snapping
     def _clear_snap_markers(self):
@@ -802,10 +1227,39 @@ class ConstructionSketchTool(QgsMapTool):
         return rank, hit, index, d
 
     # ------------------------------------------------------- mouse / keys
+    def _vertex_at(self, canvas_pt):
+        """Index of the sketch vertex within VERTEX_GRAB_PX of the cursor, or None."""
+        tol = VERTEX_GRAB_PX * self.canvas().mapUnitsPerPixel()
+        best, best_d = None, tol
+        for i, v in enumerate(self.vertices):
+            c = self._w2c(v)
+            d = math.hypot(c.x() - canvas_pt.x(), c.y() - canvas_pt.y())
+            if d <= best_d:
+                best, best_d = i, d
+        return best
+
     def canvasPressEvent(self, e):
-        """Freehand only: pressing starts the line / outline."""
-        if (self.mode != "freehand" or e.button() != Qt.MouseButton.LeftButton or self.picking
-                or not self._ready(warn=True)):
+        """Freehand: pressing starts the line / outline. Pointer: pressing a sketch vertex may start dragging it."""
+        if e.button() != Qt.MouseButton.LeftButton or self.picking or not self._ready(warn=True):
+            return
+        if self.segment != "freehand":
+            try:
+                px = (e.pixelPoint().x(), e.pixelPoint().y())
+                if self.sketch_mode == "move" and self.vertices:
+                    self._drag = {"kind": "move", "start": self._c2w(e.originalMapPoint()), "px": px,
+                                  "moved": False, "orig": [QgsPointXY(v) for v in self.vertices]}
+                elif self.vertices and not self._pending():
+                    index = self._vertex_at(e.originalMapPoint())
+                    if index is not None:
+                        self._drag = {"kind": "vertex", "index": index, "px": px, "moved": False}
+                    elif self.segment == "arc3" and not self._arc:
+                        self._arcdrag = {"end": self._c2w(e.snapPoint()), "px": px, "moved": False}
+                    elif self.segment == "bezier":
+                        self._bez = {"p3": self._c2w(e.snapPoint()), "h": (0.0, 0.0), "px": px}
+                        self.preview = self._bez["p3"]
+                        self._redraw()
+            except Exception as exc:
+                iface.messageBar().pushCritical(TITLE, str(exc))
             return
         try:
             point, _index = self._snap(e)
@@ -815,8 +1269,62 @@ class ConstructionSketchTool(QgsMapTool):
         except Exception as exc:
             iface.messageBar().pushCritical(TITLE, str(exc))
 
+    def _drag_to(self, e):
+        d = self._drag
+        px = (e.pixelPoint().x(), e.pixelPoint().y())
+        if not d["moved"] and math.hypot(px[0] - d["px"][0], px[1] - d["px"][1]) < DRAG_START_PX:
+            return
+        d["moved"] = True
+        if d["kind"] == "vertex":
+            if d["index"] < len(self.vertices):
+                self.vertices[d["index"]] = self._c2w(e.snapPoint())
+        else:
+            here = self._c2w(e.mapPoint())
+            dx, dy = here.x() - d["start"].x(), here.y() - d["start"].y()
+            self.vertices = [QgsPointXY(v.x() + dx, v.y() + dy) for v in d["orig"]]
+        self.preview = None
+        self._redraw()
+
+    def _hover_construction(self, e):
+        """Show what a click would pick (or place) for the construction in progress."""
+        self.ref_band.reset(GEOM_LINE)
+        if self.segment == "midpoint":
+            self.cand_band.reset(GEOM_POINT)
+            self.pick_band.reset(GEOM_LINE)
+            here = self._snap(e)[0]
+            start = self.construct.get("start")
+            if start is not None:
+                self.pick_band.addGeometry(QgsGeometry.fromPolylineXY([self._w2c(start), self._w2c(here)]), None)
+                self.cand_band.addPoint(self._w2c(QgsPointXY((start.x() + here.x()) / 2.0, (start.y() + here.y()) / 2.0)), True)
+            return
+        self._hover_reference(e)
+
     def canvasMoveEvent(self, e):
         if not self._ready():
+            return
+        if self._drag is not None:
+            with suppress(Exception):
+                self._drag_to(e)
+            return
+        if self._arcdrag is not None:
+            with suppress(Exception):
+                d = self._arcdrag
+                px = (e.pixelPoint().x(), e.pixelPoint().y())
+                if d["moved"] or math.hypot(px[0] - d["px"][0], px[1] - d["px"][1]) >= DRAG_START_PX:
+                    d["moved"] = True
+                    self.preview = self._c2w(e.mapPoint())
+                    self._redraw()
+            return
+        if self._bez is not None:
+            with suppress(Exception):
+                here, p3 = self._c2w(e.mapPoint()), self._bez["p3"]
+                self._bez["h"] = (here.x() - p3.x(), here.y() - p3.y())
+                self.preview = p3
+                self._redraw()
+            return
+        if self.segment in CONSTRUCTIONS and not self.picking:
+            with suppress(Exception):
+                self._hover_construction(e)
             return
         if self._freehand_down:
             with suppress(Exception):
@@ -849,9 +1357,47 @@ class ConstructionSketchTool(QgsMapTool):
             if self.picking:                         # right-click cancels "click an edge"
                 self._cancel_pick()
                 return
+            if self._pending():                      # ... and a construction / arc waiting for its next click
+                self._cancel_pending()
+                return
             self._show_menu(e)
             return
         added_vertex = False
+        if self._drag is not None:                   # end of a vertex / sketch drag (a click without moving falls through)
+            drag, self._drag = self._drag, None
+            if drag["moved"]:
+                self._redraw()
+                return
+        if self._arcdrag is not None:                # three-point arc, drag way: end point pressed, bow dragged
+            drag, self._arcdrag = self._arcdrag, None
+            if drag["moved"]:
+                try:
+                    self.preview = self._c2w(e.mapPoint())
+                    self._arcdrag = drag
+                    pts = self._segment_points(self.preview)
+                    self._arcdrag = None
+                    count = len(self.vertices)
+                    self._extend_vertices(pts)
+                    self._last_click_added_vertex = len(self.vertices) > count
+                except Exception as exc:
+                    self._arcdrag = None
+                    iface.messageBar().pushCritical(TITLE, str(exc))
+                return                               # a press without a drag falls through: a click on the arc
+        if self._bez is not None:                    # a Bezier vertex: place the curve with the handle that was pulled
+            try:
+                bez = self._bez
+                pts = self._segment_points(bez["p3"])
+                self._bez = None
+                count = len(self.vertices)
+                self._extend_vertices(pts)
+                self._h_out = bez["h"] if len(self.vertices) > count else None
+                self._last_click_added_vertex = len(self.vertices) > count
+            except Exception as exc:
+                self._bez = None
+                iface.messageBar().pushCritical(TITLE, str(exc))
+            return
+        if self.sketch_mode == "move" and not self.picking:
+            return                                   # "Move Sketch" never adds vertices
         if self._freehand_down:                      # releasing the mouse ends a freehand stroke
             self._freehand_down = False
             if len(self.vertices) >= (3 if self.geom_type == GEOM_POLYGON else 2):
@@ -872,20 +1418,26 @@ class ConstructionSketchTool(QgsMapTool):
             if self.picking:
                 self._pick_reference(e.originalMapPoint())
                 return
+            if self.segment in CONSTRUCTIONS:
+                self._construct_click(e)
+                return
             point, index = self._snap(e)
             if self.geom_type == GEOM_POINT:
                 self._create_point(point)
                 return
             # Clicking the first vertex of a polygon (with snapping on) closes and finishes it
             if (index == 0 and self.geom_type == GEOM_POLYGON and len(self.vertices) >= 3
-                    and not self._has_constraint() and self.mode not in SHAPE_POINTS):
+                    and not self._has_constraint() and not self._pending() and self.mode not in SHAPE_POINTS):
                 self._clear_snap_markers()
                 self._run(self._finish)
                 return
             count = len(self.vertices)
-            self._add_vertex(self._apply_constraints(point))
+            if self.vertices and self.segment in ("arc3", "arc_end", "arc_tangent", "trace"):
+                self._segment_click(point)
+            else:
+                self._add_vertex(self._apply_constraints(point))
             added_vertex = len(self.vertices) > count
-            if self.mode in SHAPE_POINTS and len(self.vertices) >= SHAPE_POINTS[self.mode]:
+            if self.mode in SHAPE_POINTS and len(self.vertices) >= self._shape_clicks():
                 self._clear_snap_markers()                # a rectangle / circle / ellipse finishes itself
                 self._run(self._finish)
                 added_vertex = False
@@ -903,14 +1455,14 @@ class ConstructionSketchTool(QgsMapTool):
         if e.button() != Qt.MouseButton.LeftButton or not self._ready():
             return
         if (double_click_finish_enabled() and self._last_click_added_vertex and not self.picking
-                and self.mode not in SHAPE_POINTS and self.mode != "freehand"):
+                and self.mode not in SHAPE_POINTS and self.segment != "freehand" and not self._pending()):
             self._finish_on_release = True
         else:
             self._ignore_next_release = True     # never turn the 2nd click into a stray vertex
 
     def _finish_by_double_click(self):
         need = 3 if self.geom_type == GEOM_POLYGON else 2
-        if self.mode == "freehand":
+        if self.segment == "freehand":
             return
         if len(self.vertices) < need:
             iface.mainWindow().statusBar().showMessage(
@@ -926,15 +1478,24 @@ class ConstructionSketchTool(QgsMapTool):
         key" (QgsMapCanvas::keyPressEvent). Keys left accepted get QGIS's default behaviour
         (arrow-key / space panning, and Delete/Backspace = Delete Selected Features!).
         """
-        if not self._ready() or (not self.vertices and not self._has_constraint()):
+        idle = not self.vertices and not self._has_constraint() and not self._pending()
+        if e.key() == Qt.Key.Key_Escape and idle and not self._disposed:
+            e.ignore()                                # handled: Esc on an empty sketch puts the tool away
+            self.escapePressed.emit()
+            return
+        if not self._ready() or idle:
             return                                    # not ours: QGIS handles it as usual
         key = e.key()
         if key == Qt.Key.Key_Escape:
-            if self._has_constraint():
+            if self._pending():
+                self._cancel_pending()
+            elif self._has_constraint():
                 self._clear_constraints()
             else:
                 self._reset()
                 self._show_status()
+        elif key == Qt.Key.Key_R and self.segment == "arc_end" and self._arc:
+            self._run(self._ask_radius)
         elif key == Qt.Key.Key_Backspace:
             self._undo()
         elif key in (Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_F2):
@@ -965,7 +1526,7 @@ class ConstructionSketchTool(QgsMapTool):
                 menu.deleteLater()
             return
 
-        if self.mode == "freehand":                        # nothing to construct: right-click drops the stroke
+        if self.segment == "freehand":                     # nothing to construct: right-click drops the stroke
             if n:
                 self._reset()
                 self._show_status()
@@ -974,7 +1535,7 @@ class ConstructionSketchTool(QgsMapTool):
             add("Absolute X, Y...", self._cmd_absolute_xy)
             add("Delta X, Y...", self._cmd_delta_xy, n >= 1)
             add("Direction/Distance...", self._cmd_direction_distance, n >= 1)
-            if self.mode == "circle":
+            if self.mode == "circle" and self.segment != "circle3":
                 add("Distance (radius)...", self._cmd_distance, n >= 1)
             menu.addSeparator()
             add("Clear Constraints	Esc", self._clear_constraints, self._has_constraint())
@@ -1042,15 +1603,225 @@ class ConstructionSketchTool(QgsMapTool):
                 return        # double-click or repeated click on the same spot
         self.vertices.append(p)
         self.dir_lock = self.dist_lock = self.picking = None   # constraints apply to one segment
+        self._h_out = None
         self.ref_band.reset(GEOM_LINE)
         self.preview = None
         self._redraw()
 
     def _undo(self):
-        if self.vertices:
+        if self._pending():
+            self._cancel_pending()
+        elif self.vertices:
+            self._h_out = None
             self.vertices.pop()
             self.preview = None
             self._clear_constraints()
+
+    # ------------------------------------------------------- arcs, trace, constructions
+    def _extend_vertices(self, points):
+        """Add several vertices at once (an arc or a traced path), skipping repeats."""
+        for p in points:
+            p = QgsPointXY(p)
+            if not (math.isfinite(p.x()) and math.isfinite(p.y())):
+                raise ValueError("That position cannot be converted to the working CRS.")
+            last = self.vertices[-1]
+            if math.hypot(p.x() - last.x(), p.y() - last.y()) >= DUPLICATE_TOLERANCE:
+                self.vertices.append(p)
+        self.dir_lock = self.dist_lock = self.picking = None
+        self._h_out = None
+        self.ref_band.reset(GEOM_LINE)
+        self.preview = None
+        self._redraw()
+
+    def _ask_radius(self):
+        res = _ask("Arc radius", [(f"Radius ({self._units()})", self.last["dist"])])
+        if res:
+            self._arc_radius = self._positive(res[0][0], "radius")
+            self.last["dist"] = res[0][0]
+            self._redraw()
+
+    def _segment_click(self, point):
+        """A click for an arc or a traced segment (there is at least one vertex already)."""
+        if self.segment in ("arc3", "arc_end") and not self._arc:
+            self._arc = [QgsPointXY(point)]              # the point on the arc (or the end point); the next click finishes
+            self.preview = None
+            self._redraw()
+            return
+        pts = self._segment_points(point)
+        self._arc = []
+        self._arc_radius = None
+        self._extend_vertices(pts)
+
+    # --- Intersection / Line-Circle / Circle-Circle: the references are lines and circles built by clicks
+    def _construct_state(self):
+        if not self.construct:
+            self.construct = {"refs": [], "cur": None}
+        return self.construct
+
+    def _construct_hint(self):
+        seq = CONSTRUCT_SEQ[self.segment]
+        state = self.construct or {"refs": [], "cur": None}
+        want = seq[min(len(state["refs"]), len(seq) - 1)]
+        nth = "first" if not state["refs"] else "second"
+        if want == "line":
+            if state["cur"] is None:
+                return f"Click an edge, or a point to start the {nth} line."
+            return f"Move to aim the {nth} line and click."
+        if state["cur"] is None:
+            return f"Click the centre of the {nth} circle."
+        return f"Move to set the radius of the {nth} circle and click."
+
+    def _line_start(self, e):
+        """A click for a line: ('edge', (a, b)) on an edge, or ('point', p) at a vertex, a midpoint or open ground."""
+        seg = self._find_segment(e.originalMapPoint()) or self._segment_of_shape_under(e.originalMapPoint())
+        if seg is None:
+            return "point", self._snap(e)[0]
+        a, b = (self._c2w(q) for q in seg)
+        mid = QgsPointXY((a.x() + b.x()) / 2.0, (a.y() + b.y()) / 2.0)
+        here = self._c2w(e.originalMapPoint())
+        grab = VERTEX_GRAB_PX * self.canvas().mapUnitsPerPixel()
+        for q in (a, b, mid):
+            if math.hypot(q.x() - here.x(), q.y() - here.y()) <= grab:
+                return "point", q
+        return "edge", (a, b)
+
+    @staticmethod
+    def _live_ref(state, want, cursor, edge=None):
+        """The reference the cursor is defining right now, or None."""
+        cur = state["cur"]
+        if want == "line":
+            if cur is not None:
+                p = cur["p"]
+                far = math.hypot(cursor.x() - p.x(), cursor.y() - p.y()) >= DUPLICATE_TOLERANCE
+                return ("line", (p, cursor)) if far else None
+            return ("line", edge) if edge else None
+        if cur is not None:
+            c = cur["c"]
+            r = math.hypot(cursor.x() - c.x(), cursor.y() - c.y())
+            return ("circle", (c, r)) if r >= DUPLICATE_TOLERANCE else None
+        return None
+
+    @staticmethod
+    def _ref_hits(ref_a, ref_b):
+        """Intersection points of two references ((kind, data) pairs), as tuples."""
+        (ka, da), (kb, db) = ref_a, ref_b
+        if ka == "circle" and kb == "line":
+            (ka, da), (kb, db) = (kb, db), (ka, da)
+        if ka == "line" and kb == "line":
+            hit = line_intersection((da[0].x(), da[0].y()), (da[1].x(), da[1].y()),
+                                    (db[0].x(), db[0].y()), (db[1].x(), db[1].y()))
+            return [hit] if hit else []
+        if ka == "line":
+            return line_circle_intersections((da[0].x(), da[0].y()), (da[1].x(), da[1].y()), (db[0].x(), db[0].y()), db[1])
+        return circle_intersections((da[0].x(), da[0].y()), da[1], (db[0].x(), db[0].y()), db[1])
+
+    def _ref_points(self, ref):
+        """A reference as canvas-CRS points for a rubber band (a line runs off the screen both ways)."""
+        kind, data = ref
+        if kind == "circle":
+            c, r = data
+            return [self._w2c(QgsPointXY(c.x() + r * math.cos(t * math.pi / 36.0), c.y() + r * math.sin(t * math.pi / 36.0)))
+                    for t in range(73)]
+        a, b = self._w2c(data[0]), self._w2c(data[1])
+        length = math.hypot(b.x() - a.x(), b.y() - a.y())
+        if length == 0:
+            return []
+        ext = self.canvas().extent()
+        reach = 4.0 * (ext.width() + ext.height()) + math.hypot(a.x() - ext.center().x(), a.y() - ext.center().y())
+        ux, uy = (b.x() - a.x()) / length, (b.y() - a.y()) / length
+        return [QgsPointXY(a.x() - ux * reach, a.y() - uy * reach), QgsPointXY(a.x() + ux * reach, a.y() + uy * reach)]
+
+    def _draw_refs(self, state, live):
+        """Fixed references dashed in pick_band, the one being defined solid in ref_band."""
+        self.pick_band.reset(GEOM_LINE)
+        for ref in state["refs"]:
+            pts = self._ref_points(ref)
+            if pts:
+                self.pick_band.addGeometry(QgsGeometry.fromPolylineXY(pts), None)
+        self.ref_band.reset(GEOM_LINE)
+        if live is not None:
+            pts = self._ref_points(live)
+            if pts:
+                self.ref_band.addGeometry(QgsGeometry.fromPolylineXY(pts), None)
+
+    def _hover_reference(self, e):
+        state = self.construct or {"refs": [], "cur": None}
+        seq = CONSTRUCT_SEQ[self.segment]
+        idx = len(state["refs"])
+        want, last = seq[idx], idx == len(seq) - 1
+        cursor = self._snap(e)[0]
+        edge = None
+        if want == "line" and state["cur"] is None:
+            seg = self._find_segment(e.originalMapPoint()) or self._segment_of_shape_under(e.originalMapPoint())
+            if seg is not None:
+                edge = tuple(self._c2w(q) for q in seg)
+        live = self._live_ref(state, want, cursor, edge)
+        self.cand_band.reset(GEOM_POINT)
+        self._draw_refs(state, live)
+        message = ""
+        if live is not None and live[0] == "circle":
+            message = f"Radius: {live[1][1]:.3f} {self._units()}"
+        elif live is not None and state["cur"] is not None:
+            p = state["cur"]["p"]
+            message = f"Bearing: {azimuth_deg(p.x(), p.y(), cursor.x(), cursor.y()):.2f}\u00b0"
+        if last and live is not None and state["refs"]:
+            hits = self._ref_hits(state["refs"][0], live)
+            if hits:
+                best = min(hits, key=lambda h: math.hypot(h[0] - cursor.x(), h[1] - cursor.y()))
+                self.cand_band.addPoint(self._w2c(QgsPointXY(*best)), True)
+        if message:
+            iface.mainWindow().statusBar().showMessage(message)
+
+    def _construct_click(self, e):
+        """A click for Midpoint, or for one of the line / circle constructions."""
+        if self.segment == "midpoint":
+            here = self._snap(e)[0]
+            start = self.construct.get("start")
+            if start is None:
+                self.construct = {"start": QgsPointXY(here)}
+                self._show_status()
+                return
+            if math.hypot(here.x() - start.x(), here.y() - start.y()) < DUPLICATE_TOLERANCE:
+                raise ValueError("Click a different point: the segment has no length yet.")
+            self._clear_pending()
+            self.ref_band.reset(GEOM_LINE)
+            self._place(QgsPointXY((start.x() + here.x()) / 2.0, (start.y() + here.y()) / 2.0))
+            return
+        state = self._construct_state()
+        seq = CONSTRUCT_SEQ[self.segment]
+        idx = len(state["refs"])
+        want, last = seq[idx], idx == len(seq) - 1
+        cursor = self._snap(e)[0]
+        if state["cur"] is None:
+            if want == "line":
+                kind, data = self._line_start(e)
+                if kind == "point":
+                    state["cur"] = {"p": QgsPointXY(data)}
+                    self._show_status()
+                    return
+                ref = ("line", data)
+            else:
+                state["cur"] = {"c": QgsPointXY(cursor)}
+                self._show_status()
+                return
+        else:
+            ref = self._live_ref(state, want, cursor)
+            if ref is None:
+                raise ValueError("Click a different point: the line or circle has no size yet.")
+        if not last:
+            state["refs"].append(ref)
+            state["cur"] = None
+            self._draw_refs(state, None)
+            self._show_status()
+            return
+        hits = self._ref_hits(state["refs"][0], ref)
+        if not hits:
+            raise ValueError("The two lines are parallel: they never cross." if self.segment == "intersection"
+                             else "They do not meet: aim the line elsewhere or change the radius.")
+        best = min(hits, key=lambda h: math.hypot(h[0] - cursor.x(), h[1] - cursor.y()))
+        self._clear_pending()
+        self.ref_band.reset(GEOM_LINE)
+        self._place(QgsPointXY(*best))
 
     # ------------------------------------------------------- parallel / perpendicular
     def _start_pick(self, kind):
@@ -1314,7 +2085,7 @@ class ConstructionSketchTool(QgsMapTool):
         layer = self.layer
         is_polygon = self.geom_type == GEOM_POLYGON
         if self.mode in SHAPE_POINTS:
-            if len(self.vertices) < SHAPE_POINTS[self.mode]:
+            if len(self.vertices) < self._shape_clicks():
                 return False
             pts = self._shape_ring()
         elif len(self.vertices) < (3 if is_polygon else 2):
@@ -1350,6 +2121,9 @@ class ConstructionSketchTool(QgsMapTool):
 
     def _hint_text(self):
         """Status-bar hint, including the category new features will get."""
+        if self.segment != "straight" and self.mode not in SHAPE_POINTS and self._layer_alive():
+            units = QgsUnitTypes.toString(self.work_crs.mapUnits()) if self.work_crs else ""
+            return f"{self.target_label or self.layer.name()} - distances in {units}. {SEGMENT_TIPS[self.segment]}"
         if self.fixed:
             return self._hint
         try:

@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:split_into_cogo_lines` |
 | **Group** | KGA Editing Tools |
 | **Source** | `kga_tools/algorithms/split_into_cogo_lines.py` (base dialog in `kga_tools/gui/modify_dialog.py`) |
-| **Icon** | `icons/splitCogoLines.png` |
+| **Icon** | `icons/editing/splitCogoLines.png` |
 | **Type** | Interactive dialog — modeless, owns a map tool, needs the QGIS canvas |
 
 ## Overview

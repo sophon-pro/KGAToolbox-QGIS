@@ -96,30 +96,35 @@ CATEGORIES = [
     ("Divide", [
         _tool("split", "Split", "draw a line across features, or split target features by input features",
               map_tool=True),
-        _tool("divide", "Divide", "divide polygons into parts by area, proportion or width", "divideFeatures.png",
+        _tool("divide", "Divide", "divide polygons into parts by area, proportion or width", "editing/divideFeatures.png",
               map_tool=True),
-        _tool("clip", "Clip", "clip lines and polygons with other features", "clipFeatures.png", map_tool=True),
+        _tool("clip", "Clip", "clip lines and polygons with other features", "editing/clipFeatures.png", map_tool=True),
         _tool("explode", "Explode", "break multi-part features into single parts, or pull single parts out of them",
               map_tool=True),
-        _tool("planarize", "Planarize", "cut the selected lines where they cross each other", "planarizeTool.png",
+        _tool("planarize", "Planarize", "cut the selected lines where they cross each other", "editing/planarizeTool.png",
               map_tool=True),
     ]),
     ("Construct", [
-        _tool("merge", "Merge", "merge features into one", "mergeFeatures.png", map_tool=True),
-        _tool("buffer", "Buffer", "buffer the selected features into polygons or outlines", "bufferFeature.png",
+        _tool("merge", "Merge", "merge features into one", "editing/mergeFeatures.png", map_tool=True),
+        _tool("buffer", "Buffer", "buffer the selected features into polygons or outlines", "editing/bufferFeature.png",
               map_tool=True),
         _tool("copy_parallel", "Copy\nParallel", "copy the selected lines at a distance, on one or both sides",
-              "copyParallel.png", map_tool=True),
+              "editing/copyParallel.png", map_tool=True),
         _tool("construct_polygons", "Construct\nPolygons", "build polygons from the selected lines that enclose an area",
-              "constructPolygon.png", map_tool=True),
+              "editing/constructPolygon.png", map_tool=True),
         _tool("offset", "Offset", "create points along a reference line at distances and offsets you type",
               map_tool=True),
+        _tool("points_along_line", "Points On\nLine", "construct points along a selected or drawn line: a number, an "
+              "equal distance or a table of distances", map_tool=True),
+        _tool("points_on_polygon_boundary", "Points On Polygon\nBoundary", "construct points on the boundary of a "
+              "selected polygon: a number, an equal distance or a table of distances from a starting point",
+              map_tool=True),
         _tool("copy_paste", "Copy\nPaste", "copy features onto the KGA clipboard and paste them into any layer, "
-              "choosing how the attributes carry across", "copyPaste.png", map_tool=True),
+              "choosing how the attributes carry across", "editing/copyPaste.png", map_tool=True),
     ]),
     ("Attributes", [
         _tool("sequential_numbering", "Sequential\nNumbering", "draw a line across features to number them in order",
-              "seqNumbering.png", map_tool=True),
+              "editing/seqNumbering.png", map_tool=True),
         _tool("transfer_attributes", "Transfer\nAttributes", "with features selected, click the feature to copy "
               "attribute values from (fields matched by name)", map_tool=True),
     ]),
@@ -130,7 +135,7 @@ CATEGORIES = [
               "the selected lines from their geometry", map_tool=True),
         _tool("cul_de_sac", "Cul-de-sac", "click near the end of a line and give a radius to add a turnaround "
               "circle", map_tool=True),
-        _tool("split_cogo_lines", "Split Into\nCOGO Lines", "split lines into COGO segments", "splitCogoLines.png",
+        _tool("split_cogo_lines", "Split Into\nCOGO Lines", "split lines into COGO segments", "editing/splitCogoLines.png",
               map_tool=True),
     ]),
 ]

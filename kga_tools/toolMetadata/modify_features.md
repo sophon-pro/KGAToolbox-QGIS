@@ -5,23 +5,24 @@
 | **Algorithm ID** | none: a docked pane on the KGA Editor toolbar (not a Processing algorithm) |
 | **Group** | KGA Editor toolbar |
 | **Source** | `kga_tools/editor/modify/` (`controller.py` button and docking, `panel.py` the pane, `tools.py` the tool list, `favorites.py`, one module per tool family) |
-| **Icon** | `icons/modifyFeature.png` |
+| **Icon** | `icons/editing/modifyFeature.png` |
 | **Type** | Docked pane with map tools and commands. Needs QGIS 3.44 or newer; follows the Edit Session switch like Create Features |
 
 ## Overview
 
 A replica of ArcGIS Pro's Modify Features pane. Tools are grouped in categories of icon
 tiles, with a search box and **All Tools** / **Favorites** tabs. Clicking a tile opens the
-tool inside the pane (options, buttons, a back arrow), and arms its map tool on the canvas.
+tool inside the pane (options, buttons, a back arrow), and arms its map tool on the canvas. The buttons at the
+right of the tabs show the tools as a grid of tiles (default) or as a list; the choice is remembered.
 
-## Tools (30)
+## Tools (32)
 
 | Category | Tools |
 |---|---|
 | **Alignment** | Move, Rotate, Scale, Move To |
 | **Reshape** | Edit Vertices, Reshape, Replace Geometry, Extend or Trim, Fillet, Generalize, Line Intersection, Reverse Direction, Change Line Length |
 | **Divide** | Split, Divide, Clip, Explode, Planarize |
-| **Construct** | Merge, Buffer, Copy Parallel, Construct Polygons, Offset, Copy Paste |
+| **Construct** | Merge, Buffer, Copy Parallel, Construct Polygons, Offset, Points On Line, Points On Polygon Boundary, Copy Paste |
 | **Attributes** | Sequential Numbering, Transfer Attributes |
 | **COGO** | Traverse, Update COGO, Cul-de-sac, Split Into COGO Lines |
 

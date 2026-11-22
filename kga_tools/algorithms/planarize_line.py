@@ -32,6 +32,7 @@ from qgis.core import (Qgis,
 from qgis.gui import QgsMapLayerComboBox
 import processing
 
+from ..gui.window_reveal import revealed_preview
 from ..core.compat import no_threading
 from ..core.modify_features import layer_filter
 from ..gui.modify_dialog import close_dialog, show_dialog
@@ -202,6 +203,7 @@ def _write_back(layer, selected_only, planarized, feedback):
 #  the window
 # --------------------------------------------------------------------------- #
 
+@revealed_preview
 class PlanarizeDialog(QDialog):
     """The Planarize Lines window, laid out like the Modify Features tools."""
 

@@ -12,10 +12,11 @@ one that writes the checkpoint.
 """
 
 import os
+import queue
 import random
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
+from concurrent.futures import Future, wait, FIRST_COMPLETED
 from contextlib import suppress
 from dataclasses import dataclass
 
@@ -27,6 +28,68 @@ from .mosaic_writer import Mosaic
 
 CHECKPOINT_SECONDS = 30
 CHECKPOINT_TILES = 500
+
+# Fetch threads are daemon threads kept for the session, not a pool per job.
+# On QGIS 4 (Qt 6), every exit of a thread that ran QgsBlockingNetworkRequest
+# holds new native threads back for 20-30 s (the next download's workers, GDAL's
+# warp threads) and adds 20 s to closing QGIS, because Python joins
+# ThreadPoolExecutor workers at exit. Daemon workers never exit before the
+# process does: measured 0.1 s exit instead of 20 s. Throttle still caps each
+# job's concurrent fetches at its own worker count.
+_POOL = None
+_POOL_LOCK = threading.Lock()
+
+
+class _DaemonPool:
+    """Just enough of ThreadPoolExecutor: submit() -> Future, growing to `size` threads."""
+
+    def __init__(self):
+        self._queue = queue.SimpleQueue()
+        self._threads = 0
+        self._lock = threading.Lock()
+
+    def _worker(self):
+        while True:
+            item = self._queue.get()
+            if item is None:
+                return
+            fut, fn, args = item
+            if not fut.set_running_or_notify_cancel():
+                continue
+            try:
+                fut.set_result(fn(*args))
+            except BaseException as exc:    # noqa: BLE001 - handed to the caller
+                fut.set_exception(exc)
+
+    def submit(self, fn, *args):
+        fut = Future()
+        self._queue.put((fut, fn, args))
+        return fut
+
+    def ensure(self, size):
+        with self._lock:
+            while self._threads < size:
+                self._threads += 1
+                threading.Thread(target=self._worker, daemon=True,
+                                 name='kga-tiles-%d' % self._threads).start()
+        return self
+
+
+def _pool(workers):
+    global _POOL
+    with _POOL_LOCK:
+        if _POOL is None:
+            _POOL = _DaemonPool()
+        return _POOL.ensure(max(1, int(workers)))
+
+
+def shutdown_pools():
+    """Plugin unload: forget the pool. Its idle daemon threads end with QGIS;
+    asking them to exit now would bring the Qt 6 stall described above back."""
+    global _POOL
+    with _POOL_LOCK:
+        _POOL = None
+
 PROGRESS_INTERVAL = 0.2
 MAX_RETRIES = 4
 
@@ -333,12 +396,15 @@ class TileJob:
         since_ckpt = 0
         pending = set()
         cursor = 0
-        pool = ThreadPoolExecutor(max_workers=max(1, s.workers))
+        pool = _pool(s.workers)
+        submitted = []
         try:
             while True:
                 while cursor < len(todo) and len(pending) < window \
                         and not stopped():
-                    pending.add(pool.submit(work, todo[cursor]))
+                    fut = pool.submit(work, todo[cursor])
+                    submitted.append(fut)
+                    pending.add(fut)
                     cursor += 1
                 if not pending:
                     break
@@ -361,7 +427,10 @@ class TileJob:
             for fut in wait(pending)[0]:
                 handle(fut)
         finally:
-            pool.shutdown(wait=True)
+            # The pool outlives the job: wait for this job's own requests only.
+            for fut in submitted:
+                fut.cancel()
+            wait(submitted)
         self._progress(force=True)
         self._save_checkpoint(mosaic)
 

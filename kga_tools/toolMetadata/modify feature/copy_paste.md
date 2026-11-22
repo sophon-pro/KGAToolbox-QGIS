@@ -5,7 +5,7 @@
 | **Category** | Modify Features > Construct |
 | **Type** | Map tool in the Modify Features pane (not a Processing algorithm) |
 | **Source** | `kga_tools/editor/modify/copypaste.py` (CopyPasteTool) |
-| **Icon** | `kga_tools/icons/copyPaste.png` |
+| **Icon** | `kga_tools/icons/editing/copyPaste.png` |
 | **Also as a window** | [copy_paste_feature](../copy_paste_feature.md) (`kga:copy_paste_feature`) |
 
 ## Overview

@@ -31,7 +31,7 @@ from ..branding import icon as _icon
 from ..core import projectpkg as pp
 
 PROVIDER_KEY = 'kga_project_package'
-ICON_FILE = 'projectPackage.png'
+ICON_FILE = 'workspace/projectPackage.png'
 
 
 def _log(message, level=Qgis.MessageLevel.Warning):
@@ -99,7 +99,7 @@ class ProjectPackageMenu(QgsDataItemGuiProvider):
             existing = menu.actions()
             first = existing[0] if existing else None
             actions = [
-                menu.addAction(_icon('importProjectPackage.png'),
+                menu.addAction(_icon('workspace/importProjectPackage.png'),
                                'Import Project Package...',
                                lambda: self.controller.import_project_package(path)),
                 menu.addAction('Show in Folder',

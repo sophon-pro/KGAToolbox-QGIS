@@ -22,6 +22,50 @@ from ..core.compat import mark_advanced
 from ..branding import docs_url
 
 
+try:
+    from qgis.utils import iface
+except ImportError:                         # pragma: no cover - head-less
+    iface = None
+
+#: The GdbToGpkgDialog window, kept alive between opens so it is not garbage collected.
+DIALOG_GDB_TO_GPKG = None
+
+#: The GpkgToGdbDialog window, kept alive between opens so it is not garbage collected.
+DIALOG_GPKG_TO_GDB = None
+
+
+def _alive(dialog):
+    try:
+        return dialog is not None and not dialog._torn_down
+    except RuntimeError:                    # the Qt object is already gone
+        return False
+
+
+def close_gdb_to_gpkg():
+    """Stop any running job and close the window on plugin unload."""
+    global DIALOG_GDB_TO_GPKG
+    dialog, DIALOG_GDB_TO_GPKG = DIALOG_GDB_TO_GPKG, None
+    if dialog is None:
+        return
+    try:
+        dialog.shutdown()
+    except RuntimeError:                    # already destroyed by Qt
+        pass
+
+
+def close_gpkg_to_gdb():
+    """Stop any running job and close the window on plugin unload."""
+    global DIALOG_GPKG_TO_GDB
+    dialog, DIALOG_GPKG_TO_GDB = DIALOG_GPKG_TO_GDB, None
+    if dialog is None:
+        return
+    try:
+        dialog.shutdown()
+    except RuntimeError:                    # already destroyed by Qt
+        pass
+
+
+
 def _split_names(text):
     """'Roads, Canals' -> ('Roads', 'Canals'). Blank means every layer."""
     return tuple(part.strip() for part in (text or '').split(',') if part.strip())
@@ -135,6 +179,21 @@ class FileGdbToGeoPackage(_ConvertBase):
     USE_ALIASES = 'USE_ALIASES'
     DATASET_PREFIX = 'DATASET_PREFIX'
     LOAD = 'LOAD'
+
+    def createCustomParametersWidget(self, parent=None):
+        """Open the GdbToGpkgDialog window instead of the plain form.
+
+        The parameters stay, so scripts (`processing.run`), the modeller and
+        batch still work; only the Toolbox dialog is replaced.
+        """
+        global DIALOG_GDB_TO_GPKG
+        if iface is None:
+            return None
+        from ..gui.gdb_gpkg_dialogs import GdbToGpkgDialog
+
+        if not _alive(DIALOG_GDB_TO_GPKG):
+            DIALOG_GDB_TO_GPKG = GdbToGpkgDialog(iface.mainWindow())
+        return DIALOG_GDB_TO_GPKG
 
     def createInstance(self):
         return FileGdbToGeoPackage()
@@ -250,6 +309,21 @@ class GeoPackageToFileGdb(_ConvertBase):
 
     #: Index order must match ARCGIS_VERSION_VALUES.
     ARCGIS_VERSION_VALUES = (C.ARCGIS_ALL, C.ARCGIS_PRO_32)
+
+    def createCustomParametersWidget(self, parent=None):
+        """Open the GpkgToGdbDialog window instead of the plain form.
+
+        The parameters stay, so scripts (`processing.run`), the modeller and
+        batch still work; only the Toolbox dialog is replaced.
+        """
+        global DIALOG_GPKG_TO_GDB
+        if iface is None:
+            return None
+        from ..gui.gdb_gpkg_dialogs import GpkgToGdbDialog
+
+        if not _alive(DIALOG_GPKG_TO_GDB):
+            DIALOG_GPKG_TO_GDB = GpkgToGdbDialog(iface.mainWindow())
+        return DIALOG_GPKG_TO_GDB
 
     def createInstance(self):
         return GeoPackageToFileGdb()

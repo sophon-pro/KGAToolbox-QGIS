@@ -15,6 +15,7 @@ from qgis.core import Qgis, QgsApplication, QgsMapLayer, QgsProject, QgsVectorLa
 from qgis.PyQt.QtCore import Qt, QTimer
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QMenu, QToolButton
+from qgis.gui import QgsMapToolPan
 from ..core.compat import enum_value
 
 try:  # Qt6 / QGIS 4
@@ -39,6 +40,7 @@ from .panel import (
 from .selection import SelectTool, delete_selected
 from .snapping import enable_all_snapping
 from .create.controller import CreateFeaturesController
+from .modify.context_menu import ContextMenuTools
 from .modify.controller import ModifyFeaturesController
 
 PLUGIN_DIR = os.path.dirname(__file__)
@@ -63,6 +65,7 @@ class EditorController:
         self.toolbar = None
         self.panel = None
         self.filter_action = None
+        self.context_tools = None
         self.actions = []
 
     def initGui(self):
@@ -73,6 +76,12 @@ class EditorController:
         self.toolbar = self.iface.addToolBar("KGA Editor")
         self.toolbar.setObjectName("KGAEditorToolbar")
         self.toolbar.setToolTip("KGA Editor")
+        self.magnify = None
+        try:
+            from ..gui.toolbar_magnify import ToolbarMagnify
+            self.magnify = ToolbarMagnify(self.toolbar)
+        except Exception:
+            self.magnify = None
 
         icons = os.path.join(PLUGIN_DIR, "icons")
         self.icon_saved = QIcon(os.path.join(icons, "save_saved.svg"))
@@ -112,7 +121,8 @@ class EditorController:
                           ("confirm_save", "Confirm before saving edits"),
                           ("confirm_discard", "Confirm before discarding edits"),
                           ("active_follows_selection", "Selecting a feature makes its layer active"),
-                          ("follow_mouse_edit", "QGIS editing tools work on the layer under the mouse")):
+                          ("follow_mouse_edit", "QGIS editing tools work on the layer under the mouse"),
+                          ("context_session_notice", "Tell me when a right-click tool turns Edit Session on")):
             a = self.options_menu.addAction(text)
             a.setCheckable(True)
             a.setChecked(option(key))
@@ -128,6 +138,13 @@ class EditorController:
                                       "Delete = delete selected")
         self.select_tool.setAction(self.select_action)
         self.select_action.triggered.connect(lambda on: self._set_tool(self.select_tool, on))
+        self.pan_tool = QgsMapToolPan(self.iface.mapCanvas())
+        self.pan_action = QAction(theme("/mActionPan.svg"), "Pan Map", win)
+        self.pan_action.setObjectName("mActionKgaEditorPan")
+        self.pan_action.setCheckable(True)
+        self.pan_action.setToolTip("Pan Map - drag to move the map")
+        self.pan_tool.setAction(self.pan_action)
+        self.pan_action.triggered.connect(lambda on: self._set_tool(self.pan_tool, on))
         self.split_tool = SplitTool(self.iface.mapCanvas(), self.iface)
         self.split_action = QAction(QIcon(os.path.join(icons, "split_all_layers.svg")), "Split (all layers)", win)
         self.split_action.setObjectName("mActionKgaEditorSplit")
@@ -154,6 +171,7 @@ class EditorController:
         tb.addSeparator()
         self._create_anchor = tb.addSeparator()         # Create Features goes before this one
         tb.addAction(self.select_action)
+        tb.addAction(self.pan_action)                    # right of Select
         tb.addAction(self.clear_action)                  # right after Select (all layers)
         self._advanced_start = tb.addSeparator()
         self._advanced_anchor = tb.addSeparator()       # the five drop-down groups go before it
@@ -170,7 +188,7 @@ class EditorController:
             if button is not None:
                 button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
         self.actions = [self.session_action, self.save_action, self.discard_action, self.panel_action,
-                        self.select_action, self.clear_action, self.vertex_action, self.split_action,
+                        self.pan_action, self.select_action, self.clear_action, self.vertex_action, self.split_action,
                         self.delete_action]
 
         self.advanced = AdvancedTools(self.iface, self.manager)
@@ -189,8 +207,11 @@ class EditorController:
             fav_before = self._advanced_anchor
         self.modify.build(self.toolbar, before=self._create_anchor,         # right after Create Features
                           favorites_before=fav_before)
+        self.context_tools = ContextMenuTools(self)
+        self.context_tools.install()                 # right-click on the map: Edit Vertices, Reshape, Split ...
         self.attributes = AttributesController(self.iface, self.manager, before_edit=self._session_for_edit)
         self.attributes.build(self.toolbar, before=self._create_anchor)     # right after Modify Features
+        # Quick Labeling and Quick Symbology moved to the KGA Layer toolbar (gui/layer_toolbar.py).
         self._build_menu()                   # after everything it lists exists
 
         self.panel = EditableLayersPanel(self)
@@ -229,6 +250,9 @@ class EditorController:
 
     def unload(self):
         canvas = self.iface.mapCanvas()
+        if getattr(self, "magnify", None) is not None:
+            self.magnify.remove()
+            self.magnify = None
         if self.attributes is not None:
             self.attributes.remove()
             self.attributes = None
@@ -255,16 +279,21 @@ class EditorController:
             QgsProject.instance().readProject.disconnect(self._project_read)
         except (TypeError, RuntimeError):
             pass
-        for tool in (getattr(self, "select_tool", None), getattr(self, "split_tool", None)):
+        for tool in (getattr(self, "select_tool", None), getattr(self, "split_tool", None),
+                     getattr(self, "pan_tool", None)):
             if tool is not None:
                 if canvas.mapTool() is tool:
                     canvas.unsetMapTool(tool)
                     self.iface.actionPan().trigger()
-                tool.dispose()
+                if hasattr(tool, "dispose"):
+                    tool.dispose()
                 tool.deleteLater()
-        self.select_tool = self.split_tool = None
+        self.select_tool = self.split_tool = self.pan_tool = None
         if self.manager:
             self.manager.stop()
+        if self.context_tools is not None:
+            self.context_tools.uninstall()
+            self.context_tools = None
         if self.filter_action:
             self.iface.removeCustomActionForLayerType(self.filter_action)
             self.filter_action.deleteLater()

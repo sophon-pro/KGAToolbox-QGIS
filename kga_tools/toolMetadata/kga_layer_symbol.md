@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:kga_layer_symbol` |
 | **Group** | KGA Mapping |
 | **Source** | `kga_tools/algorithms/kga_layer_symbol_alg.py` (gallery in `kga_tools/symbol_gallery/`) |
-| **Icon** | `icons/kgaLayerSymbol.png` |
+| **Icon** | `icons/mapping/kgaLayerSymbol.png` |
 | **Type** | Interactive dialog — modeless, needs the QGIS window |
 
 ## Overview

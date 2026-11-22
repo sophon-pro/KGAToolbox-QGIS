@@ -4,7 +4,7 @@
 |---|---|
 | **Algorithm ID** | none — a toolbar window, not a Processing algorithm |
 | **Source** | `kga_tools/gui/quick_template_dialog.py` (logic in `kga_tools/core/quick_template.py`) |
-| **Icon** | `icons/quickTemplate.png` |
+| **Icon** | `icons/editing/quickTemplate.png` |
 | **Type** | Interactive dialog — modeless |
 
 ## Overview

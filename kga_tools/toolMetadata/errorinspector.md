@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:errorinspector` |
 | **Group** | KGA Topology |
 | **Source** | `kga_tools/algorithms/error_inspector.py` |
-| **Icon** | `icons/errorInspector.png` |
+| **Icon** | `icons/quality_control/errorInspector.png` |
 | **Type** | Interactive window — modeless, needs the QGIS window |
 
 ## Overview
@@ -40,11 +40,11 @@ controls below are the window's.
 
 1. Run **[Check Overlaps and Gaps](checkoverlapsandgaps.md)** or
    **[Check Points on Boundary Vertices](checkpointsonboundary.md)** first, with
-   the inputs loaded **in the project** â€” see the note about repeatability below.
+   the inputs loaded **in the project** — see the note about repeatability below.
 2. Open **KGA Topology > Open Error Inspector**. Close the Processing window once
    the inspector appears; move it beside QGIS so you can see the map.
 3. Click a row. The map zooms to that error.
-4. Fix it on the map â€” the list keeps itself up to date as you edit.
+4. Fix it on the map — the list keeps itself up to date as you edit.
 5. When you have worked through a batch, press **Validate All**. Every check is
    re-run and the list shows what is left.
 6. Repeat until the list is empty.

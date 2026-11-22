@@ -25,7 +25,11 @@ from contextlib import suppress
 
 from qgis.core import Qgis, QgsMessageLog, QgsProject, QgsVectorLayer
 from qgis.PyQt.QtCore import QObject
-from qgis.PyQt.QtWidgets import QAction, QMessageBox, QToolBar
+from qgis.PyQt.QtWidgets import QMessageBox, QToolBar
+try:                                    # Qt 6: QAction lives in QtGui
+    from qgis.PyQt.QtGui import QAction
+except ImportError:                     # Qt 5
+    from qgis.PyQt.QtWidgets import QAction
 
 from ..branding import LOG_TAG
 from ..core import kga_settings as ks

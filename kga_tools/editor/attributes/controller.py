@@ -20,6 +20,7 @@ except ImportError:  # Qt5 / QGIS 3.44
     from qgis.PyQt.QtWidgets import QAction
 from qgis.PyQt.QtWidgets import QDockWidget, QMenu
 
+from ...gui import panel_bubble
 from .layer_browser import feature_label
 from .panel import TITLE, AttributesPanel
 from .select_tool import AttributesSelectTool
@@ -60,6 +61,9 @@ class AttributesController:
         self.action.setToolTip("Open Feature Attribute - select a feature on the map and type into its "
                                "attributes, no attribute table needed")
         self.action.triggered.connect(self._toggled)
+        panel_bubble.attach_reveal(self.panel, self.action, 'attributes_pane',
+                                   'Open Feature Attribute – click to open',
+                                   panel_bubble.file_glyph('bubble/attributes_pane.png'))
 
         self.tool = AttributesSelectTool(self.iface.mapCanvas(), self.manager, self.iface)
         self.tool.setAction(self.panel.select_action)       # QGIS unchecks the banner when another tool is chosen

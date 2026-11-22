@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:generate_contour_roi` |
 | **Group** | KGA Irrigation Tools |
 | **Source** | `kga_tools/algorithms/generate_contour_roi_alg.py` (dialog in `kga_tools/gui/contour_roi_dialog.py`, engine in `kga_tools/core/contours.py`, symbology in `kga_tools/core/contour_style.py`) |
-| **Icon** | `icons/generateContour.png` |
+| **Icon** | `icons/terrain_water/generateContour.png` |
 | **Type** | Interactive dialog — modeless, needs the QGIS window and an internet connection |
 
 ## Overview

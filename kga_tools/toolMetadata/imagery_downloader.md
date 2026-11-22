@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:imagery_downloader` |
 | **Group** | KGA Data Management |
 | **Source** | `kga_tools/algorithms/imagery_downloader_alg.py` (dialog in `kga_tools/gui/imagery_downloader_dialog.py`, engine in `kga_tools/core/imagery/`) |
-| **Icon** | `icons/imagery_download.png` |
+| **Icon** | `icons/imagery_basemaps/imagery_download.png` |
 | **Type** | Interactive dialog — modeless, needs the QGIS window and an internet connection |
 
 ## Overview

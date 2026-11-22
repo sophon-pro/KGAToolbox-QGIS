@@ -1,0 +1,133 @@
+<html>
+<head><meta charset="utf-8"><style>
+body { font-family: sans-serif; font-size: 10pt; line-height: 1.45; }
+h2 { margin-bottom: 0; } h3 { margin-top: 14px; margin-bottom: 4px; color: #1f5fbf; }
+td { padding: 2px 10px 2px 0; vertical-align: top; } .k { font-family: monospace; white-space: nowrap; }
+.muted { color: #777; }
+</style></head>
+<body>
+<h2>Symbol Bag {{VERSION}}</h2>
+<p><i>Collect once – organize easily – apply anytime.</i></p>
+
+<h3>Smart filter</h3>
+<p>Select a layer in the Layers panel and the bag shows only symbols that fit it – polygon symbols for a
+polygon layer, line symbols for a line layer, point symbols for a point layer, terrain &amp; raster styles for a
+raster. Click <b>Show all</b> in the green strip to see everything; selecting another layer turns the filter
+back on. Switch it off in ⚙ → <i>Smart Filter by Selected Layer</i>.</p>
+
+<h3>Apply a symbol</h3>
+<p>Symbol Bag applies <b>exactly to what you select in the Layers panel</b> – no questions asked:</p>
+<ul>
+<li><b>Select a layer</b> → the whole layer gets the symbol. On a categorized / graduated / rule-based layer every
+    class gets the same style (the classes themselves are kept).</li>
+<li><b>Select a category</b> (a legend row under the layer, e.g. one class value) → <b>only that category</b> changes.
+    Ctrl-click several categories to change just those.</li>
+<li>The strip at the top of the bag always tells you the target: <i>→ Applies to class “SS_BM_Gross” of SS_BA_Gross</i>.</li>
+<li><b>Double-click</b> a card (or press Enter), or <b>drag</b> a card onto a layer <i>or onto a single category row</i>
+    in the Layers panel.</li>
+<li>Only symbology changes – data, geometry, attributes and labels are never touched.
+    <b>Ctrl+Z</b> in the bag (or ↺ in the footer) restores the previous style.</li>
+</ul>
+
+<h3>Add symbols</h3>
+<ul>
+<li><b>+ → Create Symbol</b>: quick colour/size/width/opacity controls, or the full QGIS Symbol Selector for
+    multilayer symbols. Choose <i>Terrain &amp; Raster</i> to build a pseudocolor style from any colour ramp or
+    to edit any raster renderer (hillshade, paletted, multiband…).</li>
+<li><b>Add Current Layer Symbol to Bag</b> – also in the right-click menu of any layer.</li>
+<li>Import from the <b>QGIS Style Manager</b>, the <b>current project</b>, or files:
+    QML (vector and raster), QGIS XML style libraries, style databases (.db), SLD, SVG and .sbag collections.
+    You can also drop files straight onto the panel.</li>
+<li>Duplicates are detected and skipped automatically. User SVG files are embedded so symbols keep working
+    if the original file moves.</li>
+</ul>
+
+<h3>Organize</h3>
+<ul>
+<li>The <b>folder button</b> next to the search box switches collection and creates, renames, exports or
+    deletes collections. Right-click a card → <i>Move to Collection</i>.</li>
+<li>In <i>Manual order</i> sort, drag cards to reorder them.</li>
+<li>Click the ☆ on a card for <b>Favorites</b>. <b>Recent</b> shows what you applied last.</li>
+<li>Search matches name, tags, description, type and collection – words are combined.</li>
+</ul>
+
+<h3>The bag</h3>
+<ul>
+<li>Drag the coloured header to move the bag; drag the bottom-right corner to resize.</li>
+<li><b>–</b> hides the bag in a round <b>bubble</b> on the map (click it to open, drag it anywhere).
+    Double-clicking the header does the same.</li>
+<li><b>Motion</b>: the bag moves with spring physics – it drops in when opened, is tossed along an arc into
+    the bubble (with a ripple) and springs back out, slides shut like a drawer when folded; the category pill
+    glides between buttons, cards cascade in, lift on hover, pulse when applied and the ☆ pops.
+    Choose <i>Snappy, Normal, Relaxed</i> or <i>Off</i> in ⚙ → Motion.</li>
+<li>⚙ → <b>Bag Style…</b>: nine colourways, background transparency, fade, key ring / handle, compact mode,
+    columns, icon size and bubble options. ⚙ also has quick menus for Show As, Columns, Icon Size and Sort.</li>
+</ul>
+
+<h3>Symbol Colors – recolor symbols in the bag</h3>
+<ul>
+<li>Open it with the <b>palette button</b> in the bag header, the small palette icon on a symbol card,
+    or right-click a card → <b>Recolor…</b>. It grows out of the button you clicked, sits beside the bag, moves with it and closes with it.</li>
+<li>Choose <b>what</b> to recolor: <i>Whole symbol (keep shades)</i> – every color follows the new hue while
+    keeping its own light/dark relation; <i>All fill / line colors</i>; <i>All outline colors</i>; or one color
+    of one symbol layer (multilayer symbols, marker lines, pattern fills, recolorable SVGs, font markers).</li>
+<li>Pick on the wheel (outer ring = hue, left arc = saturation, right arc = brightness), from a palette,
+    Recent or Favorites, type HEX / RGB / HSV, set Opacity, or use the <b>eyedropper</b> to pick any pixel on
+    screen.</li>
+<li>The card previews the change live – nothing is saved until you choose <b>Save as New</b> or <b>Replace</b>
+    (then double-click the card to apply it). Undo, Redo and Reset work on this session's
+    color edits. Size, shape, widths, layers, rotation and offsets are never changed.</li>
+<li><b>Raster ramps</b>: click a stop on the ramp strip to edit it, apply any QGIS color ramp preset, or Reverse.</li>
+<li><b>Palettes</b>: nine built-in palettes plus your own – create, rename, delete, add/remove colors,
+    import/export <i>.gpl</i>, or <i>Use in QGIS Color Buttons</i> to see the palette in every QGIS color button.</li>
+<li>Resize the wheel: the target button in the picker header (Small / Medium / Large) or drag its corner.</li>
+</ul>
+
+<h3>Layer Colors – recolor layers on the map (standalone)</h3>
+<ul>
+<li>Open it with the <b>Layer Colors</b> toolbar button (color wheel icon), or right-click a layer →
+    <b>Recolor Layer Colors…</b>. It works on its own – the bag does not need to be open.</li>
+<li><b>–</b> (or <b>Done</b>) pours it, macOS-Genie style, into its own <b>color-wheel bubble</b> on the bottom edge of the map (click the bubble or the
+    toolbar button to bring it back, drag the bubble anywhere) – just like the bag. A soft sound plays with it. The <b>speaker</b> button in the header turns sound on / off with one click; right-click it for the <b>volume</b> and the style – <i>Whoosh, Bubble, Chime</i> or <i>Magic</i> (you hear each one as you pick it). The same choices are in the bag's ⚙ → Sound Effects.</li>
+<li>The <b>Layer</b> box at the top shows the layer being recolored – pick any layer there. With nothing
+    selected in the Layers panel it starts on the top visible layer.</li>
+<li>Choose <b>what</b> to recolor with the boxes under the name: <b>Whole</b> (every color, keeping shades),
+    <b>Fill color</b> (or <b>Line color</b>), <b>Outline</b>, and <b>Layers ▾</b> for one layer of a multi-layer symbol.</li>
+<li>It follows your Layers panel selection: select a <b>category</b> row → only that class is recolored;
+    select a <b>layer</b> → choose one class in the <b>Class</b> list (each shows its own symbol) – or <b>All classes</b> to change every class at once.</li>
+<li>Every change shows <b>live on the map</b>. <b>Done</b> keeps it and tucks the tool into its bubble (only ✕ closes it); <b>Reset</b> brings back the layer's
+    original colors; Undo / Redo step through your edits; Ctrl+Z in the bag undoes the whole session.</li>
+<li><b>Save to Bag</b> stores the recolored symbol (or raster style) as a new card tagged <i>from layer</i>.</li>
+<li>Raster layers: click a stop on the ramp, apply a color ramp preset or Reverse – live on the map.</li>
+<li><b>Thickness wheel</b> (below the swatches): drag around the tapered wheel, type a value or click a
+    preset (0.26 / 0.5 / 1 / 2 mm) to set the <i>line width</i> of a line layer, the <i>outline width</i> of a
+    polygon layer or the <i>marker outline</i> of a point layer – live on the map, for the selected class or all
+    classes. Lines made of several strokes (a casing with a centre line) keep their proportions.</li>
+<li>The swatch strip shows one set of colors at a time – click its name to switch between your palettes,
+    <i>Recent colors</i> and <i>Favorites</i>; ⋮ holds the palette actions.</li>
+<li>Only colors and thickness change – sizes, shapes, classes, labels and data stay as they were.</li>
+</ul>
+
+<h3>Raster &amp; terrain styles</h3>
+<p>Raster styles are stored separately from vector symbols. Styles marked
+<i>"Stretch to each target layer's min/max"</i> (DEM ramps, grayscale, multiband) adapt their value range to the
+layer you apply them to; class-based styles (slope, aspect, NDVI) keep their absolute values. If a style uses a
+band that does not exist on the target layer, band 1 is used and you are warned.</p>
+
+<h3>Keyboard</h3>
+<table>
+<tr><td class="k">Enter</td><td>Apply to selected layer(s)</td></tr>
+<tr><td class="k">Ctrl+F</td><td>Search</td></tr>
+<tr><td class="k">F2</td><td>Rename</td></tr>
+<tr><td class="k">Ctrl+D</td><td>Duplicate</td></tr>
+<tr><td class="k">Delete</td><td>Delete</td></tr>
+<tr><td class="k">Ctrl+Z</td><td>Undo last apply</td></tr>
+</table>
+
+<h3>Your library</h3>
+<p>Stored in <span class="k">{{LIBRARY}}</span>. An automatic backup is made each session (configurable in
+Settings). Use <b>⋮ → Backup / Restore Library</b> to save or move your whole library, and
+<b>Export Collection</b> to share a set of symbols (.sbag) with colleagues or students.</p>
+<p class="muted">Symbol Bag uses only QGIS's own symbol and style classes, so every symbol can be edited with the
+standard QGIS tools.</p>
+</body></html>

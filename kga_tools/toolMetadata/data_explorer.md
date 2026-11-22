@@ -5,7 +5,7 @@
 | **Algorithm ID** | none: a dock panel (not a Processing algorithm) |
 | **Group** | KGA Toolbox toolbar, next to Catalog |
 | **Source** | `kga_tools/data_ingest/` (full reference: `kga_tools/data_ingest/README.md`) |
-| **Icon** | `icons/dataIngest.png` |
+| **Icon** | `icons/data_management/dataIngest.png` |
 | **Type** | Dock panel. Needs QGIS 3.44 or newer; shortcut **Ctrl+Alt+I** |
 
 ## Overview
@@ -26,6 +26,19 @@ dataset, read its metadata, then bring it into the project.
   reprojection to the project CRS. Presets can be saved and shared as JSON.
 * **Proxies:** build overviews and a low-resolution proxy for big rasters without touching the original,
   and toggle between proxy and full resolution.
+* **Copy, Cut, Paste and move:** right-click data in the file list (or Ctrl+C / Ctrl+X / Ctrl+V) and paste onto a
+  folder, GeoPackage or File Geodatabase; shapefiles, GeoPackage and geodatabase tables convert between each other.
+  Drag data onto a folder or database in the tree to move it (Ctrl to copy). A move deletes the original only
+  after it was written in full.
+* **Delete:** removes files with their sidecars, folders, or a single layer or table inside a database. Files go to
+  the Recycle Bin; a layer inside a database cannot be recovered. Project layers that used the data are removed.
+* **Rename:** the **Rename** button opens a tab that renames the selected datasets in place, or saves renamed
+  copies to another folder. Shapefile parts and sidecar files move together, tables inside a GeoPackage or File
+  Geodatabase can be renamed (double-click the row), name clashes are caught before anything is touched, and
+  project layers are re-pointed at the new file.
+* **Export from the preview:** the **Export** drop-down in the preview window cuts the current view, a drawn
+  rectangle or polygon, the layer extent, or the polygons of a project layer (selected, else all) to a new file;
+  rasters are masked to the polygon. The original is never modified.
 * **Interpret:** override CRS, encoding, NoData, feature filter and layer name, or set the CSV delimiter and
   X/Y or WKT columns, with a preview.
 * **Bins:** group layers by type, by folder or your own; **Import Folder as Bin** mirrors sub-folders.
@@ -34,5 +47,5 @@ dataset, read its metadata, then bring it into the project.
 
 ## Notes and limits
 
-* The original data is never modified.
+* The original data is never modified, except by Cut / move and Delete, which you ask for.
 * The search index lives in the QGIS profile and re-reads only files that changed.

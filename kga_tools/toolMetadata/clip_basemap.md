@@ -5,7 +5,7 @@
 | **Algorithm ID** | none: a window on the KGA Toolbox toolbar and menu (not a Processing algorithm) |
 | **Group** | KGA Toolbox toolbar |
 | **Source** | `kga_tools/gui/clip_basemap_dialog.py`, `kga_tools/core/clip_basemap.py` |
-| **Icon** | `icons/clipBasemap.png` |
+| **Icon** | `icons/imagery_basemaps/clipBasemap.png` |
 | **Type** | Window |
 
 ## Overview

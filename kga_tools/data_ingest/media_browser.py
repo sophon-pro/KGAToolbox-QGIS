@@ -2,6 +2,9 @@
 Media Browser panel: browse, preview, inspect, interpret and ingest."""
 
 import datetime
+import contextlib
+import json
+import shutil
 import os
 import time
 
@@ -16,10 +19,12 @@ from qgis.core import (
     QgsTask,
     QgsVectorLayer,
 )
-from qgis.PyQt.QtCore import QDir, QEvent, QFileSystemWatcher, QMimeData, QSize, QStringListModel, Qt, QTimer, QUrl
-from qgis.PyQt.QtGui import QColor, QDesktopServices, QKeySequence, QPixmap
+from qgis.PyQt.QtCore import QDir, QEvent, QPoint, QFileSystemWatcher, QMimeData, QSize, QStringListModel, Qt, QTimer, QUrl, pyqtSignal
+from qgis.PyQt.QtGui import (QBrush, QColor, QCursor, QDesktopServices, QDrag, QKeySequence,
+                             QPixmap)
 from qgis.PyQt.QtWidgets import (
     QAbstractItemView,
+    QApplication,
     QFileIconProvider,
     QCheckBox,
     QComboBox,
@@ -44,6 +49,7 @@ from qgis.PyQt.QtWidgets import (
     QTabWidget,
     QTextBrowser,
     QToolButton,
+    QToolTip,
     QTreeView,
     QTreeWidget,
     QTreeWidgetItem,
@@ -52,7 +58,11 @@ from qgis.PyQt.QtWidgets import (
 )
 
 from ..core import output_defaults as od
+from ..gui.drag_chip import drag_pixmap  # noqa: F401 (also imported from here)
 from . import create_data as CD
+from . import delete_data as DD
+from . import transfer as TR
+from ..core import data_paste as dp
 from . import type_icons as ICONS
 from . import inspector
 from .folder_tree import FolderTreeModel
@@ -61,8 +71,10 @@ from . import loader
 from . import presets as P
 from . import search_index as SI
 from . import search_query as SQ
+from ..gui.panel_bubble import ToolbarReveal
 from .compat import ignore, QAction, QActionGroup, QShortcut
 from .ingest_task import IngestTask
+from .file_renamer import RenamePanel
 from .interpret_dialog import InterpretDialog
 from .settings_dialog import IngestSettingsDialog
 
@@ -258,6 +270,103 @@ class FileRow(QTreeWidgetItem):
         return self.text(col).casefold() < other.text(col).casefold()
 
 
+ENTRIES_MIME = "application/x-kga-explorer-entries"
+
+
+def entries_payload(datas):
+    keys = ("path", "kind", "name", "sublayer", "is_folder")
+    return [{k: d.get(k) for k in keys if d.get(k) is not None} for d in datas]
+
+
+def payload_entries(raw):
+    try:
+        return [e for e in json.loads(raw.decode("utf-8")) if isinstance(e, dict)]
+    except (ValueError, UnicodeDecodeError):
+        return []
+
+
+class FolderDropView(QTreeView):
+    """The folder tree: accepts Data Explorer entries dropped on a folder (move; Ctrl copies)."""
+
+    def __init__(self, browser):
+        super().__init__()
+        self.browser = browser
+        self.setAcceptDrops(True)
+        self.setDropIndicatorShown(True)
+
+    def _path_at(self, event):
+        if not event.mimeData().hasFormat(ENTRIES_MIME):
+            return ""
+        point = event.position().toPoint() if hasattr(event, "position") else event.pos()
+        return self.browser.fs_model.path_of(self.indexAt(point)) or ""
+
+    def dragEnterEvent(self, event):  # noqa: N802
+        if event.mimeData().hasFormat(ENTRIES_MIME):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event):  # noqa: N802
+        path = self._path_at(event)
+        if path and os.path.isdir(path):
+            copy = ctrl_down()
+            event.setDropAction(Qt.DropAction.CopyAction if copy else Qt.DropAction.MoveAction)
+            event.accept()
+            self._set_hot(self.indexAt(event.position().toPoint() if hasattr(event, "position") else event.pos()))
+            drop_hint(self, copy, path)
+        else:
+            self._clear_hot()
+            QToolTip.hideText()
+            event.ignore()
+
+    def _set_hot(self, index):
+        item = self.browser.fs_model.itemFromIndex(index)
+        hot = getattr(self, "_hot", None)
+        if hot and hot[0] is item:
+            return
+        self._clear_hot()
+        if item is not None:
+            self._hot = (item, item.background())
+            item.setBackground(HOT_BRUSH)
+
+    def _clear_hot(self):
+        hot = getattr(self, "_hot", None)
+        if hot:
+            with contextlib.suppress(RuntimeError):
+                hot[0].setBackground(hot[1])
+        self._hot = None
+
+    def dragLeaveEvent(self, event):  # noqa: N802
+        self._clear_hot()
+        QToolTip.hideText()
+        super().dragLeaveEvent(event)
+
+    def dropEvent(self, event):  # noqa: N802
+        path = self._path_at(event)
+        self._clear_hot()
+        QToolTip.hideText()
+        if not path or not os.path.isdir(path):
+            event.ignore()
+            return
+        event.accept()
+        copy = ctrl_down()
+        self.browser.drop_entries(payload_entries(bytes(event.mimeData().data(ENTRIES_MIME))), path, copy)
+
+
+HOT_BRUSH = QBrush(QColor(173, 214, 255))
+
+
+def ctrl_down():
+    """Ctrl held now (drag events have no modifiers() in Qt5, so ask the application)."""
+    return bool(QApplication.keyboardModifiers() & Qt.KeyboardModifier.ControlModifier)
+
+
+def drop_hint(widget, copy, folder_path):
+    """The Pro-style tip beside the pointer: '> Move to <folder>' (Ctrl: Copy to)."""
+    name = os.path.basename(folder_path.rstrip("/" + chr(92))) or folder_path
+    QToolTip.showText(QCursor.pos() + QPoint(18, 6), "> %s to %s" % ("Copy" if copy else "Move", name), widget)
+
+
 class FileTree(QTreeWidget):
     """File list that drags as file URLs and accepts OS drops."""
 
@@ -275,29 +384,100 @@ class FileTree(QTreeWidget):
         # Add" window for GeoPackages, geodatabases and other multi-layer files.
         # The file URLs must NOT ride along with the URIs: QGIS handles both, so the
         # layers would be added and the file would then open the picker as well.
+        mime = None
         try:
             uris = self.browser.layer_uris(datas)
             if uris:
-                return QgsMimeDataUtils.encodeUriList(uris)
+                mime = QgsMimeDataUtils.encodeUriList(uris)
         except Exception as exc:
             ignore(exc)
-        mime = QMimeData()
-        mime.setUrls([QUrl.fromLocalFile(d["path"]) for d in datas if d.get("path")])
+        if mime is None:
+            mime = QMimeData()
+            mime.setUrls([QUrl.fromLocalFile(d["path"]) for d in datas if d.get("path")])
+        mime.setData(ENTRIES_MIME, json.dumps(entries_payload(datas)).encode("utf-8"))
         return mime
 
+    def startDrag(self, supported_actions):  # noqa: N802
+        items = self.selectedItems()
+        if not items:
+            return
+        mime = self.mimeData(items)
+        if mime is None:
+            return
+        drag = QDrag(self)
+        drag.setMimeData(mime)
+        drag.setPixmap(drag_pixmap([it.text(0) for it in items], items[0].icon(0)))
+        drag.setHotSpot(QPoint(12, 14))
+        drag.exec(Qt.DropAction.MoveAction | Qt.DropAction.CopyAction, Qt.DropAction.MoveAction)
+
+    def _set_hot(self, item):
+        if item is getattr(self, "_hot", None):
+            return
+        self._clear_hot()
+        if item is not None:
+            self._hot = (item, [item.background(c) for c in range(self.columnCount())])
+            for c in range(self.columnCount()):
+                item.setBackground(c, HOT_BRUSH)
+
+    def _clear_hot(self):
+        hot = getattr(self, "_hot", None)
+        if hot:
+            item, brushes = hot
+            with contextlib.suppress(RuntimeError):
+                for c, b in enumerate(brushes):
+                    item.setBackground(c, b)
+        self._hot = None
+        QToolTip.hideText()
+
+    def dragLeaveEvent(self, event):  # noqa: N802
+        self._clear_hot()
+        super().dragLeaveEvent(event)
+
+    def _drop_folder(self, event):
+        """Path of the folder / database row under the pointer when our own entries are dragged, else ''."""
+        if not event.mimeData().hasFormat(ENTRIES_MIME):
+            return ""
+        item = self.itemAt(event.position().toPoint() if hasattr(event, "position") else event.pos())
+        data = (item.data(0, ROLE) or {}) if item is not None else {}
+        path = data.get("path") or ""
+        if item is None or data.get("sublayer") or not path:
+            return ""
+        return path if dp.target_for_path(path) is not None else ""
+
     def dragEnterEvent(self, event):  # noqa: N802
-        if event.mimeData().hasUrls() and event.source() is not self:
+        if event.mimeData().hasFormat(ENTRIES_MIME) or (event.mimeData().hasUrls() and event.source() is not self):
             event.acceptProposedAction()
         else:
             super().dragEnterEvent(event)
 
     def dragMoveEvent(self, event):  # noqa: N802
-        if event.mimeData().hasUrls() and event.source() is not self:
+        if event.mimeData().hasFormat(ENTRIES_MIME):
+            path = self._drop_folder(event)
+            if path:
+                copy = ctrl_down()
+                event.setDropAction(Qt.DropAction.CopyAction if copy else Qt.DropAction.MoveAction)
+                event.accept()
+                self._set_hot(self.itemAt(event.position().toPoint() if hasattr(event, "position") else event.pos()))
+                drop_hint(self, copy, path)
+            else:
+                self._clear_hot()
+                QToolTip.hideText()
+                event.ignore()
+        elif event.mimeData().hasUrls() and event.source() is not self:
             event.acceptProposedAction()
         else:
             super().dragMoveEvent(event)
 
     def dropEvent(self, event):  # noqa: N802
+        if event.mimeData().hasFormat(ENTRIES_MIME):
+            path = self._drop_folder(event)
+            self._clear_hot()
+            if path:
+                event.accept()
+                copy = ctrl_down()
+                entries = payload_entries(bytes(event.mimeData().data(ENTRIES_MIME)))
+                self.browser.drop_entries(entries, path, copy)
+            return
         if event.source() is self or not event.mimeData().hasUrls():
             return
         paths = [u.toLocalFile() for u in event.mimeData().urls() if u.isLocalFile()]
@@ -364,7 +544,9 @@ class SublayerPicker(QDialog):
                 if self.list.item(i).checkState() == Qt.CheckState.Checked]
 
 
-class MediaBrowserDock(QDockWidget):
+class MediaBrowserDock(ToolbarReveal, QDockWidget):
+    minimizeRequested = pyqtSignal()
+
     def __init__(self, iface, parent=None):
         super().__init__("Data Explorer", parent)
         self.setObjectName("KgaDataIngestBrowser")
@@ -406,7 +588,17 @@ class MediaBrowserDock(QDockWidget):
         self._poll_timer = QTimer(self)
         self._poll_timer.setInterval(1200)
         self._poll_timer.timeout.connect(self._poll_index)
+        self._clip = TR.Clipboard()
         self._build_ui()
+        for keys, slot in ((QKeySequence.StandardKey.Copy, lambda: self.copy_selected(TR.COPY)),
+                           (QKeySequence.StandardKey.Cut, lambda: self.copy_selected(TR.MOVE)),
+                           (QKeySequence.StandardKey.Paste, self.paste_clipboard)):
+            sc_ = QShortcut(QKeySequence(keys), self.files)
+            sc_.setContext(Qt.ShortcutContext.WidgetShortcut)
+            sc_.activated.connect(slot)
+        del_sc = QShortcut(QKeySequence(QKeySequence.StandardKey.Delete), self.files)
+        del_sc.setContext(Qt.ShortcutContext.WidgetShortcut)
+        del_sc.activated.connect(self.delete_selected)
         for keys, slot in ((QKeySequence(QKeySequence.StandardKey.Find), self._focus_search),
                            (QKeySequence("F1"), self.show_search_help)):
             sc = QShortcut(keys, self)
@@ -491,6 +683,7 @@ class MediaBrowserDock(QDockWidget):
         self.search_menu_btn.setMenu(self.search_menu)
         self._update_filter_button()
         srow.addWidget(self.search_menu_btn)
+        # Minimize sits in the dock's title bar, beside Float and Close (see gui/panel_bubble.py).
         lay.addLayout(nav)
 
         # --- filter + ingest row
@@ -523,6 +716,24 @@ class MediaBrowserDock(QDockWidget):
         self.create_btn.setMenu(create_menu)
         self.create_btn.setVisible(False)
         row.addWidget(self.create_btn)
+        # Rename: batch-rename the selected datasets (or copy them under new names)
+        self.rename_btn = QToolButton()
+        self.rename_btn.setIcon(QgsApplication.getThemeIcon("/mActionEditTable.svg"))
+        self.rename_btn.setText("Rename")
+        self.rename_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.rename_btn.setToolTip("Rename the selected datasets in place, or save renamed copies,\n"
+                                   "keeping project layers connected")
+        self.rename_btn.clicked.connect(self.open_file_renamer)
+        row.addWidget(self.rename_btn)
+        # Delete: appears while something is selected
+        self.delete_btn = QToolButton()
+        self.delete_btn.setIcon(QgsApplication.getThemeIcon("/mActionDeleteSelected.svg"))
+        self.delete_btn.setText("Delete")
+        self.delete_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.delete_btn.setToolTip("Delete the selected data or folders (asks first)")
+        self.delete_btn.clicked.connect(self.delete_selected)
+        self.delete_btn.setVisible(False)
+        row.addWidget(self.delete_btn)
         row.addStretch(1)
         self.ingest_check = QCheckBox("Ingest")
         self.ingest_check.setToolTip("When checked, imports are copied / converted / proxied in the "
@@ -545,7 +756,7 @@ class MediaBrowserDock(QDockWidget):
         # --- three panes
         split = QSplitter(Qt.Orientation.Horizontal)
         self.fs_model = FolderTreeModel(self)
-        self.folder_view = QTreeView()
+        self.folder_view = FolderDropView(self)
         self.folder_view.setModel(self.fs_model)
         self.folder_view.setHeaderHidden(True)
         self.folder_view.expanded.connect(
@@ -576,7 +787,7 @@ class MediaBrowserDock(QDockWidget):
         self.tabs = QTabWidget()
         self.thumb = QLabel("Select a dataset to preview it")
         self.thumb.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.thumb.setMinimumSize(QSize(220, 220))
+        self.thumb.setMinimumSize(QSize(100, 60))
         self.thumb.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
         self._thumb_timer = QTimer(self)
         self._thumb_timer.setSingleShot(True)
@@ -593,6 +804,10 @@ class MediaBrowserDock(QDockWidget):
         self.attrs = QTableWidget(0, 0)
         self.attrs.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.tabs.addTab(self.attrs, "Attributes")
+        self.renamer = RenamePanel(self.iface)
+        self.renamer.changed.connect(self.refresh_keep_state)
+        self.renamer.release_handles = self.release_file_handles
+        self.tabs.addTab(self.renamer, "Rename")
         right = QWidget()
         rlay = QVBoxLayout(right)
         rlay.setContentsMargins(0, 0, 0, 0)
@@ -717,6 +932,7 @@ class MediaBrowserDock(QDockWidget):
         menu = QMenu(self)
         add_action(menu, "Open", lambda: self.navigate(path))
         self._add_project_action(menu, path)
+        self._add_paste_action(menu, path)
         target = (CD.target_for_path(path) or CD.T_FOLDER, path)
         if target[0] == CD.T_GDB and not CD.gdb_writable():
             target = None
@@ -726,6 +942,8 @@ class MediaBrowserDock(QDockWidget):
             self._fill_create_menu(menu.addMenu("Create"), target)
         menu.addSeparator()
         add_action(menu, "Refresh", lambda: self._refresh_tree_node(path))
+        if DD.refusal(DD.Target(DD.K_FOLDER, path)) == "":
+            add_action(menu, "Delete", lambda: self.delete_entries([{"path": path, "is_folder": True}]))
         menu.exec(self.folder_view.viewport().mapToGlobal(pos))
 
     def _refresh_tree_node(self, path):
@@ -923,7 +1141,7 @@ class MediaBrowserDock(QDockWidget):
         item.setIcon(0, ICONS.file_icon(kind, category=cat))
         item.setToolTip(0, "%s\nlayer: %s" % (path, label))
         item.setData(0, ROLE, {"path": path, "kind": kind, "name": label,
-                               "details": d, "overrides": {}})
+                               "details": d, "overrides": {}, "sublayer": True})
         return item
 
     @staticmethod
@@ -1005,10 +1223,13 @@ class MediaBrowserDock(QDockWidget):
             add_action(menu, "Open folder", lambda: self.navigate(folder))
             add_action(menu, "Refresh", lambda: self._refresh_item(items[0]))
             self._add_project_action(menu, folder)
+            self._add_paste_action(menu, folder)
             if os.access(folder, os.W_OK):
                 self._fill_create_menu(menu.addMenu("Create"), (CD.T_FOLDER, folder))
             add_action(menu, "Show in file explorer",
                        lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(folder)))
+            menu.addSeparator()
+            add_action(menu, "Delete", self.delete_selected)
             menu.exec(self.files.viewport().mapToGlobal(pos))
             return
         add_action(menu, "Add to Map", self.add_to_map)
@@ -1019,6 +1240,10 @@ class MediaBrowserDock(QDockWidget):
         add_action(menu, "Show in folder", self._show_in_folder)
         add_action(menu, "Copy path", self._copy_paths)
         menu.addSeparator()
+        add_action(menu, "Copy data", lambda: self.copy_selected(TR.COPY))
+        add_action(menu, "Cut data (move)", lambda: self.copy_selected(TR.MOVE))
+        self._add_paste_action(menu, self._paste_path_for_selection())
+        menu.addSeparator()
         if len(items) == 1 and CD.target_for_path((items[0].data(0, ROLE) or {}).get("path")) or (
                 len(items) == 1 and inspector.is_container((items[0].data(0, ROLE) or {}).get("path", ""))):
             add_action(menu, "Refresh", lambda: self._refresh_item(items[0]))
@@ -1028,6 +1253,8 @@ class MediaBrowserDock(QDockWidget):
         target = self._create_target()
         if target is not None:
             self._fill_create_menu(menu.addMenu("Create"), target)
+        menu.addSeparator()
+        add_action(menu, "Delete", self.delete_selected)
         menu.exec(self.files.viewport().mapToGlobal(pos))
 
     def _copy_paths(self):
@@ -1065,6 +1292,73 @@ class MediaBrowserDock(QDockWidget):
         if inspector.is_dataset_folder(folder):
             return (CD.T_GDB, folder) if folder.lower().endswith(".gdb") and CD.gdb_writable() else None
         return (CD.T_FOLDER, folder) if os.access(folder, os.W_OK) else None
+
+    def _rename_paths(self):
+        """Datasets selected in the file list; a selected folder contributes the datasets inside it."""
+        paths = []
+        for d in (it.data(0, ROLE) for it in self._selected_items()):
+            if not d or not d.get("path"):
+                continue
+            if d.get("is_folder"):
+                try:
+                    paths += [os.path.join(d["path"], n) for n in os.listdir(d["path"])]
+                except OSError as exc:
+                    ignore(exc)
+            else:
+                paths.append(d["path"])
+        return paths
+
+    def open_file_renamer(self):
+        """Show the Rename tab, listing the selected datasets."""
+        self.renamer.sync_selection(self._rename_paths())
+        self.tabs.setCurrentWidget(self.renamer)
+
+    # ------------------------------------------------------------ delete
+    def delete_selected(self):
+        """Delete what is selected in the file list (datasets, folders, tables inside a database)."""
+        entries = [it.data(0, ROLE) for it in self._selected_items() if it.data(0, ROLE)]
+        self.delete_entries(entries)
+
+    def delete_entries(self, entries):
+        targets = DD.targets_from(entries)
+        if not targets:
+            return
+        box = QMessageBox(QMessageBox.Icon.Warning, "Delete", DD.summary(targets),
+                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, self)
+        box.setDefaultButton(QMessageBox.StandardButton.No)
+        box.button(QMessageBox.StandardButton.Yes).setText("Delete")
+        if box.exec() != QMessageBox.StandardButton.Yes:
+            return
+        self.release_file_handles()
+        DD.remove_project_layers(DD.project_layers_for(targets))
+        deleted, failed = DD.delete_targets(targets)
+        # no Recycle Bin here (network drive...): offer to remove for good
+        no_bin = [t for t, msg in failed if "Recycle Bin" in msg]
+        if no_bin and QMessageBox.question(
+                self, "Delete", "These cannot go to the Recycle Bin:\n%s\n\nDelete them permanently?"
+                % "\n".join(t.label for t in no_bin[:8])) == QMessageBox.StandardButton.Yes:
+            d2, failed2 = DD.delete_targets(no_bin, permanent=True)
+            deleted += d2
+            failed = [f for f in failed if f[0] not in no_bin] + failed2
+        for t in deleted:
+            inspector.forget_sublayers(t.path)
+        folders = {os.path.dirname(t.path.rstrip("/\\")) for t in deleted if t.kind != DD.K_LAYER}
+        for f in folders:
+            self.fs_model.refresh_path(f)
+        current = self._current_folder
+        if current and not os.path.isdir(current):
+            current = os.path.dirname(current.rstrip("/\\"))
+            while current and not os.path.isdir(current) and os.path.dirname(current) != current:
+                current = os.path.dirname(current)
+            self.navigate(current)
+        else:
+            self.refresh_keep_state()
+        msg = "Deleted %d item%s" % (len(deleted), "" if len(deleted) == 1 else "s")
+        if failed:
+            QMessageBox.warning(self, "Delete", "Could not delete:\n" + "\n".join(
+                "%s - %s" % (t.label, m) for t, m in failed[:8]))
+            msg += ", %d failed" % len(failed)
+        self.status.setText(msg)
 
     def _update_create_button(self):
         target = self._create_target()
@@ -1123,6 +1417,174 @@ class MediaBrowserDock(QDockWidget):
         self.iface.messageBar().pushSuccess("Data Explorer", "Created %s" % os.path.basename(path))
         self._after_create(folder, path)
 
+    # ------------------------------------------------------------ copy / cut / paste / move
+    def copy_selected(self, mode):
+        """Ctrl+C / Ctrl+X: remember the selected data; a move only deletes after the paste worked."""
+        entries = [it.data(0, ROLE) for it in self._selected_items() if it.data(0, ROLE)]
+        self._clip.set(entries, mode)
+        n = len(self._clip.sources())
+        if not n:
+            self.status.setText("Nothing copyable selected (folders cannot be copied).")
+            return
+        self.status.setText("%s %d layer%s - open a folder or database and press Ctrl+V" % (
+            "Cut" if mode == TR.MOVE else "Copied", n, "" if n == 1 else "s"))
+
+    def _paste_path_for_selection(self):
+        """Folder / database a paste would go into: the selected one, else the open folder."""
+        target = self._create_target()
+        return target[1] if target else None
+
+    def _add_paste_action(self, menu, path):
+        if not path or dp.target_for_path(path) is None:
+            return
+        n = len(self._clip.sources())
+        verb = "Move here" if self._clip.mode == TR.MOVE else "Paste"
+        act = add_action(menu, verb if n else "Paste", lambda: self.paste_to(path))
+        if act is not None:
+            act.setEnabled(bool(n))
+
+    def paste_clipboard(self):
+        path = self._paste_path_for_selection()
+        if path:
+            self.paste_to(path)
+
+    def drop_entries(self, entries, path, copy):
+        """Drag and drop: move (Ctrl = copy) the dragged entries into the folder / database `path`.
+        Whole datasets dropped on a folder are moved as files; tables and databases go through Paste."""
+        target = dp.target_for_path(path)
+        if target is None or not entries:
+            return
+        if target.kind == dp.TARGET_FOLDER:
+            files = [e for e in entries if TR.is_whole_file(e)]
+            rest = [e for e in entries if not TR.is_whole_file(e)]
+            if files:
+                QTimer.singleShot(0, lambda: self._drop_files(files, path, copy))
+        else:
+            rest = entries
+        items = [(e, TR.sources_for_entry(e)) for e in rest]
+        items = [(e, g) for e, g in items if g]
+        if items:
+            QTimer.singleShot(0, lambda: self.paste_to(path, TR.COPY if copy else TR.MOVE, items))
+
+    def _drop_files(self, entries, folder, copy):
+        entries = [e for e in entries if copy or os.path.normcase(os.path.dirname(e["path"].rstrip("/\\")))
+                   != os.path.normcase(os.path.abspath(folder))]
+        if not entries:
+            self.status.setText("Already in that folder - nothing to move.")
+            return
+        done, failed, removed, left = [], [], 0, []
+        if not copy:
+            self.release_file_handles()
+            targets = DD.targets_from(entries)
+            ids = DD.project_layers_for(targets)
+            DD.remove_project_layers(ids)
+            removed = len(ids)
+        for e in entries:
+            try:
+                new_path, stuck = TR.transfer_file(e["path"], folder, copy)
+                done.append(new_path)
+                left += stuck
+            except (OSError, shutil.Error) as exc:
+                failed.append("%s - %s" % (os.path.basename(e["path"]), exc))
+        inspector.forget_sublayers()
+        self.fs_model.refresh_path(folder)
+        for e in entries:
+            self.fs_model.refresh_path(os.path.dirname(e["path"].rstrip("/\\")))
+        self.refresh_keep_state()
+        self.status.setText("%s %d item%s into %s%s" % (
+            "Copied" if copy else "Moved", len(done), "" if len(done) == 1 else "s",
+            os.path.basename(folder.rstrip("/\\")) or folder,
+            "; %d project layer%s removed" % (removed, "" if removed == 1 else "s") if removed else ""))
+        if left:
+            failed.append("Copied, but the original is in use by another program (QGIS Browser panel, ArcGIS...) "
+                          "so it was left in place: " + ", ".join(os.path.basename(f) for f in left[:4]))
+        if failed:
+            QMessageBox.warning(self, "Move", "Could not finish:" + chr(10) + chr(10).join(failed[:8]))
+
+    def paste_to(self, target_path, mode=None, items=None):
+        from qgis.PyQt.QtWidgets import QApplication, QProgressDialog
+        from ..gui.paste_dialog import PasteDialog, needs_dialog, remembered_options
+        items = list(self._clip.items if items is None else items)
+        mode = mode or self._clip.mode
+        target = dp.target_for_path(target_path)
+        if target is None or not items:
+            return
+        if mode == TR.MOVE:
+            items, same = TR.movable(items, target)
+            items = [(e, g) for e, g in items if not TR.into_itself(e, target)]
+            if not items:
+                self.status.setText("Already in %s - nothing to move." % target.label)
+                return
+        sources = [src for _e, group in items for src in group]
+        options = remembered_options()
+        try:
+            why = dp.problem(sources, target, options)
+            if why:
+                QMessageBox.warning(self, "Paste", why)
+                return
+            if needs_dialog(sources, target, options):
+                dlg = PasteDialog(sources, target, self)
+                if dlg.exec() != PasteDialog.DialogCode.Accepted:
+                    return
+                options = dlg.options()
+            self.release_file_handles()
+            progress = QProgressDialog("Working...", "Cancel", 0, 100, self)
+            progress.setWindowTitle("Move" if mode == TR.MOVE else "Paste")
+            progress.setWindowModality(Qt.WindowModality.WindowModal)
+            progress.setMinimumDuration(0)
+
+            def on_progress(percent, text):
+                progress.setValue(int(percent))
+                if text:
+                    progress.setLabelText(text)
+                QApplication.processEvents()
+
+            feedback = dp.Feedback(on_progress=on_progress, on_tick=QApplication.processEvents)
+            progress.canceled.connect(feedback.cancel)
+            held = TR.detach_layers(TR.container_for_paste(target, options, sources))
+            try:
+                result = dp.paste(sources, target, options, feedback)
+            finally:
+                progress.close()
+                if held:
+                    TR.reattach_layers(held)
+        except dp.PasteError as exc:
+            QMessageBox.warning(self, "Paste", str(exc))
+            return
+        moved_note = ""
+        if mode == TR.MOVE:
+            entries = TR.deletable_entries(items, result)
+            if entries:
+                deleted, failed, removed = TR.delete_moved(entries)
+                moved_note = " Originals moved to the Recycle Bin" + (
+                    "; %d project layer%s removed." % (removed, "" if removed == 1 else "s") if removed else ".")
+                if failed:
+                    moved_note += " Could not remove: " + ", ".join(t.label for t, _m in failed[:3])
+        self._after_transfer(target, items)
+        text = "%s %d layer%s into %s." % ("Moved" if mode == TR.MOVE else "Pasted", result.count,
+                                           "" if result.count == 1 else "s", target.label)
+        self.status.setText(text + moved_note)
+        if result.skipped or result.failed or result.canceled:
+            lines = ["Skipped %s: %s" % row for row in result.skipped] + \
+                    ["FAILED %s: %s" % row for row in result.failed]
+            if result.canceled:
+                lines.append("Canceled.")
+            QMessageBox.warning(self, "Paste", "Finished with notes (originals of these were kept):" + chr(10)
+                                + chr(10).join(lines[:12]))
+        if mode == TR.MOVE and result.clean:
+            self._clip.clear()
+
+    def _after_transfer(self, target, items):
+        inspector.forget_sublayers()
+        folders = {target.path if target.kind == dp.TARGET_FOLDER else os.path.dirname(target.path)}
+        for _e, group in items:
+            for src in group:
+                folders.add(os.path.dirname(src.uri.split("|", 1)[0]))
+        for f in folders:
+            if f and os.path.isdir(f):
+                self.fs_model.refresh_path(f)
+        self.refresh_keep_state()
+
     def _after_create(self, folder, select_path):
         """Show a new file: refresh the list when it is the open folder, and the tree always."""
         if os.path.normcase(os.path.abspath(folder)) == os.path.normcase(os.path.abspath(self._current_folder)):
@@ -1170,6 +1632,9 @@ class MediaBrowserDock(QDockWidget):
         self.mini_btn.setEnabled(len(items) == 1)
         self._show_selection_status(len(items))
         self._update_create_button()
+        self.delete_btn.setVisible(bool(items))
+        if self.tabs.currentWidget() is self.renamer:
+            self.renamer.sync_selection(self._rename_paths())
         if len(items) == 1 and (items[0].data(0, ROLE) or {}).get("is_folder"):
             self.mini_btn.setEnabled(False)
             self._preview_timer.stop()
@@ -1239,6 +1704,40 @@ class MediaBrowserDock(QDockWidget):
                                  self._preview_done, gen=self._preview_gen)
         self._preview_task = task
         QgsApplication.taskManager().addTask(task)
+
+    @staticmethod
+    def _drop_connection(layer):
+        """The OGR provider keeps a pooled connection (and so the file open) after features were read;
+        reloadData() drops it, so the file is free once the layer is gone."""
+        try:
+            if layer is not None and layer.dataProvider() is not None:
+                layer.dataProvider().reloadData()
+        except (RuntimeError, AttributeError) as exc:
+            ignore(exc)
+
+    def release_file_handles(self):
+        """Let go of every file the Data Explorer itself holds open (the preview layer, a preview
+        still loading, mini-preview windows), so the files can be renamed or deleted. The preview
+        comes back the next time something is selected."""
+        self._preview_gen += 1                      # a preview still loading is discarded when it ends
+        if self._preview_task is not None:
+            try:
+                self._preview_task.cancel()
+            except RuntimeError as exc:
+                ignore(exc)
+            self._preview_task = None
+        self._cancel_render()
+        layer, self._preview_layer = self._preview_layer, None   # un-mark it live, or it is kept
+        self._drop_connection(layer)
+        self._retire(layer)
+        del layer
+        self.thumb.setPixmap(QPixmap())
+        self.thumb.setText("Select a dataset to preview it")
+        for dlg in list(self._mini_windows):
+            self._drop_connection(getattr(dlg, "layer", None))
+            dlg.close()
+        from qgis.PyQt.QtWidgets import QApplication
+        QApplication.processEvents()
 
     def _retire(self, layer):
         """Drop our reference to a layer without destroying it on this thread."""

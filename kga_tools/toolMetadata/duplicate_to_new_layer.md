@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:duplicate_to_new_layer` |
 | **Group** | KGA Data Management |
 | **Source** | `kga_tools/algorithms/duplicate_to_new_layer.py` (dialog in `kga_tools/gui/duplicate_layer_dialog.py`, engine in `kga_tools/core/duplicate_layer.py`, right-click entry in `kga_tools/gui/layer_menu.py`) |
-| **Icon** | `icons/duplicateLayer.png` |
+| **Icon** | `icons/data_management/duplicateLayer.png` |
 | **Type** | Interactive dialog, modeless; also on the right-click menu of vector and raster layers, below QGIS's Duplicate Layer |
 
 ## Overview

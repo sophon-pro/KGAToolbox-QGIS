@@ -5,7 +5,7 @@
 | **Algorithm ID** | `kga:demelevationcorrectionandpointsamplereport` |
 | **Group** | KGA Irrigation Tools |
 | **Source** | `kga_tools/algorithms/dem_elevation_correction_and_point_sample_report.py` |
-| **Icon** | group icon (`icons/irrigation.png`) |
+| **Icon** | group icon (`icons/toolbox_groups/irrigation.png`) |
 | **Type** | Batch algorithm |
 
 ## Overview

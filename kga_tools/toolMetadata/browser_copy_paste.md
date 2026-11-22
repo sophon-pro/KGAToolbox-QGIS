@@ -5,7 +5,7 @@
 | **Algorithm ID** | none: right-click menu items in the Browser panel, the Catalog and the Data Source Manager |
 | **Group** | Browser / Catalog right-click menu |
 | **Source** | `kga_tools/gui/browser_paste.py`, `kga_tools/gui/paste_dialog.py`, `kga_tools/core/data_paste.py` |
-| **Icon** | `icons/copyInBrowser.png`, `icons/pasteInBrowser.png`, `icons/addToMap.png` |
+| **Icon** | `icons/data_management/copyInBrowser.png`, `icons/data_management/pasteInBrowser.png`, `icons/data_management/addToMap.png` |
 | **Type** | Context-menu commands with a small options window |
 
 ## Overview

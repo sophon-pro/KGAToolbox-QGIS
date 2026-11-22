@@ -13,12 +13,13 @@ Enum members are written scoped because the unscoped spelling is gone in PyQt6.
 from qgis.core import QgsGeometry
 from qgis.gui import QgsMapLayerComboBox
 from qgis.PyQt.QtCore import pyqtSignal
-from qgis.PyQt.QtWidgets import (QCheckBox, QComboBox, QFormLayout, QGroupBox,
+from qgis.PyQt.QtWidgets import (QCheckBox, QComboBox, QGroupBox,
                                  QHBoxLayout, QPushButton, QWidget)
 
 from ..core import dem_sources as DEM
 from ..core import duplicate_layer as DUP
 from ..core.modify_features import layer_filter
+from .tight_form import TightForm
 from .roi_tools import (SHAPE_POLYGON, SHAPE_RECTANGLE, RoiMapTool, drop_band,
                         make_band)
 
@@ -61,7 +62,8 @@ class RoiPicker(QGroupBox):
         self._locked = False
         self._torn_down = False
 
-        self.form = form = QFormLayout(self)
+        self.form = form = TightForm()
+        self.setLayout(form)
 
         self.mode_combo = QComboBox(self)
         if allow_whole:
@@ -159,12 +161,15 @@ class RoiPicker(QGroupBox):
             self.layer_combo.setFilters(layer_filter('HasGeometry',
                                                      'RasterLayer'))
         if self.layer_combo.currentLayer() is None:
+            # The combo's model() comes back as a plain QSortFilterProxyModel
+            # in PyQt, without indexFromLayer, so the active layer is simply
+            # tried: setLayer leaves the combo empty when the filter rejects
+            # it.
             active = iface.activeLayer() if iface is not None else None
-            index = self.layer_combo.model().indexFromLayer(active) \
-                if active is not None else None
-            if index is not None and index.isValid():
+            if active is not None:
                 self.layer_combo.setLayer(active)
-            elif self.layer_combo.count() > 1:
+            if self.layer_combo.currentLayer() is None \
+                    and self.layer_combo.count() > 1:
                 self.layer_combo.setCurrentIndex(1)
 
     def _on_canvas_extent(self, *_args):
