@@ -1,6 +1,6 @@
 # KGA Toolbox — Tool Metadata
 
-Reference documentation for all **56 tools** the KGA Toolbox registers, one file
+Reference documentation for all **58 tools** the KGA Toolbox registers, one file
 per tool.
 
 Each file is named after the algorithm's `name()` — the same key used by
@@ -84,6 +84,17 @@ The first nine are interactive: they open a modeless pane that owns its own map 
 | [Check Overlaps and Gaps](checkoverlapsandgaps.md) | Find overlapping polygons and enclosed gaps between them. |
 | [Check Points on Boundary Vertices](checkpointsonboundary.md) | Flag points that do not sit on a boundary vertex. |
 | [Open Error Inspector](errorinspector.md) | Step through the errors, zoom to each, re-run every check. *(Interactive)* |
+
+## KGA GeoAI — 2
+
+Both sit on their own **KGA GeoAI** toolbar rather than the KGA Toolbox one, and
+are also in the KGA Toolbox menu, the Processing Toolbox and the KGA
+Geoprocessing panel.
+
+| Tool | What it does |
+|---|---|
+| [Detect Roads from Imagery](detect_roads_imagery.md) | Find roads in satellite, aerial or drone imagery with an open deep-learning model, as centerlines, edges and surface polygons. *(Interactive)* |
+| [Detect Paddy Field Plots from Imagery](detect_paddy_plots_imagery.md) | Outline paddy field plots in imagery with an open deep-learning model, as plot polygons and the bund lines between them. *(Interactive)* |
 
 ## KGA Data Conversion — 6
 
@@ -174,7 +185,7 @@ or a model.
   Correction* and *Raster Format Converter* write a `checkpoint.json` beside
   their output and continue from it when re-run with the same parameters.
   *Force re-run*, or *Resume* switched off, ignores it.
-- **Twenty-one algorithms take no Processing parameters.** They open a window
+- **Thirty-six algorithms take no Processing parameters.** They open a window
   instead, and the plugin runs them directly rather than showing an empty
   Processing dialog. They need the QGIS canvas: they cannot run headless or
   inside a model.
